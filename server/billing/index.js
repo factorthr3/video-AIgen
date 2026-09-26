@@ -57,7 +57,7 @@ export function billingInfo() {
     enabled: Boolean(which),
     provider: which,
     testMode: testMode(),
-    currency: which === 'paystack' ? paystack.currency().toLowerCase() : config.stripe.currency,
+    currency: which === 'paystack' ? (paystack.currency() || 'usd').toLowerCase() : config.stripe.currency,
   };
 }
 

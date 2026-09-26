@@ -38,14 +38,21 @@ async function withPaystack(fn) {
 
 // ---------- currency & prices ----------
 // PAYSTACK_CURRENCY, else the account's own currency (read from /balance).
+// Null until known: prices then show in USD and checkout waits for it.
 let detectedCurrency = null;
-export const currency = () => (config.paystack.currency || detectedCurrency || 'NGN').toUpperCase();
+export const currency = () => (config.paystack.currency || detectedCurrency || null)?.toUpperCase() || null;
+
+async function ensureCurrency() {
+  if (currency()) return currency();
+  detectedCurrency = (await ps('/balance'))?.[0]?.currency || null;
+  if (!currency()) throw httpError(503, 'Payments are being set up. Please try again soon.');
+  return currency();
+}
 
 export async function warmUp() {
-  if (!enabled() || config.paystack.currency) return;
+  if (!enabled()) return;
   try {
-    detectedCurrency = (await ps('/balance'))?.[0]?.currency || null;
-    console.log(`[paystack] account currency: ${currency()}`);
+    console.log(`[paystack] currency: ${await ensureCurrency()}`);
   } catch (err) {
     console.error('[paystack] could not detect the account currency:', err.message);
   }
@@ -67,6 +74,7 @@ function priceFor(planId) {
 }
 
 export function displayPlans() {
+  if (!currency()) return PLANS;
   return PLANS.map((p) => {
     const price = priceFor(p.id);
     return { ...p, price: price ?? p.price, priceMissing: price == null };
@@ -171,6 +179,7 @@ function recordPayment(user, tx) {
 export async function choosePlan(user, planId) {
   if (!PLAN[planId]) throw httpError(400, 'Unknown plan.');
   return withPaystack(async () => {
+    await ensureCurrency();
     const planCode = await planCodeFor(planId);
     // A cancelled plan that has run out means a fresh checkout, not a switch.
     const lapsed = user.cancel_at_period_end && user.current_period_end && new Date(user.current_period_end) < new Date();
@@ -201,6 +210,7 @@ export async function choosePlan(user, planId) {
         amount: String(Math.round(priceFor(planId) * 100)),
         plan: planCode,
         currency: currency(),
+        channels: ['card'], // renewals charge the saved card, so subscriptions start with one
         callback_url: `${config.appUrl}/api/paystack/return`,
         metadata: JSON.stringify({ userId: user.id, plan: planId }),
       },

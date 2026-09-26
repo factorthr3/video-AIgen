@@ -64,7 +64,7 @@ The video card shows which engines produced each video (e.g. `voice: elevenlabs 
 
 Plans are sold as monthly subscriptions through Paystack's hosted checkout. Set `PAYSTACK_SECRET_KEY` and the four plans are created in your Paystack account on first use (named `BlackCell <Plan>`), priced in your account's currency. Then:
 
-1. Check the prices. Defaults are rough local equivalents of the USD prices (e.g. NGN 9,000 / 29,000 / 59,000 / 99,000); set `PAYSTACK_PRICES=free=…,starter=…,daily=…,pro=…` to choose your own. Changing a price creates a new Paystack plan for new subscribers.
+1. Check the prices. Defaults are rough local equivalents of the USD prices (e.g. R109 / R349 / R699 / R1,249 in rand); set `PAYSTACK_PRICES=free=…,starter=…,daily=…,pro=…` to choose your own. Changing a price creates a new Paystack plan for new subscribers.
 2. In Paystack (Settings → API Keys & Webhooks), set the webhook URL to `https://your-domain/api/paystack/webhook`. It keeps renewals, failed payments and cancellations in sync. Checkout itself is confirmed when the customer returns, so a missing webhook doesn't block sign-ups.
 3. Put your own email in `ADMIN_EMAILS` so you keep full access without subscribing. With a test key (`sk_test_…`), admins go through checkout like everyone else so you can try it; use Paystack's test card `4084 0840 8408 4081`, any future expiry, CVV `408`.
 
