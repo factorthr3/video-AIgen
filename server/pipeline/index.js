@@ -166,7 +166,7 @@ async function runJob(videoId) {
     await renderVideo({
       scenes: timeline, chunks,
       captionStyle: settings.captionStyle, language,
-      watermark: PLAN[owner?.plan]?.watermark ?? true,
+      watermark: PLAN[owner?.plan]?.watermark ?? false,
       audioFile, out: videoFile(videoId), thumbOut: thumbFile(videoId),
       onProgress: (p) => setStage(videoId, 'Rendering video', renderBase + W.render * p),
     });
