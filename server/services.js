@@ -43,7 +43,7 @@ export function cleanSettings(input, base = {}) {
     captionStyle: pick(input.captionStyle, CAPTION, base.captionStyle || 'bold'),
     music,
     duration: Number(pick(input.duration, DURATION, base.duration || 60)),
-    motion: pick(input.motion, MOTION_TYPE, base.motion || 'video'),
+    motion: pick(input.motion, MOTION_TYPE, base.motion || 'hook'),
   };
 }
 

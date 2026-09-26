@@ -121,7 +121,8 @@ export const ART_STYLES = [
 ];
 
 export const MOTION = [
-  { id: 'video', name: 'AI video clips', description: 'Every scene becomes a real AI-generated video clip' },
+  { id: 'hook', name: 'AI video hook', description: 'The opening scene is a real AI video clip to stop the scroll; the rest are animated images' },
+  { id: 'video', name: 'AI video, every scene', description: 'Every scene becomes a real AI-generated video clip' },
   { id: 'still', name: 'Animated images', description: 'Cinematic pan & zoom over still images' },
 ];
 

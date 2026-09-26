@@ -59,12 +59,13 @@ function EngineWarnings({ video }) {
   const p = video.providers;
   if (!p) return null;
   const total = video.scenes.length;
+  const clipTotal = Number(String(p.clips || '').split('/')[1]) || total;
   const items = [];
   if (p.clipErrors > 0) {
     const balance = /balance|billing|locked|credit/i.test(p.clipError || '');
     items.push(
       <li key="clips">
-        <strong>{p.clipErrors} of {total} scenes</strong> couldn't be turned into AI video, so they used animated stills.
+        <strong>{p.clipErrors === 1 && clipTotal === 1 ? 'The AI video hook' : `${p.clipErrors} of ${clipTotal} scenes`}</strong> couldn't be made as AI video, so {p.clipErrors === 1 ? 'it' : 'they'} used animated stills.
         {balance
           ? <> Your fal.ai account is out of credit. <a className="underline" href="https://fal.ai/dashboard/billing" target="_blank" rel="noreferrer">Top up</a>, then hit <strong>Re-render</strong>: images and voice are reused, so you only pay for the clips.</>
           : <> fal.ai said: <span className="opacity-80">{p.clipError}</span></>}
@@ -178,7 +179,7 @@ export default function VideoDetail() {
               <p className="mt-2 text-sm text-ink-400">{video.error}</p>
               <button className="btn-primary mt-6" onClick={() => rerender(false)} disabled={busy}><RefreshCw className="size-4" /> Try again</button>
             </div>
-          ) : <Progress video={video} withClips={video.settings.motion !== 'still' && Boolean(catalog.providers?.video?.provider)} />}
+          ) : <Progress video={video} withClips={['hook', 'video'].includes(video.settings.motion) && Boolean(catalog.providers?.video?.provider)} />}
 
           {video.status === 'ready' && (
             <div className="mt-4 grid grid-cols-2 gap-2">
@@ -263,7 +264,7 @@ export default function VideoDetail() {
                       <div className="min-w-0 flex-1 space-y-2">
                         <textarea className="input min-h-16 py-2" value={sc.narration} onChange={(e) => setScenes(scenes.map((x, k) => (k === i ? { ...x, narration: e.target.value } : x)))} />
                         <input className="input py-2 text-xs text-ink-300" value={sc.visual} title="Visual prompt" placeholder="What the image shows" onChange={(e) => setScenes(scenes.map((x, k) => (k === i ? { ...x, visual: e.target.value } : x)))} />
-                        {settings.motion !== 'still' && (
+                        {(settings.motion === 'video' || (settings.motion === 'hook' && i < (catalog.providers?.video?.hookScenes || 1))) && (
                           <input className="input py-2 text-xs text-ink-300" value={sc.motion || ''} title="Motion prompt" placeholder="How it moves in the video clip (optional)" onChange={(e) => setScenes(scenes.map((x, k) => (k === i ? { ...x, motion: e.target.value } : x)))} />
                         )}
                       </div>

@@ -65,7 +65,9 @@ export const config = {
   fal: {
     key: env.FAL_KEY || '',
     baseUrl: (env.FAL_QUEUE_URL || 'https://queue.fal.run').replace(/\/$/, ''),
-    videoModel: env.FAL_VIDEO_MODEL || 'fal-ai/kling-video/v3/pro/image-to-video',
+    videoModel: env.FAL_VIDEO_MODEL || 'fal-ai/kling-video/v3/pro/image-to-video', // "AI video": every scene
+    hookModel: env.FAL_HOOK_MODEL || 'fal-ai/ltx-2.3/image-to-video/fast', // "AI video hook": opening scene(s)
+    hookScenes: Math.max(1, Number(env.HOOK_SCENES || 1)),
     // Clip lengths the model accepts, e.g. "5,10". Default: any whole second from 3 to 15 (Kling v3).
     durations: (env.FAL_VIDEO_DURATIONS || '').split(',').map(Number).filter(Boolean),
   },
@@ -101,7 +103,9 @@ export function providerStatus() {
     script: config.anthropic.enabled ? { provider: 'claude', model: config.anthropic.model } : { provider: 'library' },
     images: { provider: img },
     voice: { provider: tts },
-    video: config.fal.key ? { provider: 'fal', model: config.fal.videoModel } : { provider: null },
+    video: config.fal.key
+      ? { provider: 'fal', model: config.fal.videoModel, hookModel: config.fal.hookModel, hookScenes: config.fal.hookScenes }
+      : { provider: null },
     social: {
       youtube: Boolean(config.google.clientId),
       tiktok: Boolean(config.tiktok.clientKey),

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { Check, Upload, Wand2, Plus, Clapperboard, Images } from 'lucide-react';
+import { Check, Upload, Wand2, Plus, Clapperboard, Images, Zap } from 'lucide-react';
 import { AudioPreview, PlatformIcon, platformLabel } from './ui.jsx';
 import { api, DAYS } from '../lib.jsx';
 
@@ -16,7 +16,7 @@ export const defaultForm = (catalog) => {
     captionStyle: 'bold',
     music: niche.music,
     duration: 60,
-    motion: catalog.providers?.video?.provider ? 'video' : 'still',
+    motion: catalog.providers?.video?.provider ? 'hook' : 'still',
     schedule: { days: [0, 1, 2, 3, 4, 5, 6], time: '18:00', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' },
     autoPost: true,
     accountIds: [],
@@ -99,22 +99,31 @@ export function StylePicker({ catalog, form, setForm }) {
     }
   };
 
-  const videoReady = Boolean(catalog.providers?.video?.provider);
-  const klingPricing = /kling-video\/v3\/pro/.test(catalog.providers?.video?.model || '');
+  const video = catalog.providers?.video || {};
+  const videoReady = Boolean(video.provider);
+  // Cost hints only for the default models, whose prices we know.
+  const costHint = {
+    hook: /ltx-2\.3\/image-to-video\/fast/.test(video.hookModel || '') && 'LTX-2.3 Fast · about $0.36 per video (one 6-second clip)',
+    video: /kling-video\/v3\/pro/.test(video.model || '') && 'Kling v3 Pro · about $0.11 per second, roughly $3.50 per 30s video',
+  };
+  const icons = { hook: Zap, video: Clapperboard, still: Images };
+  const badges = { hook: 'Best value', video: 'Premium' };
   return (
     <>
       <Section title="Visuals">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-3">
           {catalog.motion.map((m) => {
-            const disabled = m.id === 'video' && !videoReady;
-            const Icon = m.id === 'video' ? Clapperboard : Images;
+            const needsFal = m.id !== 'still';
+            const disabled = needsFal && !videoReady;
+            const Icon = icons[m.id] || Images;
             return (
               <button key={m.id} type="button" disabled={disabled} data-selected={form.motion === m.id} className="option flex items-start gap-3 disabled:cursor-not-allowed disabled:opacity-60" onClick={() => set('motion')(m.id)}>
                 <Icon className="mt-0.5 size-5 shrink-0 text-brand-400" />
                 <div>
-                  <p className="flex items-center gap-2 font-semibold">{m.name}{m.id === 'video' && <span className="chip py-0 text-[10px] uppercase">Premium</span>}</p>
+                  <p className="flex flex-wrap items-center gap-2 font-semibold">{m.name}{badges[m.id] && <span className="chip py-0 text-[10px] uppercase">{badges[m.id]}</span>}</p>
                   <p className="mt-1 text-xs leading-snug text-ink-400">{m.description}</p>
-                  {m.id === 'video' && videoReady && klingPricing && <p className="mt-1.5 text-xs text-ink-400">Kling v3 Pro · about $0.11 per second of video, so roughly $3.50 per 30s</p>}
+                  {videoReady && costHint[m.id] && <p className="mt-1.5 text-xs text-ink-400">{costHint[m.id]}</p>}
+                  {m.id === 'still' && <p className="mt-1.5 text-xs text-ink-400">No video cost</p>}
                   {disabled && <p className="mt-1.5 text-xs text-amber-300/90">Add FAL_KEY to the server's .env to enable.</p>}
                 </div>
               </button>
