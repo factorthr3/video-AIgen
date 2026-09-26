@@ -1,0 +1,10 @@
+node_modules/
+data/
+web/dist/
+.env
+.env.local
+.DS_Store
+*.log
+
+# Claude Code local settings
+.claude/settings.local.json
