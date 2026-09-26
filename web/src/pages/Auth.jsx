@@ -91,7 +91,7 @@ export function Signup() {
   const catalog = useCatalog();
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   return (
-    <AuthShell title="Create your account" subtitle="Your first videos are free. No credit card needed." footer={<>Already have an account? <Link to="/login" className="font-semibold text-white hover:underline">Sign in</Link></>}>
+    <AuthShell title="Create your account" subtitle="Your first video can be ready in minutes." footer={<>Already have an account? <Link to="/login" className="font-semibold text-white hover:underline">Sign in</Link></>}>
       {catalog?.providers?.signupMode === 'invite' && !error && <Alert tone="info">BlackCell is in private beta. Sign up with the email address your invite was sent to.</Alert>}
       {error && <Alert>{error}</Alert>}
       <GoogleButton />

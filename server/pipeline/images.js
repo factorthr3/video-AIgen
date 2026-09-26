@@ -17,10 +17,11 @@ const imageSize = (model) => config.openai.imageSize || (model.startsWith('gpt-i
 const LEGACY_IMAGE_MODEL = 'gpt-image-1';
 let workingImageModel = null; // remembered after a fallback so we don't retry a model the account lacks
 
-async function openaiImage(prompt) {
-  const models = workingImageModel ? [workingImageModel] : [...new Set([config.openai.imageModel, LEGACY_IMAGE_MODEL])];
-  let lastError;
-  for (const model of models) {
+// New OpenAI accounts can be limited to a handful of images per minute. On a
+// 429, wait as long as OpenAI asks (plus a little) and try again rather than
+// degrading the video to procedural art.
+async function postImage(model, prompt) {
+  for (let attempt = 0; ; attempt++) {
     const res = await fetch(`${config.openai.baseUrl}/images/generations`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${config.openai.key}`, 'Content-Type': 'application/json' },
@@ -28,6 +29,20 @@ async function openaiImage(prompt) {
       signal: AbortSignal.timeout(240_000),
     });
     const body = await res.json().catch(() => ({}));
+    const quota = /quota|billing/i.test(body.error?.message || ''); // out of credit: retrying won't help
+    if (res.status !== 429 || quota || attempt >= 8) return { res, body };
+    const hinted = Number((body.error?.message || '').match(/try again in ([\d.]+)s/i)?.[1]);
+    const waitMs = (Number.isFinite(hinted) ? hinted + 2 : 15) * 1000;
+    console.warn(`[images] rate limited, retrying in ${Math.round(waitMs / 1000)}s`);
+    await new Promise((r) => setTimeout(r, waitMs));
+  }
+}
+
+async function openaiImage(prompt) {
+  const models = workingImageModel ? [workingImageModel] : [...new Set([config.openai.imageModel, LEGACY_IMAGE_MODEL])];
+  let lastError;
+  for (const model of models) {
+    const { res, body } = await postImage(model, prompt);
     if (res.ok) {
       workingImageModel = model;
       const item = body.data?.[0];

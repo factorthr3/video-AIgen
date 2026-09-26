@@ -32,7 +32,7 @@ function Nav() {
           ) : (
             <>
               <Link to="/login" className="btn-ghost">Sign in</Link>
-              <Link to="/signup" className="btn-primary">Start free</Link>
+              <Link to="/signup" className="btn-primary">Get started</Link>
             </>
           )}
         </div>
@@ -41,7 +41,7 @@ function Nav() {
       {open && (
         <div className="border-t border-white/5 px-4 pb-4 md:hidden">
           {NAV.map(([href, label]) => <a key={href} href={href} onClick={() => setOpen(false)} className="block py-3 text-ink-300">{label}</a>)}
-          <Link to={user ? '/app' : '/signup'} className="btn-primary mt-2 w-full">{user ? 'Open dashboard' : 'Start free'}</Link>
+          <Link to={user ? '/app' : '/signup'} className="btn-primary mt-2 w-full">{user ? 'Open dashboard' : 'Get started'}</Link>
         </div>
       )}
     </header>
@@ -71,7 +71,7 @@ function Hero() {
             <Link to="/signup" className="btn-primary px-6 py-3.5 text-base">Create your first video <ArrowRight className="size-4" /></Link>
             <a href="#how" className="btn-secondary px-6 py-3.5 text-base">See how it works</a>
           </div>
-          <p className="mt-4 text-sm text-ink-400">Free to start · No editing skills · No camera · No credit card</p>
+          <p className="mt-4 text-sm text-ink-400">Plans from $5.99 · No editing skills · No camera · No face on screen</p>
           <div className="mt-10 flex items-center gap-3 text-sm text-ink-400">
             <span>Auto-posts to</span>
             {['tiktok', 'instagram', 'youtube'].map((p) => <PlatformIcon key={p} platform={p} size="sm" />)}
@@ -119,7 +119,8 @@ function Niches() {
         <div className="flex w-max animate-marquee gap-4 hover:[animation-play-state:paused]">
           {row.map((n, i) => (
             <div key={`${n.id}-${i}`} className="relative flex h-80 w-56 shrink-0 flex-col justify-between overflow-hidden rounded-3xl p-5" style={{ background: `linear-gradient(160deg, ${n.colors[0]}, ${n.colors[1]})` }}>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+              <img src={`/niches/${n.id}.jpg`} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/10" />
               <span className="relative text-3xl">{n.emoji}</span>
               <div className="relative">
                 <p className="font-display text-xl font-extrabold">{n.name}</p>
@@ -242,7 +243,7 @@ export function PricingCards({ onSelect, currentPlan, busyPlan }) {
               {currentPlan === p.id ? 'Current plan' : busyPlan === p.id ? 'Switching…' : `Switch to ${p.name}`}
             </button>
           ) : (
-            <Link to="/signup" className={`${p.popular ? 'btn-primary' : 'btn-secondary'} mt-8 w-full`}>{p.price ? 'Get started' : 'Start free'}</Link>
+            <Link to="/signup" className={`${p.popular ? 'btn-primary' : 'btn-secondary'} mt-8 w-full`}>Get started</Link>
           )}
         </div>
       ))}
@@ -256,7 +257,7 @@ function Pricing() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-widest text-brand-400">Pricing</p>
-          <h2 className="mt-3 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Grow on autopilot, from $0.</h2>
+          <h2 className="mt-3 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Grow on autopilot, from $5.99.</h2>
           <p className="mt-4 text-ink-300">Every plan includes every niche, art style, voice and platform. Upgrade when you're ready to post more.</p>
         </div>
         <div className="mt-14"><PricingCards /></div>
@@ -306,7 +307,7 @@ function FinalCta() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,.25),transparent_40%)]" />
           <Rocket className="relative mx-auto size-10" />
           <h2 className="relative mt-5 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Your first video is five minutes away.</h2>
-          <p className="relative mx-auto mt-4 max-w-xl text-white/85">Pick a niche, hit create, and watch BlackCell do the rest. Free to start.</p>
+          <p className="relative mx-auto mt-4 max-w-xl text-white/85">Pick a niche, hit create, and watch BlackCell do the rest. Plans from $5.99.</p>
           <Link to="/signup" className="btn relative mt-8 bg-white px-7 py-3.5 text-base text-ink-950 hover:bg-white/90">Create your first video <ArrowRight className="size-4" /></Link>
         </div>
       </div>

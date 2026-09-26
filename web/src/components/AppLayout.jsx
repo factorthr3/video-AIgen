@@ -39,7 +39,7 @@ function Sidebar({ onNavigate }) {
         {usage && (
           <Link to="/app/billing" onClick={onNavigate} className="card block p-4 transition hover:border-white/15">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-white">{plan?.name || 'Free'} plan</span>
+              <span className="font-semibold text-white">{plan?.name || 'Tester'} plan</span>
               <span className="text-ink-400">{usage.videosUsed}/{usage.videosLimit} videos</span>
             </div>
             <ProgressBar value={usage.videosUsed / usage.videosLimit} className="mt-3" />

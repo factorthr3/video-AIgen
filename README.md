@@ -19,7 +19,7 @@ It's inspired by products like FacelessReels: set up a *series* once (niche, loo
 - **Editor:** edit title, caption, hashtags and every scene's narration and visual prompt, then re-render. Unchanged images are reused.
 - **Posting:** real OAuth and upload integrations for YouTube (Data API v3), TikTok (Content Posting API) and Instagram (Instagram API with Instagram Login). **Demo accounts** simulate posting so you can try the full flow without developer apps.
 - **Review mode:** turn off auto-post and videos wait in the library for approval.
-- **Plans & quotas:** Free / Starter / Daily / Pro with monthly video and series limits.
+- **Plans & quotas:** Tester ($5.99) / Starter / Daily / Pro with monthly video and series limits.
 - Landing page, email/password auth, optional Google sign-in, dashboard, series manager and video library.
 
 ## Quick start
