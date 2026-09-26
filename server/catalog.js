@@ -93,15 +93,16 @@ export const NICHES = [
 ];
 
 // Voices are app-level personas mapped to each TTS provider's native voice.
+// ElevenLabs IDs are its current default ("premade") voices, available to every account.
 export const VOICES = [
-  { id: 'onyx', name: 'Onyx', gender: 'male', description: 'Deep & dramatic', openai: 'onyx', elevenlabs: 'pNInz6obpgDQGcFmaJgB', system: 'Reed (English (US))' },
-  { id: 'fable', name: 'Fable', gender: 'male', description: 'British narrator', openai: 'fable', elevenlabs: 'onwK4e9ZLuTAKqWW03F9', system: 'Daniel' },
-  { id: 'echo', name: 'Echo', gender: 'male', description: 'Calm storyteller', openai: 'echo', elevenlabs: 'TxGEqnHWrfWFTfGW9XjX', system: 'Rocko (English (US))' },
-  { id: 'ash', name: 'Ash', gender: 'male', description: 'Energetic hype', openai: 'ash', elevenlabs: 'ErXwobaYiN019PkySvjV', system: 'Eddy (English (US))' },
-  { id: 'nova', name: 'Nova', gender: 'female', description: 'Bright & friendly', openai: 'nova', elevenlabs: 'EXAVITQu4vr4xnSDxMaL', system: 'Samantha' },
-  { id: 'shimmer', name: 'Shimmer', gender: 'female', description: 'Soft & warm', openai: 'shimmer', elevenlabs: '21m00Tcm4TlvDq8ikWAM', system: 'Karen' },
-  { id: 'coral', name: 'Coral', gender: 'female', description: 'Upbeat creator', openai: 'coral', elevenlabs: 'AZnzlk1XvdvUeBnXmlld', system: 'Flo (English (US))' },
-  { id: 'sage', name: 'Sage', gender: 'female', description: 'Wise & measured', openai: 'sage', elevenlabs: 'XB0fDUnXU5powFXDhCwa', system: 'Moira' },
+  { id: 'onyx', name: 'Onyx', gender: 'male', description: 'Deep & dramatic', openai: 'onyx', elevenlabs: 'nPczCjzI2devNBz1zQrb', system: 'Reed (English (US))' }, // Brian
+  { id: 'fable', name: 'Fable', gender: 'male', description: 'British storyteller', openai: 'fable', elevenlabs: 'JBFqnCBsd6RMkjVDRZzb', system: 'Daniel' }, // George
+  { id: 'echo', name: 'Echo', gender: 'male', description: 'Calm & wise', openai: 'echo', elevenlabs: 'pqHfZKP75CvOlQylNhV4', system: 'Rocko (English (US))' }, // Bill
+  { id: 'ash', name: 'Ash', gender: 'male', description: 'Energetic hype', openai: 'ash', elevenlabs: 'TX3LPaxmHKxFdv7VOQHJ', system: 'Eddy (English (US))' }, // Liam
+  { id: 'nova', name: 'Nova', gender: 'female', description: 'Bright & friendly', openai: 'nova', elevenlabs: 'cgSgspJ2msm6clMCkdW9', system: 'Samantha' }, // Jessica
+  { id: 'shimmer', name: 'Shimmer', gender: 'female', description: 'Soft & reassuring', openai: 'shimmer', elevenlabs: 'EXAVITQu4vr4xnSDxMaL', system: 'Karen' }, // Sarah
+  { id: 'coral', name: 'Coral', gender: 'female', description: 'Upbeat creator', openai: 'coral', elevenlabs: 'FGY2WhTYpPnrIDTdsKH5', system: 'Flo (English (US))' }, // Laura
+  { id: 'sage', name: 'Sage', gender: 'female', description: 'Velvety & measured', openai: 'sage', elevenlabs: 'pFZP5JQG7iQjIQuC4Bku', system: 'Moira' }, // Lily
 ];
 
 // `palette` drives the procedural (no-API-key) art renderer; `prompt` is appended

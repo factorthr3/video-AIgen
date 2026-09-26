@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { config, resolveTtsProvider, CACHE_DIR } from '../config.js';
-import { VOICE, LANGUAGE } from '../catalog.js';
+import { VOICE, VOICES, LANGUAGE } from '../catalog.js';
 import { run, toWav, silenceWav, probeDuration } from './ffmpeg.js';
 
 const DELIVERY = {
@@ -28,23 +28,40 @@ const elevenHeaders = () => ({ 'xi-api-key': config.elevenlabs.key, 'Content-Typ
 
 // Map each persona to a voice that exists on *your* ElevenLabs account:
 // ELEVENLABS_VOICE_<PERSONA> overrides → the persona's default voice if your
-// account has it → the best gender match from your voice list.
-let elevenVoices;
+// account has it → the best unused gender match, so personas stay distinct.
+let elevenVoiceMap;
 async function elevenVoiceId(voice) {
   const override = process.env[`ELEVENLABS_VOICE_${voice.id.toUpperCase()}`];
   if (override) return override;
-  if (!elevenVoices) {
-    try {
-      const res = await fetch(`${config.elevenlabs.baseUrl}/v2/voices?page_size=100`, { headers: elevenHeaders(), signal: AbortSignal.timeout(20_000) });
-      elevenVoices = res.ok ? (await res.json()).voices || [] : [];
-    } catch {
-      elevenVoices = [];
+  if (!elevenVoiceMap) elevenVoiceMap = await buildElevenVoiceMap();
+  return elevenVoiceMap[voice.id] || voice.elevenlabs;
+}
+
+async function buildElevenVoiceMap() {
+  let voices = [];
+  try {
+    const res = await fetch(`${config.elevenlabs.baseUrl}/v2/voices?page_size=100`, { headers: elevenHeaders(), signal: AbortSignal.timeout(20_000) });
+    if (res.ok) voices = (await res.json()).voices || [];
+  } catch {}
+  if (!voices.length) return {}; // can't see the account's voices: use the defaults
+  const map = {};
+  const used = new Set();
+  const available = new Set(voices.map((v) => v.voice_id));
+  for (const persona of VOICES) {
+    if (available.has(persona.elevenlabs)) {
+      map[persona.id] = persona.elevenlabs;
+      used.add(persona.elevenlabs);
     }
   }
-  if (!elevenVoices.length || elevenVoices.some((v) => v.voice_id === voice.elevenlabs)) return voice.elevenlabs;
-  const gendered = elevenVoices.filter((v) => (v.labels?.gender || '').toLowerCase() === voice.gender);
-  const narrator = gendered.find((v) => /narrat|story|documentary|social/i.test(`${v.labels?.use_case} ${v.labels?.description} ${v.description}`));
-  return (narrator || gendered[0] || elevenVoices[0]).voice_id;
+  const storyteller = (v) => /narrat|story|social|educational/i.test(`${v.labels?.use_case} ${v.description || ''}`);
+  for (const persona of VOICES.filter((p) => !map[p.id])) {
+    const gendered = voices.filter((v) => (v.labels?.gender || '').toLowerCase() === persona.gender);
+    const fresh = gendered.filter((v) => !used.has(v.voice_id));
+    const pick = fresh.find(storyteller) || fresh[0] || gendered.find(storyteller) || gendered[0] || voices[0];
+    map[persona.id] = pick.voice_id;
+    used.add(pick.voice_id);
+  }
+  return map;
 }
 
 // Word timings from ElevenLabs' character alignment → exact caption sync.
@@ -89,6 +106,7 @@ async function elevenlabs(text, voice, file) {
     }
     lastError = new Error(`ElevenLabs ${res.status} (${model}): ${(await res.text()).slice(0, 200)}`);
     if ([401, 402, 429].includes(res.status)) break; // key/quota problems won't differ by model
+    console.warn(`[tts] ${lastError.message}; trying the next model`);
   }
   throw lastError;
 }
