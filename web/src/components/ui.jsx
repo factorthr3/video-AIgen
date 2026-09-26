@@ -85,6 +85,10 @@ export function PageHeader({ title, subtitle, actions }) {
 }
 
 export function Alert({ tone = 'error', children, onClose }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (tone === 'error') ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const tones = {
     error: 'border-red-500/30 bg-red-500/10 text-red-200',
     success: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
@@ -92,7 +96,7 @@ export function Alert({ tone = 'error', children, onClose }) {
     warn: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
   };
   return (
-    <div className={`mb-6 flex items-start justify-between gap-4 rounded-xl border px-4 py-3 text-sm ${tones[tone]}`}>
+    <div ref={ref} role={tone === 'error' ? 'alert' : undefined} className={`mb-6 flex scroll-mt-24 items-start justify-between gap-4 rounded-xl border px-4 py-3 text-sm ${tones[tone]}`}>
       <div>{children}</div>
       {onClose && <button className="text-xs opacity-70 hover:opacity-100" onClick={onClose}>Dismiss</button>}
     </div>

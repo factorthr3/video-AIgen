@@ -1,30 +1,50 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { ArrowLeft, ArrowRight, Rocket, Check } from 'lucide-react';
+import { Link, useNavigate } from 'react-router';
+import { ArrowLeft, ArrowRight, Rocket, Check, TriangleAlert } from 'lucide-react';
 import { PageHeader, Alert, Spinner } from '../components/ui.jsx';
 import { NichePicker, StylePicker, SchedulePicker, Section, defaultForm } from '../components/SeriesForm.jsx';
 import { api, useApi, useCatalog, useSession, byId, describeDays } from '../lib.jsx';
 
 const STEPS = ['Niche', 'Look & voice', 'Schedule', 'Review'];
+const DRAFT_KEY = 'nrrtv:series-draft';
+
+// The wizard draft survives a detour (e.g. upgrading the plan) within the session.
+function loadDraft() {
+  try {
+    return JSON.parse(sessionStorage.getItem(DRAFT_KEY) || 'null');
+  } catch {
+    return null;
+  }
+}
+function saveDraft(draft) {
+  try {
+    if (draft) sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    else sessionStorage.removeItem(DRAFT_KEY);
+  } catch {}
+}
 
 export default function SeriesNew() {
   const catalog = useCatalog();
-  const { refresh } = useSession();
+  const { refresh, usage } = useSession();
   const navigate = useNavigate();
   const { data: accountData } = useApi('/accounts');
-  const [form, setForm] = useState(null);
-  const [step, setStep] = useState(0);
+  const [form, setForm] = useState(() => loadDraft()?.form || null);
+  const [step, setStep] = useState(() => loadDraft()?.step || 0);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (catalog && !form) setForm(defaultForm(catalog));
   }, [catalog, form]);
-  // Pre-select every connected account.
   useEffect(() => {
-    if (accountData && form && !form._accountsInit) {
-      setForm((f) => ({ ...f, accountIds: accountData.accounts.map((a) => a.id), _accountsInit: true }));
-    }
+    if (form) saveDraft({ form, step });
+  }, [form, step]);
+  // Pre-select every connected account; drop any a restored draft no longer has.
+  useEffect(() => {
+    if (!accountData || !form) return;
+    const ids = accountData.accounts.map((a) => a.id);
+    if (!form._accountsInit) setForm((f) => ({ ...f, accountIds: ids, _accountsInit: true }));
+    else if (form.accountIds.some((id) => !ids.includes(id))) setForm((f) => ({ ...f, accountIds: f.accountIds.filter((id) => ids.includes(id)) }));
   }, [accountData, form]);
 
   if (!catalog || !form || !accountData) return <div className="grid h-64 place-items-center"><Spinner /></div>;
@@ -32,6 +52,8 @@ export default function SeriesNew() {
   const accounts = accountData.accounts;
   const niche = byId(catalog.niches)[form.niche];
   const canContinue = step !== 0 || form.niche !== 'custom' || form.customTopic.trim().length > 3;
+  const atSeriesLimit = usage && usage.seriesUsed >= usage.seriesLimit;
+  const planName = byId(catalog.plans)[usage?.plan]?.name || 'current';
 
   const create = async () => {
     setBusy(true);
@@ -39,6 +61,7 @@ export default function SeriesNew() {
     try {
       const { _accountsInit, ...body } = form;
       const res = await api('/series', { method: 'POST', body });
+      saveDraft(null);
       await refresh();
       navigate(res.video ? `/app/videos/${res.video.id}?new=1` : `/app/series/${res.series.id}`);
     } catch (err) {
@@ -80,7 +103,13 @@ export default function SeriesNew() {
         ))}
       </ol>
 
-      {error && <Alert onClose={() => setError(null)}>{error}</Alert>}
+      {atSeriesLimit && (
+        <Alert tone="warn">
+          You're using {usage.seriesUsed} of {usage.seriesLimit} series on the {planName} plan, so you can't create another yet.{' '}
+          <Link to="/app/billing" className="font-semibold underline">Upgrade your plan</Link> or{' '}
+          <Link to="/app/series" className="font-semibold underline">delete a series</Link> first.
+        </Alert>
+      )}
 
       {step === 0 && <Section title="What should this channel be about?"><NichePicker catalog={catalog} form={form} setForm={setForm} /></Section>}
       {step === 1 && <StylePicker catalog={catalog} form={form} setForm={setForm} />}
@@ -103,10 +132,33 @@ export default function SeriesNew() {
           <div className="card flex flex-col justify-between gap-6 p-6">
             <div>
               <Rocket className="size-8 text-brand-400" />
-              <h3 className="mt-4 font-display text-xl font-bold">Ready for launch</h3>
-              <p className="mt-2 text-sm text-ink-400">Your first video starts rendering as soon as you create the series. It takes a minute or two, and you can watch it build.</p>
+              {atSeriesLimit ? (
+                <>
+                  <h3 className="mt-4 font-display text-xl font-bold">Series limit reached</h3>
+                  <p className="mt-2 text-sm text-ink-400">The {planName} plan includes {usage.seriesLimit} series and you're using {usage.seriesUsed}. Upgrade, or delete a series, and your settings here will be waiting.</p>
+                </>
+              ) : (
+                <>
+                  <h3 className="mt-4 font-display text-xl font-bold">Ready for launch</h3>
+                  <p className="mt-2 text-sm text-ink-400">Your first video starts rendering as soon as you create the series. It takes a minute or two, and you can watch it build.</p>
+                </>
+              )}
             </div>
-            <button className="btn-primary w-full py-3" onClick={create} disabled={busy}>{busy ? 'Creating…' : 'Create series & first video'}</button>
+            <div className="space-y-3">
+              {error && (
+                <p role="alert" className="flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-200">
+                  <TriangleAlert className="mt-0.5 size-4 shrink-0" /> {error}
+                </p>
+              )}
+              {atSeriesLimit ? (
+                <>
+                  <Link to="/app/billing" className="btn-primary w-full py-3">Upgrade to add more series</Link>
+                  <Link to="/app/series" className="btn-secondary w-full">Manage series</Link>
+                </>
+              ) : (
+                <button className="btn-primary w-full py-3" onClick={create} disabled={busy}>{busy ? 'Creating…' : 'Create series & first video'}</button>
+              )}
+            </div>
           </div>
         </div>
       )}
