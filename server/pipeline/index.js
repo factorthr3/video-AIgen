@@ -5,6 +5,7 @@
 // restarts can resume.
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { config, MEDIA_DIR, resolveImageProvider, resolveTtsProvider } from '../config.js';
 import { PLAN } from '../catalog.js';
 import { db, update, now, parseJson } from '../db.js';
@@ -92,13 +93,28 @@ async function runJob(videoId) {
 
   // 3. Voiceover, one audio clip per scene
   let progress = W.script + W.images;
+  // Clips are cached per line (text + voice + engine), so a re-render only pays
+  // for narration that actually changed.
+  const ttsProvider = resolveTtsProvider();
+  const voiceKey = (text) => crypto.createHash('sha1')
+    .update(JSON.stringify([ttsProvider, config.elevenlabs.model, config.openai.ttsModel, settings.voice, language, text]))
+    .digest('hex').slice(0, 16);
   const voices = [];
+  const voiceFiles = new Set();
   for (let i = 0; i < scenes.length; i++) {
     setStage(videoId, 'Recording voiceover', progress + W.voice * (i / scenes.length));
-    voices.push(await speak({
-      text: scenes[i].narration, voiceId: settings.voice, language, niche: settings.niche,
-      outBase: path.join(dir, `voice-${String(i).padStart(2, '0')}`),
-    }));
+    const base = path.join(dir, `voicecache-${voiceKey(scenes[i].narration)}`);
+    voiceFiles.add(path.basename(base));
+    if (fs.existsSync(`${base}.wav`) && fs.existsSync(`${base}.json`)) {
+      voices.push({ ...JSON.parse(fs.readFileSync(`${base}.json`, 'utf8')), file: `${base}.wav` });
+      continue;
+    }
+    const voice = await speak({ text: scenes[i].narration, voiceId: settings.voice, language, niche: settings.niche, outBase: base });
+    // Don't cache a fallback voice, so a later re-render can get the premium one.
+    if (!voice.error) {
+      fs.writeFileSync(`${base}.json`, JSON.stringify({ duration: voice.duration, provider: voice.provider, model: voice.model, words: voice.words }));
+    }
+    voices.push(voice);
   }
   progress += W.voice;
 
@@ -150,8 +166,11 @@ async function runJob(videoId) {
     });
   });
 
-  // Clean up intermediates but keep scene images and clips (reused on re-render).
-  for (const f of fs.readdirSync(dir)) if (/^voice-.*\.wav$|^audio\.m4a$/.test(f)) fs.rmSync(path.join(dir, f), { force: true });
+  // Clean up intermediates. Scene images, clips and current voice lines are kept for re-renders.
+  for (const f of fs.readdirSync(dir)) {
+    const stale = /^voicecache-/.test(f) && !voiceFiles.has(f.replace(/\.(wav|json)$/, ''));
+    if (stale || /^voice-.*\.wav$|^audio\.m4a$/.test(f)) fs.rmSync(path.join(dir, f), { force: true });
+  }
 
   const voiceClip = voices.find((v) => v.provider !== 'system') || voices[0];
   const voiceProvider = voiceClip ? [voiceClip.provider, voiceClip.model].filter(Boolean).join(' · ') : null;
@@ -161,10 +180,13 @@ async function runJob(videoId) {
     providers: JSON.stringify({
       script: script.edited ? `${script.source} (edited)` : script.source, scriptModel: script.model || null,
       images: [images.provider, images.model].filter(Boolean).join(' · '), imageFallbacks: images.failures.length,
+      imageError: images.failures[0] || null,
       voice: voiceProvider, voiceErrors: voices.filter((v) => v.error).length,
+      voiceError: voices.find((v) => v.error)?.error || null,
       video: clips ? `fal · ${clips.model.replace(/^fal-ai\//, '')}` : 'pan & zoom',
       clips: clips ? `${clipCount}/${scenes.length}` : null,
       clipErrors: clips?.failures.length || 0,
+      clipError: clips?.failures[0] || null,
     }),
   });
 }

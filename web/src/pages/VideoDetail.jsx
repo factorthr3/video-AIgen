@@ -54,6 +54,33 @@ function PostStatus({ post }) {
   );
 }
 
+// Explain any stage that silently fell back to a lower-quality engine.
+function EngineWarnings({ video }) {
+  const p = video.providers;
+  if (!p) return null;
+  const total = video.scenes.length;
+  const items = [];
+  if (p.clipErrors > 0) {
+    const balance = /balance|billing|locked|credit/i.test(p.clipError || '');
+    items.push(
+      <li key="clips">
+        <strong>{p.clipErrors} of {total} scenes</strong> couldn't be turned into AI video, so they used animated stills.
+        {balance
+          ? <> Your fal.ai account is out of credit. <a className="underline" href="https://fal.ai/dashboard/billing" target="_blank" rel="noreferrer">Top up</a>, then hit <strong>Re-render</strong>: images and voice are reused, so you only pay for the clips.</>
+          : <> fal.ai said: <span className="opacity-80">{p.clipError}</span></>}
+      </li>,
+    );
+  }
+  if (p.imageFallbacks > 0) {
+    items.push(<li key="images"><strong>{p.imageFallbacks} of {total} images</strong> fell back to drawn art. OpenAI said: <span className="opacity-80">{p.imageError}</span></li>);
+  }
+  if (p.voiceErrors > 0) {
+    items.push(<li key="voice"><strong>The premium voice failed</strong> for {p.voiceErrors} line{p.voiceErrors === 1 ? '' : 's'} and a backup voice was used. Reason: <span className="opacity-80">{p.voiceError}</span></li>);
+  }
+  if (!items.length) return null;
+  return <Alert tone="warn"><p className="mb-1 font-semibold">Some of this video used backup engines</p><ul className="list-disc space-y-1 pl-5">{items}</ul></Alert>;
+}
+
 export default function VideoDetail() {
   const { id } = useParams();
   const [params] = useSearchParams();
@@ -138,6 +165,7 @@ export default function VideoDetail() {
       </Link>
       {params.get('new') && busyVideo(video) && <Alert tone="info">Your series is live 🎉 The first video is being created now, and you can watch its progress here.</Alert>}
       {notice && <Alert tone={notice.tone} onClose={() => setNotice(null)}>{notice.text}</Alert>}
+      {video.status === 'ready' && <EngineWarnings video={video} />}
 
       <div className="grid gap-8 lg:grid-cols-[340px_1fr]">
         <div className="mx-auto w-full max-w-sm lg:sticky lg:top-8 lg:max-w-none lg:self-start">
