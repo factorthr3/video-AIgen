@@ -128,6 +128,11 @@ ensureColumn('videos', 'publish_at', 'TEXT');
 ensureColumn('videos', 'auto_posted', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('posts', 'note', 'TEXT');
 ensureColumn('series', 'motion', "TEXT NOT NULL DEFAULT 'video'");
+ensureColumn('users', 'stripe_customer_id', 'TEXT');
+ensureColumn('users', 'stripe_subscription_id', 'TEXT');
+ensureColumn('users', 'subscription_status', 'TEXT');
+ensureColumn('users', 'current_period_end', 'TEXT');
+ensureColumn('users', 'cancel_at_period_end', 'INTEGER NOT NULL DEFAULT 0');
 
 const stmtCache = new Map();
 function stmt(sql) {

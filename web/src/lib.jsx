@@ -99,6 +99,23 @@ export function useApi(path, { poll } = {}) {
 }
 
 // ---------- formatting ----------
+/** "$19", "£5.99": whole amounts drop the pence. */
+export function formatPrice(amount, currency = 'usd') {
+  const whole = Number.isInteger(amount);
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency', currency: currency.toUpperCase(),
+    minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2,
+  }).format(amount);
+}
+
+/** Price formatter bound to the server's billing currency. */
+export function usePrice() {
+  const catalog = useCatalog();
+  const currency = catalog?.providers?.billing?.currency || 'usd';
+  const cheapest = Math.min(...(catalog?.plans || [{ price: 5.99 }]).map((p) => p.price));
+  return { format: (amount) => formatPrice(amount, currency), from: formatPrice(cheapest, currency) };
+}
+
 export function relativeTime(iso) {
   if (!iso) return '';
   const diff = new Date(iso).getTime() - Date.now();

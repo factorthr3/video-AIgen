@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { Logo, PlatformIcon } from '../components/ui.jsx';
 import ShowcasePhone from '../components/ShowcasePhone.jsx';
-import { useCatalog, useSession } from '../lib.jsx';
+import { useCatalog, useSession, usePrice } from '../lib.jsx';
 
 const NAV = [
   ['#how', 'How it works'],
@@ -49,6 +49,7 @@ function Nav() {
 }
 
 function Hero() {
+  const price = usePrice();
   return (
     <section className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
@@ -71,7 +72,7 @@ function Hero() {
             <Link to="/signup" className="btn-primary px-6 py-3.5 text-base">Create your first video <ArrowRight className="size-4" /></Link>
             <a href="#how" className="btn-secondary px-6 py-3.5 text-base">See how it works</a>
           </div>
-          <p className="mt-4 text-sm text-ink-400">Plans from $5.99 · No editing skills · No camera · No face on screen</p>
+          <p className="mt-4 text-sm text-ink-400">Plans from {price.from} · No editing skills · No camera · No face on screen</p>
           <div className="mt-10 flex items-center gap-3 text-sm text-ink-400">
             <span>Auto-posts to</span>
             {['tiktok', 'instagram', 'youtube'].map((p) => <PlatformIcon key={p} platform={p} size="sm" />)}
@@ -222,8 +223,9 @@ function Comparison() {
   );
 }
 
-export function PricingCards({ onSelect, currentPlan, busyPlan }) {
+export function PricingCards({ onSelect, currentPlan, busyPlan, verb = 'Switch to' }) {
   const catalog = useCatalog();
+  const price = usePrice();
   const plans = catalog?.plans || [];
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -232,7 +234,7 @@ export function PricingCards({ onSelect, currentPlan, busyPlan }) {
           {p.popular && <span className="absolute -top-3 left-6 rounded-full bg-gradient-brand px-3 py-1 text-xs font-bold">Most popular</span>}
           <p className="font-display text-lg font-bold">{p.name}</p>
           <p className="mt-4 flex items-baseline gap-1">
-            <span className="font-display text-5xl font-extrabold">${p.price}</span>
+            <span className="font-display text-5xl font-extrabold">{price.format(p.price)}</span>
             <span className="text-sm text-ink-400">/month</span>
           </p>
           <ul className="mt-6 flex-1 space-y-3 text-sm">
@@ -240,7 +242,7 @@ export function PricingCards({ onSelect, currentPlan, busyPlan }) {
           </ul>
           {onSelect ? (
             <button className={`${p.popular ? 'btn-primary' : 'btn-secondary'} mt-8 w-full`} disabled={currentPlan === p.id || busyPlan} onClick={() => onSelect(p.id)}>
-              {currentPlan === p.id ? 'Current plan' : busyPlan === p.id ? 'Switching…' : `Switch to ${p.name}`}
+              {currentPlan === p.id ? 'Current plan' : busyPlan === p.id ? 'Just a moment…' : `${verb} ${p.name}`}
             </button>
           ) : (
             <Link to="/signup" className={`${p.popular ? 'btn-primary' : 'btn-secondary'} mt-8 w-full`}>Get started</Link>
@@ -252,12 +254,13 @@ export function PricingCards({ onSelect, currentPlan, busyPlan }) {
 }
 
 function Pricing() {
+  const price = usePrice();
   return (
     <section id="pricing" className="py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-widest text-brand-400">Pricing</p>
-          <h2 className="mt-3 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Grow on autopilot, from $5.99.</h2>
+          <h2 className="mt-3 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Grow on autopilot, from {price.from}.</h2>
           <p className="mt-4 text-ink-300">Every plan includes every niche, art style, voice and platform. Upgrade when you're ready to post more.</p>
         </div>
         <div className="mt-14"><PricingCards /></div>
@@ -300,6 +303,7 @@ function Faq() {
 }
 
 function FinalCta() {
+  const price = usePrice();
   return (
     <section className="py-24">
       <div className="mx-auto max-w-5xl px-4 sm:px-6">
@@ -307,7 +311,7 @@ function FinalCta() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,.25),transparent_40%)]" />
           <Rocket className="relative mx-auto size-10" />
           <h2 className="relative mt-5 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Your first video is five minutes away.</h2>
-          <p className="relative mx-auto mt-4 max-w-xl text-white/85">Pick a niche, hit create, and watch BlackCell do the rest. Plans from $5.99.</p>
+          <p className="relative mx-auto mt-4 max-w-xl text-white/85">Pick a niche, hit create, and watch BlackCell do the rest. Plans from {price.from}.</p>
           <Link to="/signup" className="btn relative mt-8 bg-white px-7 py-3.5 text-base text-ink-950 hover:bg-white/90">Create your first video <ArrowRight className="size-4" /></Link>
         </div>
       </div>
@@ -321,6 +325,11 @@ function Footer() {
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 text-sm text-ink-400 sm:px-6">
         <Logo />
         <p>AI faceless video generator for TikTok, Reels & Shorts.</p>
+        <nav className="flex gap-4">
+          <Link to="/privacy" className="hover:text-white">Privacy</Link>
+          <Link to="/terms" className="hover:text-white">Terms</Link>
+          <a href="mailto:support@blackcell.app" className="hover:text-white">Contact</a>
+        </nav>
         <p>© {new Date().getFullYear()} BlackCell</p>
       </div>
     </footer>

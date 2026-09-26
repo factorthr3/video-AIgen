@@ -2,6 +2,7 @@
 import { db, insert, newId, now, parseJson } from './db.js';
 import { PLAN, NICHE, VOICE, ART, CAPTION, LANGUAGE, DURATION, MUSIC_TRACK, MOTION_TYPE } from './catalog.js';
 import { enqueueVideo } from './pipeline/index.js';
+import { billingState } from './billing.js';
 
 export class HttpError extends Error {
   constructor(status, message) {
@@ -20,8 +21,21 @@ export function usage(user) {
   const plan = PLAN[user.plan] || PLAN.free;
   const used = db.get("SELECT COUNT(*) AS n FROM videos WHERE user_id = ? AND created_at >= ? AND status != 'failed'", user.id, monthStart()).n;
   const series = db.get('SELECT COUNT(*) AS n FROM series WHERE user_id = ?', user.id).n;
-  return { plan: plan.id, videosUsed: used, videosLimit: plan.videosPerMonth, seriesUsed: series, seriesLimit: plan.series };
+  const billing = billingState(user);
+  // With Stripe on, creating needs an active subscription (or admin access).
+  const needsPlan = !billing.active;
+  return {
+    plan: plan.id,
+    videosUsed: used,
+    videosLimit: needsPlan ? 0 : plan.videosPerMonth,
+    seriesUsed: series,
+    seriesLimit: needsPlan ? 0 : plan.series,
+    needsPlan,
+    billing,
+  };
 }
+
+export const NEEDS_PLAN_MESSAGE = 'Choose a plan on Plan & billing to start creating videos.';
 
 // ---------- settings ----------
 // Normalise user-supplied series/video settings against the catalog.
@@ -59,6 +73,7 @@ export const seriesSettings = (s) => ({
 // ---------- videos ----------
 export function createVideo({ user, seriesId = null, settings, origin = 'manual', autoPost = false, publishAt = null }) {
   const u = usage(user);
+  if (u.needsPlan) throw new HttpError(402, NEEDS_PLAN_MESSAGE);
   if (u.videosUsed >= u.videosLimit) {
     throw new HttpError(402, `You've used all ${u.videosLimit} videos in your ${PLAN[u.plan].name} plan this month. Upgrade to keep creating.`);
   }

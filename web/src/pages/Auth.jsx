@@ -109,6 +109,7 @@ export function Signup() {
           <input id="password" type="password" className="input" autoComplete="new-password" minLength={8} required placeholder="At least 8 characters" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
         </div>
         <button className="btn-primary w-full py-3" disabled={busy}>{busy ? 'Creating account…' : 'Create account'} <ArrowRight className="size-4" /></button>
+        <p className="text-center text-xs text-ink-400">By creating an account you agree to our <Link to="/terms" className="underline hover:text-white">Terms</Link> and <Link to="/privacy" className="underline hover:text-white">Privacy Policy</Link>, and confirm you are 18 or older.</p>
       </form>
     </AuthShell>
   );

@@ -3,7 +3,7 @@ import { db, insert, update, newId, now, parseJson } from '../db.js';
 import { requireAuth } from '../auth.js';
 import { PLAN, NICHE } from '../catalog.js';
 import {
-  HttpError, cleanSettings, createVideo, nextRunAt, seriesSettings, seriesSchedule, validTimeZone, usage,
+  HttpError, cleanSettings, createVideo, nextRunAt, seriesSettings, seriesSchedule, validTimeZone, usage, NEEDS_PLAN_MESSAGE,
 } from '../services.js';
 import { publicVideo } from './videos.js';
 
@@ -62,6 +62,7 @@ router.get('/', (req, res) => {
 
 router.post('/', (req, res) => {
   const u = usage(req.user);
+  if (u.needsPlan) throw new HttpError(402, NEEDS_PLAN_MESSAGE);
   if (u.seriesUsed >= u.seriesLimit) {
     throw new HttpError(402, `Your ${PLAN[u.plan].name} plan includes ${u.seriesLimit} series. Upgrade to run more channels.`);
   }

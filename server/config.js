@@ -98,6 +98,14 @@ export const config = {
   ffmpeg: env.FFMPEG_PATH || 'ffmpeg',
   ffprobe: env.FFPROBE_PATH || 'ffprobe',
   schedulerEnabled: env.SCHEDULER !== 'off',
+  // Stripe billing. Inactive until STRIPE_SECRET_KEY is set.
+  stripe: {
+    secretKey: env.STRIPE_SECRET_KEY || '',
+    webhookSecret: env.STRIPE_WEBHOOK_SECRET || '',
+    currency: (env.STRIPE_CURRENCY || 'usd').toLowerCase(),
+  },
+  // Full access without a subscription (the owner, staff, testers).
+  adminEmails: (env.ADMIN_EMAILS || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean),
   // "open" = anyone can sign up; "invite" = only ALLOWED_EMAILS (comma list) can.
   signupMode: env.SIGNUP_MODE === 'invite' ? 'invite' : 'open',
   allowedEmails: (env.ALLOWED_EMAILS || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean),
@@ -122,6 +130,7 @@ export function providerStatus() {
     googleSignIn: Boolean(config.google.clientId),
     demoBilling: config.demoBilling,
     signupMode: config.signupMode,
+    billing: { stripe: Boolean(config.stripe.secretKey), currency: config.stripe.currency },
   };
 }
 

@@ -47,6 +47,12 @@ export default function Dashboard() {
         actions={<Link to="/app/series/new" className="btn-primary"><Plus className="size-4" /> New series</Link>}
       />
 
+      {usage?.needsPlan && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-500/30 bg-brand-500/10 px-4 py-3 text-sm">
+          <p className="text-brand-100">Welcome to BlackCell! Choose a plan to start creating and auto-posting videos.</p>
+          <Link to="/app/billing" className="btn-primary">See plans</Link>
+        </div>
+      )}
       {catalog?.providers?.script?.provider === 'library' && (
         <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
           <Sparkles className="mt-0.5 size-4 shrink-0" />

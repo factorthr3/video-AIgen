@@ -1,6 +1,39 @@
-import { CircleCheck, CircleDashed } from 'lucide-react';
-import { PageHeader } from '../components/ui.jsx';
-import { useSession, useCatalog } from '../lib.jsx';
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
+import { CircleCheck, CircleDashed, Trash2 } from 'lucide-react';
+import { PageHeader, Alert } from '../components/ui.jsx';
+import { api, useSession, useCatalog } from '../lib.jsx';
+
+function DeleteAccount() {
+  const { logout } = useSession();
+  const navigate = useNavigate();
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const remove = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api('/account', { method: 'DELETE', body: { confirm } });
+      await logout();
+      navigate('/');
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="card mt-8 border-red-500/20 p-6">
+      <p className="label text-red-300">Delete account</p>
+      <p className="text-sm text-ink-300">This permanently deletes your account, series, videos and connected accounts, and cancels any subscription immediately. It can't be undone.</p>
+      {error && <div className="mt-4"><Alert>{error}</Alert></div>}
+      <div className="mt-4 flex flex-wrap gap-3">
+        <input className="input max-w-xs" placeholder="Type DELETE to confirm" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        <button className="btn-danger" disabled={confirm !== 'DELETE' || busy} onClick={remove}><Trash2 className="size-4" /> {busy ? 'Deleting…' : 'Delete my account'}</button>
+      </div>
+    </div>
+  );
+}
 
 function Row({ label, ok, value, hint }) {
   return (
@@ -44,6 +77,7 @@ export default function Settings() {
           </div>
         </div>
       )}
+      <DeleteAccount />
     </>
   );
 }

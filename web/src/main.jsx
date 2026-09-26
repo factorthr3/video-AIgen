@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import './index.css';
 import { SessionProvider, CatalogProvider, useSession } from './lib.jsx';
 import Landing from './pages/Landing.jsx';
+import { Privacy, Terms } from './pages/Legal.jsx';
 import { Login, Signup } from './pages/Auth.jsx';
 import AppLayout from './components/AppLayout.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -41,6 +42,8 @@ createRoot(document.getElementById('root')).render(
         <CatalogProvider>
           <Routes>
             <Route path="/" element={<Landing />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
             <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
             <Route path="/signup" element={<GuestOnly><Signup /></GuestOnly>} />
             <Route path="/app" element={<RequireAuth><AppLayout /></RequireAuth>}>

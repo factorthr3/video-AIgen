@@ -54,7 +54,8 @@ export default function SeriesNew() {
   const accounts = accountData.accounts;
   const niche = byId(catalog.niches)[form.niche];
   const canContinue = step !== 0 || form.niche !== 'custom' || form.customTopic.trim().length > 3;
-  const atSeriesLimit = usage && usage.seriesUsed >= usage.seriesLimit;
+  const needsPlan = Boolean(usage?.needsPlan);
+  const atSeriesLimit = usage && !needsPlan && usage.seriesUsed >= usage.seriesLimit;
   const planName = byId(catalog.plans)[usage?.plan]?.name || 'current';
 
   const create = async () => {
@@ -109,6 +110,12 @@ export default function SeriesNew() {
         ))}
       </ol>
 
+      {needsPlan && (
+        <Alert tone="warn">
+          Choose a plan to start creating series. You can set everything up now; your choices are saved while you{' '}
+          <Link to="/app/billing" className="font-semibold underline">pick a plan</Link>.
+        </Alert>
+      )}
       {atSeriesLimit && (
         <Alert tone="warn">
           You're using {usage.seriesUsed} of {usage.seriesLimit} series on the {planName} plan, so you can't create another yet.{' '}
@@ -138,7 +145,12 @@ export default function SeriesNew() {
           <div className="card flex flex-col justify-between gap-6 p-6">
             <div>
               <Rocket className="size-8 text-brand-400" />
-              {atSeriesLimit ? (
+              {needsPlan ? (
+                <>
+                  <h3 className="mt-4 font-display text-xl font-bold">One step left: choose a plan</h3>
+                  <p className="mt-2 text-sm text-ink-400">Your series settings are saved. Pick a plan and come back here to launch it.</p>
+                </>
+              ) : atSeriesLimit ? (
                 <>
                   <h3 className="mt-4 font-display text-xl font-bold">Series limit reached</h3>
                   <p className="mt-2 text-sm text-ink-400">The {planName} plan includes {usage.seriesLimit} series and you're using {usage.seriesUsed}. Upgrade, or delete a series, and your settings here will be waiting.</p>
@@ -156,7 +168,9 @@ export default function SeriesNew() {
                   <TriangleAlert className="mt-0.5 size-4 shrink-0" /> {error}
                 </p>
               )}
-              {atSeriesLimit ? (
+              {needsPlan ? (
+                <Link to="/app/billing" className="btn-primary w-full py-3">Choose a plan</Link>
+              ) : atSeriesLimit ? (
                 <>
                   <Link to="/app/billing" className="btn-primary w-full py-3">Upgrade to add more series</Link>
                   <Link to="/app/series" className="btn-secondary w-full">Manage series</Link>

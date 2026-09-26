@@ -36,7 +36,13 @@ function Sidebar({ onNavigate }) {
         ))}
       </nav>
       <div className="mt-auto space-y-4">
-        {usage && (
+        {usage?.needsPlan && (
+          <Link to="/app/billing" onClick={onNavigate} className="card block border-amber-500/30 bg-amber-500/10 p-4 transition hover:border-amber-500/50">
+            <p className="text-xs font-semibold text-amber-100">No active plan</p>
+            <p className="mt-1 text-xs text-amber-100/80">Choose a plan to start creating videos →</p>
+          </Link>
+        )}
+        {usage && !usage.needsPlan && (
           <Link to="/app/billing" onClick={onNavigate} className="card block p-4 transition hover:border-white/15">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-white">{plan?.name || 'Tester'} plan</span>
