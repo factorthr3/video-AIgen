@@ -62,6 +62,14 @@ The video card shows which engines produced each video (e.g. `voice: elevenlabs 
 
 ### Production
 
+The included `Dockerfile` builds everything the server needs (Node 24, ffmpeg, caption fonts), and `railway.json` configures Railway (health check, restarts). On any host:
+
+- mount a persistent volume at `/data`
+- set `APP_URL` to the public URL (e.g. `https://blackcell.ai`) and add your API keys as environment variables
+- run a single instance (the job queue and scheduler are in-process)
+
+Without Docker:
+
 ```bash
 npm run build
 APP_URL=https://your-domain.com npm start   # serves the web app + API on $PORT

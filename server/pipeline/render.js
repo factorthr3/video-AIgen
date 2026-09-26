@@ -46,7 +46,11 @@ export async function buildAudioTrack({ clips, totalDuration, musicFile, out }) 
 
 // ---------- captions ----------
 function captionFont(style, size, language) {
-  if (NON_LATIN.has(language)) return `${size}px "Arial Unicode MS", sans-serif`;
+  // Noto on Linux servers (installed in the Docker image), Arial Unicode on macOS.
+  if (NON_LATIN.has(language)) {
+    const noto = language === 'hi' ? '"Noto Sans Devanagari"' : '"Noto Sans CJK SC"';
+    return `${size}px ${noto}, "Arial Unicode MS", sans-serif`;
+  }
   if (style === 'bold') return `${size}px Anton`;
   if (style === 'minimal') return `${size}px "Poppins SemiBold"`;
   return `${size}px "Poppins ExtraBold"`;
