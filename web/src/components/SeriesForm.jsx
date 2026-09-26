@@ -100,8 +100,11 @@ export function StylePicker({ catalog, form, setForm }) {
   const [mix, setMix] = useState(selectedStyles.length > 1);
   const toggleStyle = (id) => {
     if (!mix) return set('artStyle')(id);
-    const next = selectedStyles.includes(id) ? selectedStyles.filter((x) => x !== id) : [...selectedStyles, id];
-    if (next.length) set('artStyle')(next.slice(0, 8).join(','));
+    setForm((f) => {
+      const current = String(f.artStyle || '').split(',').filter(Boolean);
+      const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
+      return next.length ? { ...f, artStyle: next.slice(0, 8).join(',') } : f; // keep at least one
+    });
   };
 
   const upload = async (file) => {
