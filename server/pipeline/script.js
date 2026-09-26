@@ -5,7 +5,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
 import { config } from '../config.js';
-import { NICHE, LANGUAGE, DURATION } from '../catalog.js';
+import { NICHE, LANGUAGE, DURATION, ART } from '../catalog.js';
 import { libraryScript } from './library.js';
 
 const ScriptSchema = z.object({
@@ -37,7 +37,7 @@ Accuracy: when the niche is factual (history, science, true crime, religion, fac
 let client;
 const getClient = () => (client ??= new Anthropic());
 
-export async function writeScript({ niche, customTopic, language, duration, usedTitles = [] }) {
+export async function writeScript({ niche, customTopic, language, duration, artStyle, usedTitles = [] }) {
   if (!config.anthropic.enabled) {
     const script = libraryScript(niche, usedTitles);
     return { ...script, source: 'library' };
@@ -54,11 +54,17 @@ export async function writeScript({ niche, customTopic, language, duration, used
     ? `\n\nThis channel already posted these videos, so pick a clearly different story or subject:\n${usedTitles.slice(-40).map((t) => `- ${t}`).join('\n')}`
     : '';
 
+  // Tell Claude the look, so visual prompts suit it (animation needs characters, not photo subjects).
+  const style = ART[String(artStyle || '').split(',')[0]];
+  const styleNote = !style ? '' : style.category === 'Animation'
+    ? `\n- Visual style: ${style.name} animation. Write visuals as animated scenes: give each recurring character a distinct look (species, colours, clothing, expression) and repeat it word for word in every scene so the character stays identical. Motion prompts can include expressive character actions.`
+    : `\n- Visual style: ${style.name}. Write visuals that suit this look.`;
+
   const prompt = `${topic}
 
 Write one complete video script.
 - Language for title, description and narration: ${lang.name}. Visual prompts stay in English.
-- Target length: about ${target.words} spoken words across ${target.scenes} scenes (roughly ${target.id} seconds).${avoid}`;
+- Target length: about ${target.words} spoken words across ${target.scenes} scenes (roughly ${target.id} seconds).${styleNote}${avoid}`;
 
   const params = {
     model: config.anthropic.model,

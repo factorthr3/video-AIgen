@@ -83,20 +83,27 @@ async function geminiJson(url, init = {}) {
 
 async function generateVeoClip({ model, imageFile, prompt, seconds, out }) {
   const data = await imageJpegBase64(imageFile);
-  const submitWith = (image) => geminiJson(`${config.gemini.baseUrl}/models/${model}:predictLongRunning`, {
+  let image = { inlineData: { mimeType: 'image/jpeg', data } };
+  let duration = seconds; // the live API wants a number (some docs show "4")
+  const submit = () => geminiJson(`${config.gemini.baseUrl}/models/${model}:predictLongRunning`, {
     method: 'POST',
     body: JSON.stringify({
       instances: [{ prompt, image }],
-      parameters: { aspectRatio: '9:16', durationSeconds: String(seconds), resolution: config.gemini.resolution, numberOfVideos: 1 },
+      parameters: { aspectRatio: '9:16', durationSeconds: duration, resolution: config.gemini.resolution },
     }),
   });
   let operation;
-  try {
-    operation = await submitWith({ inlineData: { mimeType: 'image/jpeg', data } });
-  } catch (err) {
-    // Older API revisions take the image as bytesBase64Encoded; try that shape once.
-    if (err.status !== 400 || !/image|inline|field/i.test(err.message)) throw err;
-    operation = await submitWith({ bytesBase64Encoded: data, mimeType: 'image/jpeg' });
+  for (let attempt = 0; ; attempt++) {
+    try {
+      operation = await submit();
+      break;
+    } catch (err) {
+      // Adapt once to request-shape differences between API revisions.
+      if (err.status !== 400 || attempt >= 2) throw err;
+      if (/durationSeconds/i.test(err.message)) duration = typeof duration === 'number' ? String(duration) : Number(duration);
+      else if (/image|inline/i.test(err.message) && image.inlineData) image = { bytesBase64Encoded: data, mimeType: 'image/jpeg' };
+      else throw err;
+    }
   }
   const started = Date.now();
   const operationName = operation.name; // poll the name from the submission, whatever later replies contain

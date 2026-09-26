@@ -34,12 +34,16 @@ export function cleanSettings(input, base = {}) {
   const music = typeof input.music === 'string' && input.music.startsWith('upload:')
     ? input.music
     : pick(input.music, MUSIC_TRACK, base.music || n?.music || 'none');
+  // One style, or several (comma list / array) that a series rotates through.
+  const styles = (Array.isArray(input.artStyle) ? input.artStyle : String(input.artStyle ?? '').split(','))
+    .map((x) => String(x).trim())
+    .filter((id) => ART[id]);
   return {
     niche,
     customTopic: customTopic || null,
     language: pick(input.language, LANGUAGE, base.language || 'en'),
     voice: pick(input.voice, VOICE, base.voice || n?.voice || 'nova'),
-    artStyle: pick(input.artStyle, ART, base.artStyle || n?.art || 'cinematic'),
+    artStyle: [...new Set(styles)].slice(0, 8).join(',') || base.artStyle || n?.art || 'cinematic',
     captionStyle: pick(input.captionStyle, CAPTION, base.captionStyle || 'bold'),
     music,
     duration: Number(pick(input.duration, DURATION, base.duration || 60)),
@@ -57,6 +61,12 @@ export function createVideo({ user, seriesId = null, settings, origin = 'manual'
   const u = usage(user);
   if (u.videosUsed >= u.videosLimit) {
     throw new HttpError(402, `You've used all ${u.videosLimit} videos in your ${PLAN[u.plan].name} plan this month. Upgrade to keep creating.`);
+  }
+  // A series with several art styles rotates through them, one per video.
+  const styles = String(settings.artStyle || '').split(',').filter(Boolean);
+  if (styles.length > 1) {
+    const made = seriesId ? db.get('SELECT COUNT(*) AS n FROM videos WHERE series_id = ?', seriesId).n : 0;
+    settings = { ...settings, artStyle: styles[made % styles.length] };
   }
   const video = insert('videos', {
     id: newId('vid'),

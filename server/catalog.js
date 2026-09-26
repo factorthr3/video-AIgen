@@ -1,9 +1,59 @@
 // Everything a user can pick when creating a series. Shared with the web app
 // via GET /api/catalog so the two never drift.
 
+export const NICHE_CATEGORIES = ['Animals', 'Stories', 'Kids', 'Facts & History', 'Mindset & Faith'];
+
 export const NICHES = [
   {
-    id: 'scary', name: 'Scary Stories', emoji: '👻',
+    id: 'animal-tales', category: 'Animals', name: 'Animal Tales', emoji: '🦊',
+    tagline: 'Animated animal heroes in funny, heartwarming stories',
+    brief: 'Original short stories starring animal characters with big personalities (a brave fox cub, a clumsy bear, a penguin who wants to fly): a small adventure, a problem to overcome, and a warm or funny payoff. Family-friendly. Keep each character\'s look identical in every scene.',
+    hook: 'The smallest penguin in the colony had one dream: to fly.',
+    motifs: ['forest', 'mountains', 'ocean'], art: '3d-cartoon', voice: 'nova', music: 'bright-pluck',
+    colors: ['#ea580c', '#16a34a'],
+  },
+  {
+    id: 'animal-facts', category: 'Animals', name: 'Wild Animal Facts', emoji: '🐙',
+    tagline: 'Jaw-dropping true facts about the animal kingdom',
+    brief: 'Surprising, TRUE facts about real animals, either one creature per video or a themed list, told with wonder. Only well-established science.',
+    hook: 'An octopus has three hearts, and one of them stops when it swims.',
+    motifs: ['ocean', 'forest', 'desert'], art: 'wildlife', voice: 'coral', music: 'bright-pluck',
+    colors: ['#0f766e', '#65a30d'],
+  },
+  {
+    id: 'pet-pov', category: 'Animals', name: 'Funny Pet POV', emoji: '🐶',
+    tagline: 'What your pets are really thinking',
+    brief: 'Comedic first-person monologues from a pet (dog, cat, hamster, parrot) reacting to everyday human life. Punchy jokes, relatable situations, a funny twist at the end.',
+    hook: 'Day 47. The human still thinks the red dot is random.',
+    motifs: ['city'], art: '3d-cartoon', voice: 'ash', music: 'bright-pluck',
+    colors: ['#f59e0b', '#ec4899'],
+  },
+  {
+    id: 'bedtime', category: 'Kids', name: 'Bedtime Stories', emoji: '🌙',
+    tagline: 'Gentle, cozy stories to wind down',
+    brief: 'Calm, gentle bedtime stories for young children: soft imagery, kind characters (often animals), a small gentle adventure and a cozy, sleepy ending. No scary moments.',
+    hook: 'High above the sleepy village, one little star could not fall asleep.',
+    motifs: ['mountains', 'forest'], art: 'storybook', voice: 'shimmer', music: 'calm-pad',
+    colors: ['#1e3a8a', '#a78bfa'],
+  },
+  {
+    id: 'fables', category: 'Kids', name: 'Fables & Fairy Tales', emoji: '🐢',
+    tagline: 'Classic fables, beautifully retold',
+    brief: 'Classic fables and fairy tales from Aesop, the Brothers Grimm and world folklore, retold vividly and faithfully, ending with the moral in one line.',
+    hook: 'The hare laughed at the tortoise. He should not have.',
+    motifs: ['forest', 'mountains'], art: 'papercraft', voice: 'fable', music: 'calm-pad',
+    colors: ['#65a30d', '#b45309'],
+  },
+  {
+    id: 'dinosaurs', category: 'Facts & History', name: 'Dinosaurs', emoji: '🦖',
+    tagline: 'The giants that ruled the Earth',
+    brief: 'Scientifically accurate stories and facts about dinosaurs and prehistoric life: how they lived, hunted and vanished. Accurate species, sizes and time periods only.',
+    hook: 'For 165 million years, these giants ruled the Earth. Then the sky caught fire.',
+    motifs: ['desert', 'forest', 'mountains'], art: 'cinematic', voice: 'onyx', music: 'epic-pulse',
+    colors: ['#365314', '#c2410c'],
+  },
+  {
+    id: 'scary', category: 'Stories', name: 'Scary Stories', emoji: '👻',
     tagline: 'Original horror that keeps viewers up at night',
     brief: 'Original, suspenseful short horror stories told in first or second person, with a chilling twist at the end. Unsettling, never gory.',
     hook: 'I was alone in the house. So who kept whispering my name?',
@@ -11,7 +61,7 @@ export const NICHES = [
     colors: ['#1e1b4b', '#7f1d1d'],
   },
   {
-    id: 'history', name: 'Untold History', emoji: '🏛️',
+    id: 'history', category: 'Facts & History', name: 'Untold History', emoji: '🏛️',
     tagline: 'Wild true stories your teacher skipped',
     brief: 'Surprising, little-known but TRUE historical events, told as a gripping story with accurate names, dates and places.',
     hook: 'In 1932, Australia declared war on birds. And lost.',
@@ -19,7 +69,7 @@ export const NICHES = [
     colors: ['#78350f', '#1c1917'],
   },
   {
-    id: 'mythology', name: 'Myths & Legends', emoji: '⚡',
+    id: 'mythology', category: 'Stories', name: 'Myths & Legends', emoji: '⚡',
     tagline: 'Gods, monsters and heroes from every culture',
     brief: 'Myths and legends from world cultures (Greek, Norse, Egyptian, Japanese, etc.), retold dramatically and faithfully to the source myth.',
     hook: 'Zeus gave her a jar and one rule: never open it.',
@@ -27,7 +77,7 @@ export const NICHES = [
     colors: ['#1e3a8a', '#a16207'],
   },
   {
-    id: 'fun-facts', name: 'Mind-Blowing Facts', emoji: '🤯',
+    id: 'fun-facts', category: 'Facts & History', name: 'Mind-Blowing Facts', emoji: '🤯',
     tagline: 'Fast, true facts people share instantly',
     brief: 'A rapid-fire list of surprising but TRUE facts around a single theme, each one punchy and verifiable.',
     hook: 'Oxford University is older than the Aztec Empire.',
@@ -35,7 +85,7 @@ export const NICHES = [
     colors: ['#0e7490', '#7c3aed'],
   },
   {
-    id: 'motivation', name: 'Stoic Motivation', emoji: '🗿',
+    id: 'motivation', category: 'Mindset & Faith', name: 'Stoic Motivation', emoji: '🗿',
     tagline: 'Timeless wisdom for the grind',
     brief: 'Motivational monologues grounded in Stoic philosophy and real quotes (Marcus Aurelius, Seneca, Epictetus). Direct, second person, no clichés.',
     hook: 'Marcus Aurelius ruled an empire. Every morning he wrote himself the same warning.',
@@ -43,7 +93,7 @@ export const NICHES = [
     colors: ['#27272a', '#a8a29e'],
   },
   {
-    id: 'heists', name: 'Legendary Heists', emoji: '💎',
+    id: 'heists', category: 'Facts & History', name: 'Legendary Heists', emoji: '💎',
     tagline: 'The boldest robberies ever pulled off',
     brief: 'TRUE stories of famous heists and cons: the plan, the execution, and how it unravelled. Accurate names, places and amounts.',
     hook: 'They beat ten layers of security. A half-eaten sandwich beat them.',
@@ -51,7 +101,7 @@ export const NICHES = [
     colors: ['#0f172a', '#059669'],
   },
   {
-    id: 'space', name: 'Space & Cosmos', emoji: '🪐',
+    id: 'space', category: 'Facts & History', name: 'Space & Cosmos', emoji: '🪐',
     tagline: 'The universe is stranger than fiction',
     brief: 'Awe-inspiring, scientifically accurate stories and facts about space, planets, stars and black holes.',
     hook: 'A teaspoon of this star would weigh a billion tons.',
@@ -59,7 +109,7 @@ export const NICHES = [
     colors: ['#020617', '#4338ca'],
   },
   {
-    id: 'bible', name: 'Bible Stories', emoji: '📜',
+    id: 'bible', category: 'Mindset & Faith', name: 'Bible Stories', emoji: '📜',
     tagline: 'Scripture brought to life, faithfully',
     brief: 'Stories from the Bible retold vividly and respectfully, faithful to the text, ending with the lesson or verse reference.',
     hook: 'He was a shepherd boy with five stones. The giant was nine feet tall.',
@@ -67,7 +117,7 @@ export const NICHES = [
     colors: ['#92400e', '#fbbf24'],
   },
   {
-    id: 'kindness', name: 'Acts of Kindness', emoji: '💛',
+    id: 'kindness', category: 'Stories', name: 'Acts of Kindness', emoji: '💛',
     tagline: 'Wholesome stories that restore faith in people',
     brief: 'Heartwarming original short stories about small acts of kindness with an emotional payoff at the end.',
     hook: 'Every morning, the old man paid for a stranger\'s coffee. Then one day he didn\'t show up.',
@@ -75,7 +125,7 @@ export const NICHES = [
     colors: ['#be185d', '#f59e0b'],
   },
   {
-    id: 'anime', name: 'Anime Stories', emoji: '🌸',
+    id: 'anime', category: 'Stories', name: 'Anime Stories', emoji: '🌸',
     tagline: 'Original anime-style tales with a twist',
     brief: 'Original short stories in the style of an anime: underdog heroes, rivals, hidden powers, emotional reveals.',
     hook: 'Everyone at the academy had a power. Except me. Or so they thought.',
@@ -83,7 +133,7 @@ export const NICHES = [
     colors: ['#db2777', '#6366f1'],
   },
   {
-    id: 'drama', name: 'School Drama', emoji: '🍿',
+    id: 'drama', category: 'Stories', name: 'School Drama', emoji: '🍿',
     tagline: 'Juicy, bingeable storytime drama',
     brief: 'Original first-person "storytime" drama about school, friends and rivals, with a satisfying twist or comeback at the end. Clean language.',
     hook: 'My best friend stole my project. She forgot I record everything.',
@@ -106,19 +156,41 @@ export const VOICES = [
 ];
 
 // `palette` drives the procedural (no-API-key) art renderer; `prompt` is appended
-// to image-model prompts.
+// to image-model prompts. Grouped by category in the UI.
+export const ART_CATEGORIES = ['Animation', 'Realistic', 'Illustrated'];
+
 export const ART_STYLES = [
-  { id: 'cinematic', name: 'Cinematic', prompt: 'cinematic film still, dramatic lighting, anamorphic lens, photorealistic, highly detailed', palette: { sky: ['#0b1026', '#2b3a67', '#e2a26b'], land: '#0a0f1f', accent: '#ffd29a' } },
-  { id: 'dark-fantasy', name: 'Dark Fantasy', prompt: 'dark fantasy digital painting, moody, ominous atmosphere, volumetric fog, muted palette', palette: { sky: ['#050507', '#1a1030', '#4a2340'], land: '#050308', accent: '#b8c4ff' } },
-  { id: 'anime', name: 'Anime', prompt: 'anime illustration, vibrant colors, detailed painted background, cel shading, studio quality', palette: { sky: ['#5b8cff', '#a78bfa', '#ffc4e1'], land: '#2a2f6b', accent: '#fff4b3' } },
-  { id: '3d-cartoon', name: '3D Cartoon', prompt: '3D animated film style, soft global illumination, expressive characters, colorful, playful', palette: { sky: ['#38bdf8', '#7dd3fc', '#fde68a'], land: '#15803d', accent: '#ffffff' } },
-  { id: 'oil-painting', name: 'Oil Painting', prompt: 'classical oil painting, rich textured brush strokes, chiaroscuro lighting, museum quality', palette: { sky: ['#2a1a0e', '#8b5a2b', '#e9c46a'], land: '#1f140b', accent: '#fff1c1' } },
-  { id: 'watercolor', name: 'Watercolor', prompt: 'soft watercolor painting, delicate washes, visible paper texture, gentle light', palette: { sky: ['#fde2e4', '#fad2e1', '#bee1e6'], land: '#8fb9a8', accent: '#ffffff' } },
-  { id: 'comic', name: 'Comic Book', prompt: 'comic book art, bold ink outlines, halftone shading, dynamic composition, saturated colors', palette: { sky: ['#1d4ed8', '#f59e0b', '#fde047'], land: '#111827', accent: '#ef4444' } },
-  { id: 'neon', name: 'Neon Noir', prompt: 'neon-lit night scene, rain-slick streets, synthwave palette, cinematic noir', palette: { sky: ['#0b0221', '#3b0a57', '#ff2e88'], land: '#07010f', accent: '#22d3ee' } },
-  { id: 'pixel', name: 'Pixel Art', prompt: 'detailed 16-bit pixel art, retro video game aesthetic, limited palette', palette: { sky: ['#1b1f3b', '#53354a', '#ff8c61'], land: '#0f1020', accent: '#fff275' } },
-  { id: 'vintage', name: 'Vintage Film', prompt: 'vintage 1970s photograph, film grain, faded warm colors, light leaks', palette: { sky: ['#3d2c1e', '#a1785c', '#e8d5b0'], land: '#2b2118', accent: '#fff3d6' } },
+  // Animation
+  { id: '3d-cartoon', category: 'Animation', name: '3D Animation', prompt: '3D animated feature film still, appealing stylized characters with big expressive eyes, soft global illumination, subsurface scattering, vibrant colors, cinematic depth of field', palette: { sky: ['#38bdf8', '#7dd3fc', '#fde68a'], land: '#15803d', accent: '#ffffff' } },
+  { id: 'claymation', category: 'Animation', name: 'Claymation', prompt: 'claymation stop-motion scene, handmade plasticine characters with visible fingerprint texture, miniature practical set, soft studio lighting', palette: { sky: ['#fb923c', '#fdba74', '#fef3c7'], land: '#a16207', accent: '#fff7ed' } },
+  { id: '2d-cartoon', category: 'Animation', name: '2D Cartoon', prompt: '2D animated cartoon frame, clean bold outlines, flat vibrant colors, expressive characters, TV animation style', palette: { sky: ['#60a5fa', '#93c5fd', '#fef08a'], land: '#22c55e', accent: '#ffffff' } },
+  { id: 'anime', category: 'Animation', name: 'Anime', prompt: 'anime illustration, vibrant colors, detailed painted background, cel shading, studio quality', palette: { sky: ['#5b8cff', '#a78bfa', '#ffc4e1'], land: '#2a2f6b', accent: '#fff4b3' } },
+  { id: 'felt', category: 'Animation', name: 'Felt Puppets', prompt: 'handmade felt and wool puppet characters, stop-motion miniature set, cozy knitted textures, warm soft lighting', palette: { sky: ['#fda4af', '#fecdd3', '#fef9c3'], land: '#84cc16', accent: '#fff1f2' } },
+  { id: 'papercraft', category: 'Animation', name: 'Paper Cutout', prompt: 'layered paper cutout craft diorama, stop-motion papercraft characters, soft shadows between paper layers, textured paper', palette: { sky: ['#99f6e4', '#ccfbf1', '#fef3c7'], land: '#65a30d', accent: '#ffffff' } },
+  { id: 'low-poly', category: 'Animation', name: 'Low Poly 3D', prompt: 'low-poly 3D render, faceted geometric shapes, soft pastel lighting, stylized game art', palette: { sky: ['#818cf8', '#c4b5fd', '#fbcfe8'], land: '#4d7c0f', accent: '#fef9c3' } },
+  { id: 'kawaii', category: 'Animation', name: 'Kawaii Chibi', prompt: 'kawaii chibi illustration, cute round characters with tiny bodies and big heads, pastel colors, sparkles, soft shading', palette: { sky: ['#f9a8d4', '#fbcfe8', '#e9d5ff'], land: '#86efac', accent: '#ffffff' } },
+  { id: 'pixel', category: 'Animation', name: 'Pixel Art', prompt: 'detailed 16-bit pixel art, retro video game aesthetic, limited palette', palette: { sky: ['#1b1f3b', '#53354a', '#ff8c61'], land: '#0f1020', accent: '#fff275' } },
+  // Realistic
+  { id: 'cinematic', category: 'Realistic', name: 'Cinematic', prompt: 'cinematic film still, dramatic lighting, anamorphic lens, photorealistic, highly detailed', palette: { sky: ['#0b1026', '#2b3a67', '#e2a26b'], land: '#0a0f1f', accent: '#ffd29a' } },
+  { id: 'wildlife', category: 'Realistic', name: 'Nature Documentary', prompt: 'award-winning wildlife documentary photograph, telephoto lens, natural light, ultra detailed fur, feathers and scales, shallow depth of field', palette: { sky: ['#0c4a6e', '#38bdf8', '#fde68a'], land: '#14532d', accent: '#fef3c7' } },
+  { id: 'miniature', category: 'Realistic', name: 'Tiny World', prompt: 'miniature tilt-shift diorama photograph, tiny detailed figurines and props, shallow depth of field, toy-like scale', palette: { sky: ['#7dd3fc', '#bae6fd', '#fef9c3'], land: '#16a34a', accent: '#ffffff' } },
+  { id: 'dark-fantasy', category: 'Realistic', name: 'Dark Fantasy', prompt: 'dark fantasy digital painting, moody, ominous atmosphere, volumetric fog, muted palette', palette: { sky: ['#050507', '#1a1030', '#4a2340'], land: '#050308', accent: '#b8c4ff' } },
+  { id: 'vintage', category: 'Realistic', name: 'Vintage Film', prompt: 'vintage 1970s photograph, film grain, faded warm colors, light leaks', palette: { sky: ['#3d2c1e', '#a1785c', '#e8d5b0'], land: '#2b2118', accent: '#fff3d6' } },
+  // Illustrated
+  { id: 'storybook', category: 'Illustrated', name: 'Storybook', prompt: "children's picture book illustration, gouache and colored pencil, warm soft light, whimsical and gentle", palette: { sky: ['#c4b5fd', '#ddd6fe', '#fef3c7'], land: '#4d7c0f', accent: '#fffbeb' } },
+  { id: 'watercolor', category: 'Illustrated', name: 'Watercolor', prompt: 'soft watercolor painting, delicate washes, visible paper texture, gentle light', palette: { sky: ['#fde2e4', '#fad2e1', '#bee1e6'], land: '#8fb9a8', accent: '#ffffff' } },
+  { id: 'oil-painting', category: 'Illustrated', name: 'Oil Painting', prompt: 'classical oil painting, rich textured brush strokes, chiaroscuro lighting, museum quality', palette: { sky: ['#2a1a0e', '#8b5a2b', '#e9c46a'], land: '#1f140b', accent: '#fff1c1' } },
+  { id: 'comic', category: 'Illustrated', name: 'Comic Book', prompt: 'comic book art, bold ink outlines, halftone shading, dynamic composition, saturated colors', palette: { sky: ['#1d4ed8', '#f59e0b', '#fde047'], land: '#111827', accent: '#ef4444' } },
+  { id: 'neon', category: 'Illustrated', name: 'Neon Noir', prompt: 'neon-lit night scene, rain-slick streets, synthwave palette, cinematic noir', palette: { sky: ['#0b0221', '#3b0a57', '#ff2e88'], land: '#07010f', accent: '#22d3ee' } },
 ];
+
+const STYLE_BLURBS = {
+  '3d-cartoon': 'Animated-movie characters', claymation: 'Plasticine stop-motion', '2d-cartoon': 'Bold, flat TV cartoon',
+  anime: 'Cel-shaded anime', felt: 'Knitted, cosy puppets', papercraft: 'Layered paper diorama', 'low-poly': 'Faceted game-style 3D',
+  kawaii: 'Cute pastel chibi', pixel: 'Retro 16-bit', cinematic: 'Photoreal film still', wildlife: 'Real animals, documentary',
+  miniature: 'Tilt-shift toy world', 'dark-fantasy': 'Moody, ominous', vintage: 'Faded 70s film', storybook: "Children's book art",
+  watercolor: 'Soft painted washes', 'oil-painting': 'Classical brushwork', comic: 'Ink and halftone', neon: 'Synthwave night',
+};
 
 export const MOTION = [
   { id: 'hook', name: 'AI video hook', description: 'The opening scene is a real AI video clip to stop the scroll; the rest are animated images' },
@@ -190,9 +262,11 @@ export const MOTION_TYPE = byId(MOTION);
 
 export function catalog() {
   return {
+    nicheCategories: NICHE_CATEGORIES,
     niches: NICHES.map(({ motifs, ...n }) => n),
     voices: VOICES.map(({ id, name, gender, description }) => ({ id, name, gender, description })),
-    artStyles: ART_STYLES.map(({ id, name, palette }) => ({ id, name, colors: palette.sky })),
+    artCategories: ART_CATEGORIES,
+    artStyles: ART_STYLES.map(({ id, name, category, palette }) => ({ id, name, category, blurb: STYLE_BLURBS[id], colors: palette.sky })),
     captionStyles: CAPTION_STYLES,
     motion: MOTION,
     music: MUSIC,

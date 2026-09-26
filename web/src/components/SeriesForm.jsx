@@ -33,12 +33,25 @@ export function Section({ title, hint, children }) {
   );
 }
 
+function Chips({ options, value, onChange }) {
+  return (
+    <div className="mb-4 flex flex-wrap gap-2">
+      {options.map((o) => (
+        <button key={o} type="button" onClick={() => onChange(o)} className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${value === o ? 'bg-white text-ink-950' : 'bg-white/5 text-ink-300 hover:bg-white/10'}`}>{o}</button>
+      ))}
+    </div>
+  );
+}
+
 export function NichePicker({ catalog, form, setForm }) {
+  const [category, setCategory] = useState('All');
   const choose = (n) => setForm((f) => ({ ...f, niche: n.id, voice: n.voice, artStyle: n.art, music: f.music.startsWith('upload:') ? f.music : n.music }));
+  const niches = category === 'All' ? catalog.niches : catalog.niches.filter((n) => n.category === category);
   return (
     <>
+      <Chips options={['All', ...(catalog.nicheCategories || [])]} value={category} onChange={setCategory} />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {catalog.niches.map((n) => (
+        {niches.map((n) => (
           <button key={n.id} type="button" data-selected={form.niche === n.id} className="option relative overflow-hidden" onClick={() => choose(n)}>
             <span className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg, ${n.colors[0]}, ${n.colors[1]})` }} />
             <span className="text-2xl">{n.emoji}</span>
@@ -82,6 +95,14 @@ export function StylePicker({ catalog, form, setForm }) {
   const [uploading, setUploading] = useState(false);
   const [uploadName, setUploadName] = useState(null);
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
+  // artStyle is one id, or a comma list the series rotates through.
+  const selectedStyles = String(form.artStyle || '').split(',').filter(Boolean);
+  const [mix, setMix] = useState(selectedStyles.length > 1);
+  const toggleStyle = (id) => {
+    if (!mix) return set('artStyle')(id);
+    const next = selectedStyles.includes(id) ? selectedStyles.filter((x) => x !== id) : [...selectedStyles, id];
+    if (next.length) set('artStyle')(next.slice(0, 8).join(','));
+  };
 
   const upload = async (file) => {
     if (!file) return;
@@ -135,15 +156,32 @@ export function StylePicker({ catalog, form, setForm }) {
         </div>
       </Section>
 
-      <Section title="Art style">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {catalog.artStyles.map((a) => (
-            <button key={a.id} type="button" data-selected={form.artStyle === a.id} className="option p-2" onClick={() => set('artStyle')(a.id)}>
-              <span className="block aspect-[4/3] rounded-xl" style={{ background: `linear-gradient(180deg, ${a.colors[0]}, ${a.colors[1]} 55%, ${a.colors[2]})` }} />
-              <p className="mt-2 px-1 text-sm font-semibold">{a.name}</p>
-            </button>
-          ))}
-        </div>
+      <Section title="Art style" hint={mix ? `Mixing ${selectedStyles.length} style${selectedStyles.length === 1 ? '' : 's'}: each new video uses the next one, so the channel keeps looking fresh.` : null}>
+        <label className="mb-4 flex w-fit cursor-pointer items-center gap-2.5 text-sm text-ink-300">
+          <input type="checkbox" className="size-4 accent-brand-500" checked={mix} onChange={(e) => { setMix(e.target.checked); if (!e.target.checked) set('artStyle')(selectedStyles[0]); }} />
+          Mix styles: rotate through several, one per video
+        </label>
+        {(catalog.artCategories || ['All']).map((cat) => {
+          const styles = catalog.artStyles.filter((a) => !catalog.artCategories || a.category === cat);
+          if (!styles.length) return null;
+          return (
+            <div key={cat} className="mb-5">
+              {catalog.artCategories && <p className="mb-2 text-sm font-semibold text-ink-300">{cat}</p>}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                {styles.map((a) => (
+                  <button key={a.id} type="button" data-selected={selectedStyles.includes(a.id)} className="option relative p-2" onClick={() => toggleStyle(a.id)}>
+                    <span className="block aspect-[4/3] rounded-xl" style={{ background: `linear-gradient(180deg, ${a.colors[0]}, ${a.colors[1]} 55%, ${a.colors[2]})` }} />
+                    {mix && selectedStyles.includes(a.id) && (
+                      <span className="absolute left-3.5 top-3.5 grid size-6 place-items-center rounded-full bg-brand-500 text-xs font-bold">{selectedStyles.indexOf(a.id) + 1}</span>
+                    )}
+                    <p className="mt-2 px-1 text-sm font-semibold">{a.name}</p>
+                    {a.blurb && <p className="px-1 text-xs text-ink-400">{a.blurb}</p>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </Section>
 
       <Section title="Narrator voice" hint={`Previews use your server's current voice engine (${catalog.providers?.voice?.provider}).`}>

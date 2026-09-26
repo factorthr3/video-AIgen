@@ -75,7 +75,10 @@ export default function SeriesNew() {
   const summary = [
     ['Niche', form.niche === 'custom' ? `Custom: ${form.customTopic}` : `${niche.emoji} ${niche.name}`],
     ['Visuals', byId(catalog.motion)[form.motion]?.name],
-    ['Art style', byId(catalog.artStyles)[form.artStyle]?.name],
+    ['Art style', (() => {
+      const names = String(form.artStyle).split(',').map((id) => byId(catalog.artStyles)[id]?.name).filter(Boolean);
+      return names.length > 1 ? `${names.join(', ')} (rotating)` : names[0];
+    })()],
     ['Voice', `${byId(catalog.voices)[form.voice]?.name} · ${byId(catalog.languages)[form.language]?.name}`],
     ['Captions', byId(catalog.captionStyles)[form.captionStyle]?.name],
     ['Music', form.music.startsWith('upload:') ? 'Your upload' : byId(catalog.music)[form.music]?.name],

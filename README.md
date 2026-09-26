@@ -7,9 +7,10 @@ It's inspired by products like FacelessReels: set up a *series* once (niche, loo
 ## Features
 
 - **Series on autopilot:** choose posting days, time and timezone. Videos render ahead of each slot and publish on time. Restarts are safe: nothing is lost or double-posted.
-- **11 built-in niches plus custom topics:** scary stories, untold history, myths & legends, facts, stoic motivation, heists, space, Bible stories, kindness, anime, school drama.
+- **17 built-in niches plus custom topics**, grouped into Animals (animated Animal Tales, Wild Animal Facts, Funny Pet POV), Stories, Kids (Bedtime Stories, Fables), Facts & History and Mindset & Faith.
+- **19 art styles** in three groups: Animation (3D Animation, Claymation, 2D Cartoon, Anime, Felt Puppets, Paper Cutout, Low Poly, Kawaii, Pixel Art), Realistic (Cinematic, Nature Documentary, Tiny World, Dark Fantasy, Vintage Film) and Illustrated. **Mix styles** makes a series rotate through several looks, one per video.
 - **Hook-first AI scripts** from Claude, with structured scene-by-scene output. Each series remembers its past titles so it never repeats a story.
-- **Visuals per scene:** OpenAI image generation in 10 art styles, or procedural illustrated art when no key is set.
+- **Visuals per scene:** OpenAI image generation in any art style, or procedural illustrated art when no key is set. Claude writes visuals to suit the chosen style, keeping animated characters identical from scene to scene.
 - **Voiceover:** 8 narrator personas across 12 languages via ElevenLabs, OpenAI TTS or the system voice.
 - **Animated captions:** word-by-word karaoke captions in 4 styles (Bold Pop, Highlight Box, Neon Glow, Minimal).
 - **Music:** four synthesised royalty-free mood beds, or upload your own.
