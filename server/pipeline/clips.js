@@ -1,8 +1,8 @@
 // Stage 3b: turn scene images into real AI video clips (image-to-video) via
-// fal.ai's queue API. The still becomes the clip's first frame, so the art
-// style stays consistent, and each clip is sized to its narration. Used for
-// every scene ("AI video") or just the opening hook ("AI video hook"). A scene
-// whose clip fails keeps its still image (animated with pan & zoom).
+// Google's Gemini API (Veo) or fal.ai. The still becomes the clip's first
+// frame, so the art style stays consistent, and each clip is sized to its
+// narration. Used for every scene ("AI video") or just the opening hook
+// ("AI video hook"). A scene whose clip fails keeps its still image.
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import crypto from 'node:crypto';
@@ -31,21 +31,25 @@ const ADAPTERS = [
   },
 ];
 const GENERIC = { durations: [5, 10], body: ({ image, prompt, duration }) => ({ image_url: image, prompt, duration }), durationType: 'string' };
-const adapterFor = (model) => ADAPTERS.find((a) => a.match.test(model)) || GENERIC;
+// Veo: 720p takes 4/6/8-second clips; 1080p and 4k only 8.
+const VEO = { durations: config.gemini.resolution === '720p' ? [4, 6, 8] : [8], fixed: true };
+const adapterFor = (provider, model) => (provider === 'google' ? VEO : ADAPTERS.find((a) => a.match.test(model)) || GENERIC);
 
 // Shortest clip the model offers that covers the scene; hold the last frame if even the longest is short.
 function clipSeconds(adapter, needed) {
-  const options = [...(config.fal.durations.length ? config.fal.durations : adapter.durations)].sort((a, b) => a - b);
+  const override = adapter.fixed ? [] : config.fal.durations; // FAL_VIDEO_DURATIONS applies to fal models only
+  const options = [...(override.length ? override : adapter.durations)].sort((a, b) => a - b);
   return options.find((d) => d >= needed) ?? options.at(-1);
 }
 
-// JPEG data URI keeps the request small (~0.5 MB) without a separate upload step.
-async function imageDataUri(file) {
+// JPEG keeps requests small (~0.5 MB) without a separate upload step.
+async function imageJpegBase64(file) {
   const img = await loadImage(await fs.readFile(file));
   const canvas = createCanvas(img.width, img.height);
   canvas.getContext('2d').drawImage(img, 0, 0);
-  return `data:image/jpeg;base64,${(await canvas.encode('jpeg', 90)).toString('base64')}`;
+  return (await canvas.encode('jpeg', 90)).toString('base64');
 }
+const imageDataUri = async (file) => `data:image/jpeg;base64,${await imageJpegBase64(file)}`;
 
 const falHeaders = () => ({ Authorization: `Key ${config.fal.key}`, 'Content-Type': 'application/json' });
 
@@ -61,8 +65,62 @@ async function falJson(url, init = {}) {
   return body;
 }
 
-async function generateClip({ model, imageFile, prompt, seconds, out }) {
-  const adapter = adapterFor(model);
+// ---------- Google Veo (Gemini API) ----------
+async function geminiJson(url, init = {}) {
+  const res = await fetch(url, {
+    ...init,
+    headers: { 'x-goog-api-key': config.gemini.key, 'Content-Type': 'application/json', ...init.headers },
+    signal: AbortSignal.timeout(60_000),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(`Veo ${res.status}: ${body.error?.message || 'request failed'}`);
+    err.status = res.status;
+    throw err;
+  }
+  return body;
+}
+
+async function generateVeoClip({ model, imageFile, prompt, seconds, out }) {
+  const data = await imageJpegBase64(imageFile);
+  const submitWith = (image) => geminiJson(`${config.gemini.baseUrl}/models/${model}:predictLongRunning`, {
+    method: 'POST',
+    body: JSON.stringify({
+      instances: [{ prompt, image }],
+      parameters: { aspectRatio: '9:16', durationSeconds: String(seconds), resolution: config.gemini.resolution, numberOfVideos: 1 },
+    }),
+  });
+  let operation;
+  try {
+    operation = await submitWith({ inlineData: { mimeType: 'image/jpeg', data } });
+  } catch (err) {
+    // Older API revisions take the image as bytesBase64Encoded; try that shape once.
+    if (err.status !== 400 || !/image|inline|field/i.test(err.message)) throw err;
+    operation = await submitWith({ bytesBase64Encoded: data, mimeType: 'image/jpeg' });
+  }
+  const started = Date.now();
+  const operationName = operation.name; // poll the name from the submission, whatever later replies contain
+  while (!operation.done) {
+    if (Date.now() - started > TIMEOUT_MS) throw new Error('Veo clip timed out');
+    await new Promise((r) => setTimeout(r, 10_000));
+    operation = await geminiJson(`${config.gemini.baseUrl}/${operationName}`);
+  }
+  if (operation.error) throw new Error(`Veo: ${operation.error.message || 'generation failed'}`);
+  const response = operation.response?.generateVideoResponse;
+  const uri = response?.generatedSamples?.[0]?.video?.uri;
+  if (!uri) {
+    const reason = response?.raiMediaFilteredReasons?.join('; ');
+    throw new Error(reason ? `Veo blocked the clip: ${reason}` : 'Veo returned no video');
+  }
+  const video = await fetch(uri, { headers: { 'x-goog-api-key': config.gemini.key }, redirect: 'follow', signal: AbortSignal.timeout(120_000) });
+  if (!video.ok) throw new Error(`Downloading Veo clip failed (${video.status})`);
+  await fs.writeFile(out, Buffer.from(await video.arrayBuffer()));
+}
+
+// ---------- fal.ai ----------
+async function generateClip({ provider, model, imageFile, prompt, seconds, out }) {
+  if (provider === 'google') return generateVeoClip({ model, imageFile, prompt, seconds, out });
+  const adapter = adapterFor(provider, model);
   const image = await imageDataUri(imageFile);
   const submitWith = (type) => falJson(`${config.fal.baseUrl}/${model}`, {
     method: 'POST',
@@ -99,11 +157,11 @@ const hashFile = async (file) => crypto.createHash('sha1').update(await fs.readF
  * indexes:  which scenes to animate (all of them, or just the hook)
  * Returns { files: [clipPath | null], failures: [message], model, requested }.
  */
-export async function generateSceneClips({ timeline, dir, model, indexes = timeline.map((_, i) => i), onProgress }) {
+export async function generateSceneClips({ timeline, dir, provider, model, indexes = timeline.map((_, i) => i), onProgress }) {
   const files = new Array(timeline.length).fill(null);
   const failures = [];
-  if (!config.fal.key || !indexes.length) return { files, failures, model, requested: indexes.length };
-  const adapter = adapterFor(model);
+  if (!provider || !indexes.length) return { files, failures, model, requested: indexes.length };
+  const adapter = adapterFor(provider, model);
 
   // Re-renders reuse a clip when the image, prompt and model are unchanged
   // and the clip is long enough for the (possibly re-timed) scene.
@@ -125,7 +183,7 @@ export async function generateSceneClips({ timeline, dir, model, indexes = timel
         manifest.push(cached);
       } else {
         const out = `${dir}/clip-${String(i).padStart(2, '0')}-${imageHash.slice(0, 8)}-${crypto.createHash('sha1').update(key).digest('hex').slice(0, 6)}.mp4`;
-        await generateClip({ model, imageFile: scene.image, prompt, seconds, out });
+        await generateClip({ provider, model, imageFile: scene.image, prompt, seconds, out });
         files[i] = out;
         manifest.push({ key, seconds, file: out });
       }

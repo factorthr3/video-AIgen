@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { config, MEDIA_DIR, resolveImageProvider, resolveTtsProvider } from '../config.js';
+import { config, MEDIA_DIR, resolveImageProvider, resolveTtsProvider, videoEngine } from '../config.js';
 import { PLAN } from '../catalog.js';
 import { db, update, now, parseJson } from '../db.js';
 import { writeScript } from './script.js';
@@ -64,7 +64,8 @@ async function runJob(videoId) {
   fs.mkdirSync(dir, { recursive: true });
   update('videos', videoId, { status: 'processing', error: null, updated_at: now() });
   // "hook": AI clip for the opening scene(s) only; "video": every scene.
-  const clipMode = config.fal.key && ['hook', 'video'].includes(settings.motion) ? settings.motion : null;
+  const engine = videoEngine();
+  const clipMode = engine.provider && ['hook', 'video'].includes(settings.motion) ? settings.motion : null;
   const W = WEIGHTS[clipMode || 'still'];
 
   // 1. Script — skipped when re-rendering an edited script.
@@ -137,8 +138,9 @@ async function runJob(videoId) {
     const clipsStart = progress;
     clips = await generateSceneClips({
       timeline, dir,
-      model: clipMode === 'hook' ? config.fal.hookModel : config.fal.videoModel,
-      indexes: clipMode === 'hook' ? timeline.slice(0, config.fal.hookScenes).map((_, i) => i) : timeline.map((_, i) => i),
+      provider: engine.provider,
+      model: clipMode === 'hook' ? engine.hookModel : engine.model,
+      indexes: clipMode === 'hook' ? timeline.slice(0, engine.hookScenes).map((_, i) => i) : timeline.map((_, i) => i),
       onProgress: (p) => setStage(videoId, 'Animating scenes', clipsStart + W.clips * p),
     });
     timeline.forEach((entry, i) => { entry.clip = clips.files[i]; });
@@ -187,7 +189,7 @@ async function runJob(videoId) {
       imageError: images.failures[0] || null,
       voice: voiceProvider, voiceErrors: voices.filter((v) => v.error).length,
       voiceError: voices.find((v) => v.error)?.error || null,
-      video: clips ? `fal · ${clips.model.replace(/^fal-ai\//, '')}${clipMode === 'hook' ? ' (hook)' : ''}` : 'pan & zoom',
+      video: clips ? `${engine.provider} · ${clips.model.replace(/^fal-ai\//, '')}${clipMode === 'hook' ? ' (hook)' : ''}` : 'pan & zoom',
       clips: clips ? `${clipCount}/${clips.requested}` : null,
       clipErrors: clips?.failures.length || 0,
       clipError: clips?.failures[0] || null,

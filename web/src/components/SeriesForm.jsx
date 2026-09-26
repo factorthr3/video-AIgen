@@ -102,10 +102,13 @@ export function StylePicker({ catalog, form, setForm }) {
   const video = catalog.providers?.video || {};
   const videoReady = Boolean(video.provider);
   // Cost hints only for the default models, whose prices we know.
-  const costHint = {
-    hook: /ltx-2\.3\/image-to-video\/fast/.test(video.hookModel || '') && 'LTX-2.3 Fast · about $0.36 per video (one 6-second clip)',
-    video: /kling-video\/v3\/pro/.test(video.model || '') && 'Kling v3 Pro · about $0.11 per second, roughly $3.50 per 30s video',
-  };
+  const veoLite = video.provider === 'google' && /veo-3\.1-lite/.test(video.model || '') && video.resolution === '720p';
+  const costHint = veoLite
+    ? { hook: 'Google Veo 3.1 Lite · about $0.20 per video (one 4-second clip)', video: 'Google Veo 3.1 Lite · about $0.05 per second, roughly $1.60 per 30s video' }
+    : {
+      hook: /ltx-2\.3\/image-to-video\/fast/.test(video.hookModel || '') && 'LTX-2.3 Fast (fal.ai) · about $0.36 per video (one 6-second clip)',
+      video: /kling-video\/v3\/pro/.test(video.model || '') && 'Kling v3 Pro (fal.ai) · about $0.11 per second, roughly $3.50 per 30s video',
+    };
   const icons = { hook: Zap, video: Clapperboard, still: Images };
   const badges = { hook: 'Best value', video: 'Premium' };
   return (
@@ -124,7 +127,7 @@ export function StylePicker({ catalog, form, setForm }) {
                   <p className="mt-1 text-xs leading-snug text-ink-400">{m.description}</p>
                   {videoReady && costHint[m.id] && <p className="mt-1.5 text-xs text-ink-400">{costHint[m.id]}</p>}
                   {m.id === 'still' && <p className="mt-1.5 text-xs text-ink-400">No video cost</p>}
-                  {disabled && <p className="mt-1.5 text-xs text-amber-300/90">Add FAL_KEY to the server's .env to enable.</p>}
+                  {disabled && <p className="mt-1.5 text-xs text-amber-300/90">Add GEMINI_API_KEY (Google Veo) or FAL_KEY to the server's .env to enable.</p>}
                 </div>
               </button>
             );

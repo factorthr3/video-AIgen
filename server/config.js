@@ -67,9 +67,16 @@ export const config = {
     baseUrl: (env.FAL_QUEUE_URL || 'https://queue.fal.run').replace(/\/$/, ''),
     videoModel: env.FAL_VIDEO_MODEL || 'fal-ai/kling-video/v3/pro/image-to-video', // "AI video": every scene
     hookModel: env.FAL_HOOK_MODEL || 'fal-ai/ltx-2.3/image-to-video/fast', // "AI video hook": opening scene(s)
-    hookScenes: Math.max(1, Number(env.HOOK_SCENES || 1)),
     // Clip lengths the model accepts, e.g. "5,10". Default: any whole second from 3 to 15 (Kling v3).
     durations: (env.FAL_VIDEO_DURATIONS || '').split(',').map(Number).filter(Boolean),
+  },
+  // AI video clips via Google's Gemini API (Veo). Paid only: Veo has no free tier.
+  gemini: {
+    key: env.GEMINI_API_KEY || '',
+    baseUrl: (env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/$/, ''),
+    videoModel: env.GOOGLE_VIDEO_MODEL || 'veo-3.1-lite-generate-preview',
+    // 720p allows 4/6/8-second clips; 1080p and 4k require 8 seconds.
+    resolution: env.GOOGLE_VIDEO_RESOLUTION || '720p',
   },
   imageProvider: env.IMAGE_PROVIDER || 'auto', // auto | openai | pollinations | procedural
   ttsProvider: env.TTS_PROVIDER || 'auto', // auto | elevenlabs | openai | system | silent
@@ -103,9 +110,7 @@ export function providerStatus() {
     script: config.anthropic.enabled ? { provider: 'claude', model: config.anthropic.model } : { provider: 'library' },
     images: { provider: img },
     voice: { provider: tts },
-    video: config.fal.key
-      ? { provider: 'fal', model: config.fal.videoModel, hookModel: config.fal.hookModel, hookScenes: config.fal.hookScenes }
-      : { provider: null },
+    video: videoEngine(),
     social: {
       youtube: Boolean(config.google.clientId),
       tiktok: Boolean(config.tiktok.clientKey),
@@ -114,6 +119,24 @@ export function providerStatus() {
     googleSignIn: Boolean(config.google.clientId),
     demoBilling: config.demoBilling,
   };
+}
+
+// Which service makes AI video clips: VIDEO_PROVIDER, else Google if its key is set, else fal.
+export function resolveVideoProvider() {
+  const wanted = env.VIDEO_PROVIDER;
+  if (wanted === 'google' || wanted === 'fal') return (wanted === 'google' ? config.gemini.key : config.fal.key) ? wanted : null;
+  if (config.gemini.key) return 'google';
+  if (config.fal.key) return 'fal';
+  return null;
+}
+
+// { provider, model (every scene), hookModel, hookScenes } for the active video provider.
+export function videoEngine() {
+  const provider = resolveVideoProvider();
+  if (!provider) return { provider: null };
+  const hookScenes = Math.max(1, Number(env.HOOK_SCENES || 1));
+  if (provider === 'google') return { provider, model: config.gemini.videoModel, hookModel: config.gemini.videoModel, hookScenes, resolution: config.gemini.resolution };
+  return { provider, model: config.fal.videoModel, hookModel: config.fal.hookModel, hookScenes };
 }
 
 export function resolveImageProvider() {
