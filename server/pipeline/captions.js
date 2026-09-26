@@ -1,6 +1,7 @@
-// Word-level caption timing. TTS providers don't all return timestamps, so we
-// distribute each scene's measured audio duration across its words, weighted
-// by length and punctuation pauses. Accurate enough for karaoke-style captions.
+// Word-level caption timing. ElevenLabs returns exact per-word timings, which
+// we use as-is. Other providers don't, so we distribute each scene's measured
+// audio duration across its words, weighted by length and punctuation pauses.
+// Accurate enough for karaoke-style captions.
 
 const CJK = new Set(['ja', 'zh']);
 
@@ -23,12 +24,17 @@ function weight(word) {
   return w;
 }
 
-// scenes: [{ narration, start, speechDuration }] → flat [{ text, start, end }]
+// scenes: [{ narration, start, speechDuration, wordTimes? }] → flat [{ text, start, end }]
 export function timeWords(scenes, language) {
   const words = [];
   for (const scene of scenes) {
     const tokens = tokenize(scene.narration, language);
     if (!tokens.length) continue;
+    // Exact timings from the TTS provider, when they line up with our tokens.
+    if (scene.wordTimes?.length === tokens.length && !CJK.has(language)) {
+      scene.wordTimes.forEach((w, i) => words.push({ text: tokens[i], start: scene.start + w.start, end: scene.start + w.end }));
+      continue;
+    }
     const lead = 0.05;
     const usable = Math.max(0.3, scene.speechDuration - lead - 0.1);
     const total = tokens.reduce((sum, t) => sum + weight(t), 0);

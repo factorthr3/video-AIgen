@@ -23,21 +23,80 @@ const DELIVERY = {
 };
 const DEFAULT_DELIVERY = 'Narrate like an engaging short-form video storyteller: clear, energetic, natural pacing.';
 
-async function elevenlabs(text, voice, file) {
-  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice.elevenlabs}?output_format=mp3_44100_128`, {
-    method: 'POST',
-    headers: { 'xi-api-key': config.elevenlabs.key, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, model_id: config.elevenlabs.model }),
-    signal: AbortSignal.timeout(90_000),
+// ---- ElevenLabs ----
+const elevenHeaders = () => ({ 'xi-api-key': config.elevenlabs.key, 'Content-Type': 'application/json' });
+
+// Map each persona to a voice that exists on *your* ElevenLabs account:
+// ELEVENLABS_VOICE_<PERSONA> overrides → the persona's default voice if your
+// account has it → the best gender match from your voice list.
+let elevenVoices;
+async function elevenVoiceId(voice) {
+  const override = process.env[`ELEVENLABS_VOICE_${voice.id.toUpperCase()}`];
+  if (override) return override;
+  if (!elevenVoices) {
+    try {
+      const res = await fetch(`${config.elevenlabs.baseUrl}/v2/voices?page_size=100`, { headers: elevenHeaders(), signal: AbortSignal.timeout(20_000) });
+      elevenVoices = res.ok ? (await res.json()).voices || [] : [];
+    } catch {
+      elevenVoices = [];
+    }
+  }
+  if (!elevenVoices.length || elevenVoices.some((v) => v.voice_id === voice.elevenlabs)) return voice.elevenlabs;
+  const gendered = elevenVoices.filter((v) => (v.labels?.gender || '').toLowerCase() === voice.gender);
+  const narrator = gendered.find((v) => /narrat|story|documentary|social/i.test(`${v.labels?.use_case} ${v.labels?.description} ${v.description}`));
+  return (narrator || gendered[0] || elevenVoices[0]).voice_id;
+}
+
+// Word timings from ElevenLabs' character alignment → exact caption sync.
+function alignmentToWords(alignment) {
+  if (!alignment?.characters?.length) return null;
+  const { characters: chars, character_start_times_seconds: starts, character_end_times_seconds: ends } = alignment;
+  const words = [];
+  let cur = null;
+  chars.forEach((ch, i) => {
+    if (/\s/.test(ch)) {
+      if (cur) words.push(cur);
+      cur = null;
+      return;
+    }
+    if (!cur) cur = { text: '', start: starts[i], end: ends[i] };
+    cur.text += ch;
+    cur.end = ends[i];
   });
-  if (!res.ok) throw new Error(`ElevenLabs ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  await fs.writeFile(file, Buffer.from(await res.arrayBuffer()));
+  if (cur) words.push(cur);
+  return words;
+}
+
+let workingElevenModel = null; // remembered after a fallback so later clips skip the failing model
+
+async function elevenlabs(text, voice, file) {
+  const voiceId = await elevenVoiceId(voice);
+  // Preferred model first, then Multilingual v2 in case the account can't use it.
+  const models = workingElevenModel ? [workingElevenModel] : [...new Set([config.elevenlabs.model, 'eleven_multilingual_v2'])];
+  let lastError;
+  for (const model of models) {
+    const res = await fetch(`${config.elevenlabs.baseUrl}/v1/text-to-speech/${voiceId}/with-timestamps?output_format=mp3_44100_128`, {
+      method: 'POST',
+      headers: elevenHeaders(),
+      body: JSON.stringify({ text, model_id: model }),
+      signal: AbortSignal.timeout(120_000),
+    });
+    if (res.ok) {
+      const body = await res.json();
+      await fs.writeFile(file, Buffer.from(body.audio_base64, 'base64'));
+      workingElevenModel = model;
+      return { words: alignmentToWords(body.alignment), model };
+    }
+    lastError = new Error(`ElevenLabs ${res.status} (${model}): ${(await res.text()).slice(0, 200)}`);
+    if ([401, 402, 429].includes(res.status)) break; // key/quota problems won't differ by model
+  }
+  throw lastError;
 }
 
 async function openai(text, voice, file, niche) {
   const body = { model: config.openai.ttsModel, voice: voice.openai, input: text, response_format: 'mp3' };
   if (config.openai.ttsModel.includes('gpt-4o')) body.instructions = DELIVERY[niche] || DEFAULT_DELIVERY;
-  const res = await fetch('https://api.openai.com/v1/audio/speech', {
+  const res = await fetch(`${config.openai.baseUrl}/audio/speech`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${config.openai.key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -45,6 +104,7 @@ async function openai(text, voice, file, niche) {
   });
   if (!res.ok) throw new Error(`OpenAI TTS ${res.status}: ${(await res.text()).slice(0, 200)}`);
   await fs.writeFile(file, Buffer.from(await res.arrayBuffer()));
+  return { model: config.openai.ttsModel };
 }
 
 // ---- system voices ----
@@ -99,21 +159,26 @@ async function system(text, voice, file, language) {
 
 const estimateSeconds = (text) => Math.max(1.2, text.split(/\s+/).filter(Boolean).length / 2.6);
 
-// Synthesise one clip → normalised WAV. Returns { file, duration, provider }.
+// Synthesise one clip → normalised WAV.
+// Returns { file, duration, provider, model?, words? } — `words` are exact
+// per-word timings when the provider supplies them (ElevenLabs).
 export async function speak({ text, voiceId, language, niche, outBase, provider = resolveTtsProvider() }) {
   const voice = VOICE[voiceId] || VOICE.nova;
   const raw = `${outBase}.raw${provider === 'system' ? (systemTtsEngine() === 'say' ? '.aiff' : '.wav') : '.mp3'}`;
   const wav = `${outBase}.wav`;
   let used = provider;
+  let meta = {};
   try {
-    if (provider === 'elevenlabs') await elevenlabs(text, voice, raw);
-    else if (provider === 'openai') await openai(text, voice, raw, niche);
+    if (provider === 'elevenlabs') meta = await elevenlabs(text, voice, raw);
+    else if (provider === 'openai') meta = await openai(text, voice, raw, niche);
     else if (provider === 'system') { if (!(await system(text, voice, raw, language))) used = 'silent'; }
     else used = 'silent';
   } catch (err) {
-    // A failed remote call shouldn't sink the whole video: fall back to the system voice.
+    // A failed remote call shouldn't sink the whole video: step down a provider.
     if (provider === 'system') throw err;
-    return { ...(await speak({ text, voiceId, language, niche, outBase, provider: 'system' })), error: err.message };
+    console.error(`[tts] ${provider} failed, falling back:`, err.message);
+    const next = provider === 'elevenlabs' && config.openai.key ? 'openai' : 'system';
+    return { ...(await speak({ text, voiceId, language, niche, outBase, provider: next })), error: err.message };
   }
   if (used === 'silent') {
     await silenceWav(estimateSeconds(text), wav);
@@ -121,14 +186,15 @@ export async function speak({ text, voiceId, language, niche, outBase, provider 
     await toWav(raw, wav);
     await fs.rm(raw, { force: true });
   }
-  return { file: wav, duration: await probeDuration(wav), provider: used };
+  return { file: wav, duration: await probeDuration(wav), provider: used, model: meta.model || null, words: meta.words || null };
 }
 
 export async function voicePreview(voiceId, language = 'en') {
   const provider = resolveTtsProvider();
   const dir = path.join(CACHE_DIR, 'voice-previews');
   await fs.mkdir(dir, { recursive: true });
-  const base = path.join(dir, `${provider}-${voiceId}-${language}`);
+  const model = provider === 'elevenlabs' ? config.elevenlabs.model : provider === 'openai' ? config.openai.ttsModel : 'local';
+  const base = path.join(dir, `${provider}-${model}-${voiceId}-${language}`);
   const out = `${base}.m4a`;
   try {
     await fs.access(out);

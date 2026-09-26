@@ -242,7 +242,7 @@ export async function renderVideo({ scenes, chunks, captionStyle, language, wate
     '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${W}x${H}`, '-r', String(fps), '-i', 'pipe:0',
     '-i', audioFile,
     '-map', '0:v', '-map', '1:a',
-    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p', '-profile:v', 'high',
+    '-c:v', 'libx264', '-preset', config.render.preset, '-crf', config.render.crf, '-pix_fmt', 'yuv420p', '-profile:v', 'high',
     '-c:a', 'copy', '-shortest', '-movflags', '+faststart', tmp,
   ], { stdio: ['pipe', 'ignore', 'pipe'] });
   let stderr = '';

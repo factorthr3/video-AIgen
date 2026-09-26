@@ -82,7 +82,7 @@ async function runJob(videoId) {
   let t = 0;
   const timeline = scenes.map((scene, i) => {
     const slot = clips[i].duration + (i === scenes.length - 1 ? TAIL : SCENE_GAP);
-    const entry = { ...scene, image: images.files[i], start: t, duration: slot, speechDuration: clips[i].duration };
+    const entry = { ...scene, image: images.files[i], start: t, duration: slot, speechDuration: clips[i].duration, wordTimes: clips[i].words };
     t += slot;
     return entry;
   });
@@ -113,12 +113,13 @@ async function runJob(videoId) {
   // Clean up intermediates but keep scene images (shown in the editor).
   for (const f of fs.readdirSync(dir)) if (/^voice-.*\.wav$|^audio\.m4a$/.test(f)) fs.rmSync(path.join(dir, f), { force: true });
 
-  const voiceProvider = clips.find((c) => c.provider !== 'system')?.provider || clips[0]?.provider;
+  const voiceClip = clips.find((c) => c.provider !== 'system') || clips[0];
+  const voiceProvider = voiceClip ? [voiceClip.provider, voiceClip.model].filter(Boolean).join(' · ') : null;
   update('videos', videoId, {
     status: 'ready', stage: null, progress: 1, duration: totalDuration, updated_at: now(),
     providers: JSON.stringify({
       script: script.edited ? `${script.source} (edited)` : script.source, scriptModel: script.model || null,
-      images: images.provider, imageFallbacks: images.failures.length,
+      images: [images.provider, images.model].filter(Boolean).join(' · '), imageFallbacks: images.failures.length,
       voice: voiceProvider, voiceErrors: clips.filter((c) => c.error).length,
     }),
   });

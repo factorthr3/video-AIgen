@@ -50,13 +50,16 @@ export const config = {
   },
   openai: {
     key: env.OPENAI_API_KEY || '',
-    imageModel: env.OPENAI_IMAGE_MODEL || 'gpt-image-1',
-    imageQuality: env.OPENAI_IMAGE_QUALITY || 'medium',
+    baseUrl: (env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, ''),
+    imageModel: env.OPENAI_IMAGE_MODEL || 'gpt-image-2.5-sunburst',
+    imageQuality: env.OPENAI_IMAGE_QUALITY || 'high',
+    imageSize: env.OPENAI_IMAGE_SIZE || '',
     ttsModel: env.OPENAI_TTS_MODEL || 'gpt-4o-mini-tts',
   },
   elevenlabs: {
     key: env.ELEVENLABS_API_KEY || '',
-    model: env.ELEVENLABS_MODEL || 'eleven_multilingual_v2',
+    baseUrl: (env.ELEVENLABS_BASE_URL || 'https://api.elevenlabs.io').replace(/\/$/, ''),
+    model: env.ELEVENLABS_MODEL || 'eleven_v3',
   },
   imageProvider: env.IMAGE_PROVIDER || 'auto', // auto | openai | pollinations | procedural
   ttsProvider: env.TTS_PROVIDER || 'auto', // auto | elevenlabs | openai | system | silent
@@ -71,6 +74,9 @@ export const config = {
     width: Number(env.RENDER_WIDTH || 1080),
     height: Number(env.RENDER_HEIGHT || 1920),
     fps: Number(env.RENDER_FPS || 30),
+    // x264: lower CRF = higher quality (18 is visually near-lossless); slower preset = smaller file at the same quality.
+    crf: String(env.RENDER_CRF || 18),
+    preset: env.RENDER_PRESET || 'medium',
   },
   ffmpeg: env.FFMPEG_PATH || 'ffmpeg',
   ffprobe: env.FFPROBE_PATH || 'ffprobe',

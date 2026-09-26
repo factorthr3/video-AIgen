@@ -40,6 +40,16 @@ With **no API keys at all**, everything still works end to end. Scripts come fro
 | Voice | `ELEVENLABS_API_KEY` or `OPENAI_API_KEY` | System voice → silent narration |
 | Posting | Platform client IDs/secrets | Demo accounts only |
 
+### Getting top-quality output
+
+The offline fallbacks are fine for trying the app but not for publishing. For production-quality videos, add three keys to `.env` and restart:
+
+1. **`ANTHROPIC_API_KEY`** for scripts. Claude writes a fresh, hook-first story on any topic, with detailed visual prompts per scene. This matters more than you'd expect: better prompts produce better images.
+2. **`OPENAI_API_KEY`** for visuals. Uses `gpt-image-2.5-sunburst` at `high` quality, generated at native 1088×1920. Set `OPENAI_IMAGE_MODEL=gpt-image-2.5-flare` for faster, cheaper images.
+3. **`ELEVENLABS_API_KEY`** for voiceover. Uses `eleven_v3`, the most expressive ElevenLabs model, with word-level timestamps so captions sync exactly to the speech. Each narrator persona maps to a voice in your ElevenLabs account; pin one with e.g. `ELEVENLABS_VOICE_ONYX=<voice id>`.
+
+The video card shows which engines produced each video (e.g. `voice: elevenlabs · eleven_v3`), so you can confirm the upgrade took effect. Re-render older videos to apply the new engines. Check each provider's pricing page for per-video costs.
+
 ### Production
 
 ```bash

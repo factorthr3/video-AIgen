@@ -11,19 +11,37 @@ function fullPrompt(visual, style) {
   return `${visual}. ${style.prompt}. Vertical 9:16 composition, subject centred with breathing room at the bottom, no text, no captions, no watermark, no logos.`;
 }
 
+// Newer GPT Image models accept custom sizes, so ask for native 9:16 (1088x1920,
+// multiples of 16). gpt-image-1 only offers 1024x1536 portrait.
+const imageSize = (model) => config.openai.imageSize || (model.startsWith('gpt-image-1') ? '1024x1536' : '1088x1920');
+const LEGACY_IMAGE_MODEL = 'gpt-image-1';
+let workingImageModel = null; // remembered after a fallback so we don't retry a model the account lacks
+
 async function openaiImage(prompt) {
-  const res = await fetch('https://api.openai.com/v1/images/generations', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${config.openai.key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: config.openai.imageModel, prompt, size: '1024x1536', quality: config.openai.imageQuality, n: 1 }),
-    signal: AbortSignal.timeout(180_000),
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`OpenAI images ${res.status}: ${body.error?.message || 'request failed'}`);
-  const item = body.data?.[0];
-  if (item?.b64_json) return Buffer.from(item.b64_json, 'base64');
-  if (item?.url) return Buffer.from(await (await fetch(item.url)).arrayBuffer());
-  throw new Error('OpenAI images returned no image');
+  const models = workingImageModel ? [workingImageModel] : [...new Set([config.openai.imageModel, LEGACY_IMAGE_MODEL])];
+  let lastError;
+  for (const model of models) {
+    const res = await fetch(`${config.openai.baseUrl}/images/generations`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${config.openai.key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, prompt, size: imageSize(model), quality: config.openai.imageQuality, n: 1 }),
+      signal: AbortSignal.timeout(240_000),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.ok) {
+      workingImageModel = model;
+      const item = body.data?.[0];
+      if (item?.b64_json) return Buffer.from(item.b64_json, 'base64');
+      if (item?.url) return Buffer.from(await (await fetch(item.url)).arrayBuffer());
+      throw new Error('OpenAI images returned no image');
+    }
+    lastError = new Error(`OpenAI images ${res.status} (${model}): ${body.error?.message || 'request failed'}`);
+    // Only an unavailable/unsupported model is worth retrying on the legacy one.
+    const modelProblem = [400, 403, 404].includes(res.status) && /model|size|quality/i.test(`${body.error?.param} ${body.error?.code} ${body.error?.message}`);
+    if (!modelProblem) break;
+    console.error(`[images] ${lastError.message} — trying ${LEGACY_IMAGE_MODEL}`);
+  }
+  throw lastError;
 }
 
 async function pollinationsImage(prompt, seed) {
@@ -96,5 +114,5 @@ export async function generateSceneImages({ scenes, artStyle, niche, videoId, di
     if (n && Number(n[1]) >= scenes.length) await fs.rm(`${dir}/${f}`, { force: true });
   }
   await fs.writeFile(manifestFile, JSON.stringify(manifest));
-  return { files, provider, failures };
+  return { files, provider, failures, model: provider === 'openai' ? workingImageModel : null };
 }
