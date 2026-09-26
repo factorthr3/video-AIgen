@@ -133,6 +133,11 @@ ensureColumn('users', 'stripe_subscription_id', 'TEXT');
 ensureColumn('users', 'subscription_status', 'TEXT');
 ensureColumn('users', 'current_period_end', 'TEXT');
 ensureColumn('users', 'cancel_at_period_end', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('users', 'paystack_customer_code', 'TEXT');
+ensureColumn('users', 'paystack_customer_id', 'TEXT');
+ensureColumn('users', 'paystack_subscription_code', 'TEXT');
+ensureColumn('users', 'paystack_email_token', 'TEXT');
+ensureColumn('users', 'paystack_authorization', 'TEXT');
 
 const stmtCache = new Map();
 function stmt(sql) {

@@ -104,6 +104,18 @@ export const config = {
     webhookSecret: env.STRIPE_WEBHOOK_SECRET || '',
     currency: (env.STRIPE_CURRENCY || 'usd').toLowerCase(),
   },
+  // Paystack billing. Inactive until PAYSTACK_SECRET_KEY is set.
+  paystack: {
+    secretKey: env.PAYSTACK_SECRET_KEY || '',
+    baseUrl: env.PAYSTACK_BASE_URL || 'https://api.paystack.co',
+    // Blank = the account's own currency (NGN, GHS, ZAR, KES, USD or XOF).
+    currency: (env.PAYSTACK_CURRENCY || '').toUpperCase(),
+    // Monthly prices in that currency: "free=9000,starter=29000,daily=59000,pro=99000".
+    prices: Object.fromEntries((env.PAYSTACK_PRICES || '').split(',').map((pair) => pair.split('=').map((x) => x.trim()))
+      .filter(([id, amount]) => id && Number(amount) > 0).map(([id, amount]) => [id, Number(amount)])),
+  },
+  // Which processor sells plans when both are configured: "paystack" or "stripe".
+  billingProvider: env.BILLING_PROVIDER || '',
   // Full access without a subscription (the owner, staff, testers).
   adminEmails: (env.ADMIN_EMAILS || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean),
   // "open" = anyone can sign up; "invite" = only ALLOWED_EMAILS (comma list) can.
@@ -130,7 +142,6 @@ export function providerStatus() {
     googleSignIn: Boolean(config.google.clientId),
     demoBilling: config.demoBilling,
     signupMode: config.signupMode,
-    billing: { stripe: Boolean(config.stripe.secretKey), currency: config.stripe.currency },
   };
 }
 

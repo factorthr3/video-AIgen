@@ -2,7 +2,7 @@
 import { db, insert, newId, now, parseJson } from './db.js';
 import { PLAN, NICHE, VOICE, ART, CAPTION, LANGUAGE, DURATION, MUSIC_TRACK, MOTION_TYPE } from './catalog.js';
 import { enqueueVideo } from './pipeline/index.js';
-import { billingState } from './billing.js';
+import { billingState } from './billing/index.js';
 
 export class HttpError extends Error {
   constructor(status, message) {
@@ -22,7 +22,7 @@ export function usage(user) {
   const used = db.get("SELECT COUNT(*) AS n FROM videos WHERE user_id = ? AND created_at >= ? AND status != 'failed'", user.id, monthStart()).n;
   const series = db.get('SELECT COUNT(*) AS n FROM series WHERE user_id = ?', user.id).n;
   const billing = billingState(user);
-  // With Stripe on, creating needs an active subscription (or admin access).
+  // With payments on, creating needs an active subscription (or admin access).
   const needsPlan = !billing.active;
   return {
     plan: plan.id,

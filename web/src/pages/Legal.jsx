@@ -1,11 +1,18 @@
 import { Link } from 'react-router';
 import { Logo } from '../components/ui.jsx';
+import { useCatalog } from '../lib.jsx';
 
 // Legal pages. Before a full public launch, have a solicitor review these and
 // add your registered business name and address to OPERATOR below.
 const UPDATED = '26 September 2026';
 const CONTACT = 'support@blackcell.app';
 const OPERATOR = 'BlackCell'; // e.g. 'BlackCell Ltd (company no. 12345678), 1 Example Street, London'
+
+/** The payment processor this server uses, for naming in the text. */
+function useProcessor() {
+  const provider = useCatalog()?.providers?.billing?.provider;
+  return provider === 'stripe' ? 'Stripe' : 'Paystack';
+}
 
 function LegalShell({ title, children }) {
   return (
@@ -31,6 +38,7 @@ function LegalShell({ title, children }) {
 }
 
 export function Privacy() {
+  const processor = useProcessor();
   return (
     <LegalShell title="Privacy Policy">
       <section>
@@ -43,7 +51,7 @@ export function Privacy() {
           <li><strong>Account details:</strong> your name, email address and a securely hashed password. If you sign in with Google, we receive your name, email address and profile picture from Google.</li>
           <li><strong>Content you create:</strong> series settings, topics, scripts, generated images, voiceovers, videos, captions and any music you upload.</li>
           <li><strong>Connected social accounts:</strong> when you connect TikTok, YouTube or Instagram, we store the account's ID, username, profile picture and the access tokens needed to post on your behalf. Tokens are encrypted at rest.</li>
-          <li><strong>Billing:</strong> payments are processed by Stripe. We never see or store your full card details; we keep your Stripe customer and subscription IDs, your plan and its status.</li>
+          <li><strong>Billing:</strong> payments are processed by {processor}. We never see or store your full card details; we keep your {processor} customer and subscription references, your plan and its status.</li>
           <li><strong>Technical data:</strong> a session cookie that keeps you signed in, and server logs (including IP address, browser type and request times) used for security and debugging.</li>
         </ul>
       </section>
@@ -69,7 +77,7 @@ export function Privacy() {
           <li><strong>ElevenLabs</strong> (voiceover): narration text.</li>
           <li><strong>Google</strong> (Veo video generation, Google sign-in and YouTube publishing): scene images and prompts; your Google account details if you sign in with Google.</li>
           <li><strong>fal.ai</strong> (optional AI video clips): scene images and prompts.</li>
-          <li><strong>Stripe</strong> (payments): billing details you enter at checkout.</li>
+          <li><strong>{processor}</strong> (payments): billing details you enter at checkout.</li>
           <li><strong>Railway</strong> (hosting): all Service data is stored on its servers.</li>
           <li><strong>TikTok, YouTube and Instagram</strong>: the videos, titles and captions you choose to publish to your connected accounts.</li>
         </ul>
@@ -116,6 +124,7 @@ export function Privacy() {
 }
 
 export function Terms() {
+  const processor = useProcessor();
   return (
     <LegalShell title="Terms of Service">
       <section>
@@ -135,7 +144,7 @@ export function Terms() {
       <section>
         <h2>3. Plans, billing and cancellation</h2>
         <ul>
-          <li>Paid plans are billed monthly in advance through Stripe and renew automatically until cancelled.</li>
+          <li>Paid plans are billed monthly in advance through {processor} and renew automatically until cancelled.</li>
           <li>Each plan includes a monthly number of videos and series. Unused videos do not roll over.</li>
           <li>You can change or cancel your plan at any time from <strong>Plan &amp; billing</strong>. Cancellation takes effect at the end of the current billing period, and you keep access until then.</li>
           <li>Except where required by law, payments are non-refundable and we do not provide refunds or credits for partial months.</li>
@@ -167,7 +176,7 @@ export function Terms() {
 
       <section>
         <h2>6. Third-party services</h2>
-        <p>The Service relies on third parties, including AI providers, Stripe and the social platforms you connect. Their own terms apply to your use of them. We are not responsible for their actions, such as a platform removing a video, limiting its reach or suspending an account.</p>
+        <p>The Service relies on third parties, including AI providers, {processor} and the social platforms you connect. Their own terms apply to your use of them. We are not responsible for their actions, such as a platform removing a video, limiting its reach or suspending an account.</p>
       </section>
 
       <section>

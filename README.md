@@ -60,9 +60,19 @@ The offline fallbacks are fine for trying the app but not for publishing. For pr
 
 The video card shows which engines produced each video (e.g. `voice: elevenlabs · eleven_v3`), so you can confirm the upgrade took effect. Re-render older videos to apply the new engines. Check each provider's pricing page for per-video costs.
 
-### Payments (Stripe)
+### Payments (Paystack)
 
-Plans are sold as monthly subscriptions through Stripe Checkout. Set `STRIPE_SECRET_KEY` and the four plans are created in your Stripe account automatically on first use (lookup keys `blackcell_<plan>_monthly`). Then:
+Plans are sold as monthly subscriptions through Paystack's hosted checkout. Set `PAYSTACK_SECRET_KEY` and the four plans are created in your Paystack account on first use (named `BlackCell <Plan>`), priced in your account's currency. Then:
+
+1. Check the prices. Defaults are rough local equivalents of the USD prices (e.g. NGN 9,000 / 29,000 / 59,000 / 99,000); set `PAYSTACK_PRICES=free=…,starter=…,daily=…,pro=…` to choose your own. Changing a price creates a new Paystack plan for new subscribers.
+2. In Paystack (Settings → API Keys & Webhooks), set the webhook URL to `https://your-domain/api/paystack/webhook`. It keeps renewals, failed payments and cancellations in sync. Checkout itself is confirmed when the customer returns, so a missing webhook doesn't block sign-ups.
+3. Put your own email in `ADMIN_EMAILS` so you keep full access without subscribing. With a test key (`sk_test_…`), admins go through checkout like everyone else so you can try it; use Paystack's test card `4084 0840 8408 4081`, any future expiry, CVV `408`.
+
+Customers cancel with **Cancel plan** (the plan runs to the end of the paid month) and change card with **Update card** (Paystack's hosted page). Switching plans starts the new plan immediately on the saved card. Paystack doesn't retry failed renewals, so a failed payment gives a week's grace to update the card.
+
+### Payments (Stripe, alternative)
+
+If only `STRIPE_SECRET_KEY` is set, Stripe sells the plans instead (`BILLING_PROVIDER` picks when both are set). Plans are sold as monthly subscriptions through Stripe Checkout. Set `STRIPE_SECRET_KEY` and the four plans are created in your Stripe account automatically on first use (lookup keys `blackcell_<plan>_monthly`). Then:
 
 1. In Stripe, add a webhook endpoint `https://your-domain/api/stripe/webhook` for `checkout.session.completed` and `customer.subscription.created`, `.updated` and `.deleted`, and set its signing secret as `STRIPE_WEBHOOK_SECRET`.
 2. In Stripe's Customer portal settings, allow customers to update payment methods, switch plans and cancel. The in-app **Manage billing** button opens it.
@@ -132,5 +142,5 @@ assets/fonts/       Anton + Poppins (SIL Open Font License)
 
 ## Not included yet
 
-- **Payments** are built on Stripe (see *Payments* above) and are off until `STRIPE_SECRET_KEY` is set.
+- **Payments** use Paystack (or Stripe) and are off until `PAYSTACK_SECRET_KEY` (or `STRIPE_SECRET_KEY`) is set.
 - **Horizontal scaling:** the render queue is in-process. Move it to a real queue (e.g. BullMQ) to run multiple workers.

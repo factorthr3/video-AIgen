@@ -3,9 +3,9 @@
 // user's plan and status in sync. Everything here is inactive until
 // STRIPE_SECRET_KEY is set.
 import Stripe from 'stripe';
-import { config } from './config.js';
-import { PLAN, PLANS } from './catalog.js';
-import { db, update } from './db.js';
+import { config } from '../config.js';
+import { PLAN, PLANS } from '../catalog.js';
+import { db, update } from '../db.js';
 
 const httpError = (status, message) => Object.assign(new Error(message), { status, expose: true });
 
@@ -24,26 +24,11 @@ async function withStripe(fn) {
 }
 
 let client;
-export const stripeEnabled = () => Boolean(config.stripe.secretKey);
+export const enabled = () => Boolean(config.stripe.secretKey);
 const stripe = () => (client ??= new Stripe(config.stripe.secretKey));
 
-// ---------- access ----------
-// past_due keeps access while Stripe retries the payment (Smart Retries).
+// past_due keeps the subscription switchable while Stripe retries the payment.
 const ACTIVE = new Set(['active', 'trialing', 'past_due']);
-export const isAdmin = (user) => config.adminEmails.includes(String(user.email).toLowerCase());
-
-export function billingState(user) {
-  if (!stripeEnabled()) return { enabled: false, active: true };
-  const state = {
-    enabled: true,
-    status: user.subscription_status || 'none',
-    currentPeriodEnd: user.current_period_end || null,
-    cancelAtPeriodEnd: Boolean(user.cancel_at_period_end),
-    hasCustomer: Boolean(user.stripe_customer_id),
-  };
-  if (isAdmin(user)) return { ...state, active: true, comped: true };
-  return { ...state, active: ACTIVE.has(user.subscription_status) };
-}
 
 // ---------- prices ----------
 // Products and prices are created on first use and found again by lookup_key,
@@ -150,7 +135,7 @@ export async function portalUrl(user) {
 
 /** Stop billing immediately (used when an account is deleted). */
 export async function cancelSubscriptionNow(user) {
-  if (!stripeEnabled() || !user.stripe_subscription_id || !ACTIVE.has(user.subscription_status)) return;
+  if (!enabled() || !user.stripe_subscription_id || !ACTIVE.has(user.subscription_status)) return;
   await stripe().subscriptions.cancel(user.stripe_subscription_id);
 }
 

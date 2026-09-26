@@ -99,11 +99,11 @@ export function useApi(path, { poll } = {}) {
 }
 
 // ---------- formatting ----------
-/** "$19", "£5.99": whole amounts drop the pence. */
+/** "$19", "£5.99", "₦29,000": whole amounts drop the pence. */
 export function formatPrice(amount, currency = 'usd') {
   const whole = Number.isInteger(amount);
   return new Intl.NumberFormat(undefined, {
-    style: 'currency', currency: currency.toUpperCase(),
+    style: 'currency', currency: currency.toUpperCase(), currencyDisplay: 'narrowSymbol',
     minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2,
   }).format(amount);
 }

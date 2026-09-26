@@ -12,7 +12,10 @@ import { resumePendingJobs, queueDepth, videoFile, videoDir } from './pipeline/i
 import { musicTrack, MUSIC_IDS } from './pipeline/music.js';
 import { voicePreview } from './pipeline/tts.js';
 import { publicMediaSig } from './social/index.js';
-import { stripeEnabled, isAdmin, choosePlan, portalUrl, handleWebhook, cancelSubscriptionNow } from './billing.js';
+import {
+  provider as billingProvider, testMode, isAdmin, billingInfo, displayPlans, choosePlan, portalUrl, cancelPlan, cancelSubscriptionNow,
+  handleStripeWebhook, handlePaystackWebhook, confirmPaystackReturn, paystackEnabled, warmUp as warmUpBilling,
+} from './billing/index.js';
 import { startScheduler } from './scheduler.js';
 import authRoutes from './routes/auth.js';
 import seriesRoutes from './routes/series.js';
@@ -22,17 +25,20 @@ import accountRoutes from './routes/accounts.js';
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
-// Stripe needs the raw body to verify the webhook signature, so this route
-// comes before the JSON parser.
+// Webhooks are verified against the raw body, so they come before the JSON parser.
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  const type = await handleWebhook(req.body, req.headers['stripe-signature']);
+  const type = await handleStripeWebhook(req.body, req.headers['stripe-signature']);
   res.json({ received: true, type });
+});
+app.post('/api/paystack/webhook', express.raw({ type: () => true }), async (req, res) => {
+  const event = await handlePaystackWebhook(req.body, req.headers['x-paystack-signature']);
+  res.json({ received: true, event });
 });
 
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, queue: queueDepth() }));
-app.get('/api/catalog', (req, res) => res.json({ ...catalog(), providers: providerStatus() }));
+app.get('/api/catalog', (req, res) => res.json({ ...catalog(), plans: displayPlans(), providers: { ...providerStatus(), billing: billingInfo() } }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/series', seriesRoutes);
@@ -66,14 +72,15 @@ app.post('/api/uploads/music', requireAuth, upload.single('file'), (req, res) =>
   res.status(201).json({ id: `upload:${req.file.filename}`, name: req.file.originalname });
 });
 
-// Plans. With Stripe: subscribe via Checkout ({ url }) or switch an existing
-// subscription. Admins, and dev/DEMO_BILLING without Stripe, switch instantly.
+// Plans. With payments on: subscribe via hosted checkout ({ url }) or switch
+// an existing subscription. Admins (outside test mode), and dev/DEMO_BILLING
+// without payments, switch instantly.
 app.post('/api/billing/plan', requireAuth, async (req, res) => {
   const plan = PLAN[req.body?.plan];
   if (!plan) throw new HttpError(400, 'Unknown plan.');
-  const instant = stripeEnabled() ? isAdmin(req.user) : config.demoBilling;
+  const instant = billingProvider() ? isAdmin(req.user) && !testMode() : config.demoBilling;
   if (!instant) {
-    if (!stripeEnabled()) throw new HttpError(501, 'Paid plans are not available yet: payments have not been set up on this server.');
+    if (!billingProvider()) throw new HttpError(501, 'Paid plans are not available yet: payments have not been set up on this server.');
     const result = await choosePlan(req.user, plan.id);
     if (result.url) return res.json({ url: result.url });
   } else {
@@ -83,10 +90,33 @@ app.post('/api/billing/plan', requireAuth, async (req, res) => {
   res.json({ user: publicUser(user), usage: usage(user) });
 });
 
-// Stripe's hosted page to update the card, see invoices or cancel.
+// The processor's hosted page to update the card (Stripe: also invoices and cancelling).
 app.post('/api/billing/portal', requireAuth, async (req, res) => {
-  if (!stripeEnabled()) throw new HttpError(501, 'Billing is not set up on this server.');
+  if (!billingProvider()) throw new HttpError(501, 'Billing is not set up on this server.');
   res.json({ url: await portalUrl(req.user) });
+});
+
+// Stop renewing; the plan runs to the end of the paid period.
+app.post('/api/billing/cancel', requireAuth, async (req, res) => {
+  if (!billingProvider()) throw new HttpError(501, 'Billing is not set up on this server.');
+  await cancelPlan(req.user);
+  const user = db.get('SELECT * FROM users WHERE id = ?', req.user.id);
+  res.json({ user: publicUser(user), usage: usage(user) });
+});
+
+// Paystack sends the customer back here after checkout.
+app.get('/api/paystack/return', async (req, res) => {
+  const reference = String(req.query.reference || req.query.trxref || '');
+  let outcome = 'failed';
+  if (paystackEnabled() && reference) {
+    try {
+      outcome = (await confirmPaystackReturn(reference)).ok ? 'success' : 'failed';
+    } catch (err) {
+      console.error('[paystack] return:', err.message);
+      outcome = 'error';
+    }
+  }
+  res.redirect(`/app/billing?checkout=${outcome}`);
 });
 
 // Close the account: stop billing, delete content and personal data.
@@ -131,6 +161,8 @@ app.listen(config.port, () => {
   const p = providerStatus();
   console.log(`BlackCell API on http://localhost:${config.port}  (app: ${config.appUrl})`);
   console.log(`  scripts: ${p.script.provider}${p.script.model ? ` (${p.script.model})` : ''} · images: ${p.images.provider} · voice: ${p.voice.provider}`);
+  console.log(`  payments: ${billingProvider() ? `${billingProvider()}${testMode() ? ' (test mode)' : ''}` : 'off'}`);
+  warmUpBilling();
   resumePendingJobs();
   if (config.schedulerEnabled) startScheduler();
   // Warm the synthesised music beds in the background.
