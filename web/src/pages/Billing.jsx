@@ -33,6 +33,7 @@ export default function Billing() {
   const paid = Boolean(payments.enabled);
   const paystack = payments.provider === 'paystack';
   const processor = PROCESSOR[payments.provider];
+  const chargedIn = payments.chargeCurrency && payments.chargeCurrency !== payments.currency ? payments.chargeCurrency.toUpperCase() : null;
 
   // Back from hosted checkout. Paystack is confirmed before the redirect;
   // Stripe's webhook activates the plan within seconds, so poll until it has.
@@ -176,7 +177,7 @@ export default function Billing() {
       {paid && (
         <p className="mt-6 text-center text-xs text-ink-400">
           {paystack
-            ? 'Switching plans starts the new plan today on your saved card. Cancel any time; you keep access until the end of the period you paid for.'
+            ? `${chargedIn ? `Prices are in US dollars; Paystack charges the ${chargedIn} equivalent shown on each plan, so your statement shows ${chargedIn}. ` : ''}Switching plans starts the new plan today on your saved card. Cancel any time; you keep access until the end of the period you paid for.`
             : 'Switching plans takes effect immediately and is prorated. Cancel any time from Manage billing; you keep access until the end of the period.'}
         </p>
       )}

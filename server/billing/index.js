@@ -57,11 +57,13 @@ export function billingInfo() {
     enabled: Boolean(which),
     provider: which,
     testMode: testMode(),
-    currency: which === 'paystack' ? (paystack.currency() || 'usd').toLowerCase() : config.stripe.currency,
+    // Prices are shown in `currency`; Paystack outside Kenya/Nigeria charges the converted amount in `chargeCurrency`.
+    currency: which === 'paystack' ? 'usd' : config.stripe.currency,
+    chargeCurrency: which === 'paystack' ? paystack.currency()?.toLowerCase() || null : config.stripe.currency,
   };
 }
 
-/** Plans with prices in the processor's currency. */
+/** Plans with their prices (and, when it differs, what is actually charged). */
 export const displayPlans = () => (provider() === 'paystack' ? paystack.displayPlans() : PLANS);
 
 // ---------- actions ----------

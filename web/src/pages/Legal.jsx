@@ -2,16 +2,45 @@ import { Link } from 'react-router';
 import { Logo } from '../components/ui.jsx';
 import { useCatalog } from '../lib.jsx';
 
-// Legal pages. Before a full public launch, have a solicitor review these and
-// add your registered business name and address to OPERATOR below.
+// Legal pages for a business registered in South Africa (POPIA, ECTA, CPA).
+// Before a full public launch, have an attorney review these, and fill in
+// COMPANY: section 43 of the ECTA requires these details on the website.
+// Blank fields are left out of the page.
 const UPDATED = '26 September 2026';
 const CONTACT = 'support@blackcell.app';
-const OPERATOR = 'BlackCell'; // e.g. 'BlackCell Ltd (company no. 12345678), 1 Example Street, London'
+const COMPANY = {
+  name: 'BlackCell', // registered name, e.g. 'BlackCell (Pty) Ltd'
+  registration: '', // CIPC registration number, e.g. '2026/123456/07'
+  address: '', // physical address, also used for service of legal documents
+  phone: '',
+  directors: '', // e.g. 'A. Surname'
+  vat: '', // VAT number, if registered
+};
+const OPERATOR = COMPANY.name;
 
-/** The payment processor this server uses, for naming in the text. */
-function useProcessor() {
-  const provider = useCatalog()?.providers?.billing?.provider;
-  return provider === 'stripe' ? 'Stripe' : 'Paystack';
+/** The payment processor this server uses and the currency it charges in, for naming in the text. */
+function useBilling() {
+  const billing = useCatalog()?.providers?.billing;
+  const code = billing?.chargeCurrency && billing.chargeCurrency !== billing.currency ? billing.chargeCurrency.toUpperCase() : null;
+  return {
+    processor: billing?.provider === 'stripe' ? 'Stripe' : 'Paystack',
+    chargedIn: code && `${new Intl.DisplayNames(['en'], { type: 'currency' }).of(code)} (${code})`,
+  };
+}
+
+function CompanyDetails() {
+  const rows = [
+    ['Registered name', COMPANY.name],
+    ['Registration number', COMPANY.registration],
+    ['Registered in', 'Republic of South Africa'],
+    ['Directors', COMPANY.directors],
+    ['Physical address (including for service of legal documents)', COMPANY.address],
+    ['Telephone', COMPANY.phone],
+    ['Email', CONTACT],
+    ['Website', 'blackcell.app'],
+    ['VAT number', COMPANY.vat],
+  ].filter(([, value]) => value);
+  return <ul>{rows.map(([label, value]) => <li key={label}><strong>{label}:</strong> {value}</li>)}</ul>;
 }
 
 function LegalShell({ title, children }) {
@@ -38,11 +67,11 @@ function LegalShell({ title, children }) {
 }
 
 export function Privacy() {
-  const processor = useProcessor();
+  const { processor } = useBilling();
   return (
     <LegalShell title="Privacy Policy">
       <section>
-        <p>This policy explains what personal data {OPERATOR} ("BlackCell", "we", "us") collects when you use blackcell.app (the "Service"), how we use it and the choices you have. We are the controller of your personal data for the purposes of the UK GDPR and, where it applies, the EU GDPR.</p>
+        <p>This policy explains what personal information {OPERATOR} ("BlackCell", "we", "us") collects when you use blackcell.app (the "Service"), how we use it and the choices you have. We are the responsible party for your personal information under South Africa's Protection of Personal Information Act, 2013 ("POPIA"). If you are in the UK or the European Union, we are also the controller of your personal data under the UK GDPR or EU GDPR where they apply.</p>
       </section>
 
       <section>
@@ -65,7 +94,7 @@ export function Privacy() {
           <li>To contact you about your account, billing or important changes to the Service.</li>
           <li>To comply with legal obligations.</li>
         </ul>
-        <p className="mt-3">We process your data because it is necessary to perform our contract with you, for our legitimate interests in running a secure and reliable service, and to meet legal obligations. We do not sell your personal data and we do not use it for advertising.</p>
+        <p className="mt-3">We process your personal information because it is necessary to perform our contract with you, for our legitimate interests in running a secure and reliable service, and to meet legal obligations (section 11 of POPIA and, where they apply, the UK and EU GDPR). We do not sell your personal information and we do not use it for advertising. We will only send you marketing messages if you have agreed to receive them, and every marketing email lets you unsubscribe.</p>
       </section>
 
       <section>
@@ -81,7 +110,7 @@ export function Privacy() {
           <li><strong>Railway</strong> (hosting): all Service data is stored on its servers.</li>
           <li><strong>TikTok, YouTube and Instagram</strong>: the videos, titles and captions you choose to publish to your connected accounts.</li>
         </ul>
-        <p className="mt-3">Some of these providers are based in the United States. Where data is transferred outside the UK or EEA, it is protected by appropriate safeguards such as the UK International Data Transfer Addendum or EU Standard Contractual Clauses. We may also disclose data if required by law or to protect our rights and users.</p>
+        <p className="mt-3">Most of these providers are based outside South Africa, mainly in the United States, so your personal information is transferred across borders. We only do this as section 72 of POPIA allows: where the transfer is necessary to provide the Service you signed up for, or where the recipient is bound by law, binding rules or an agreement that gives protection substantially similar to POPIA. For users in the UK or EEA, transfers are also protected by appropriate safeguards such as the UK International Data Transfer Addendum or EU Standard Contractual Clauses. We may also disclose personal information if required by law or to protect our rights and users.</p>
       </section>
 
       <section>
@@ -102,29 +131,31 @@ export function Privacy() {
 
       <section>
         <h2>7. Security</h2>
-        <p>All traffic is encrypted with HTTPS, passwords are hashed, and social account tokens are encrypted at rest. No system is perfectly secure, so please use a strong, unique password.</p>
+        <p>All traffic is encrypted with HTTPS, passwords are hashed, and social account tokens are encrypted at rest. No system is perfectly secure, so please use a strong, unique password. If a security breach compromises your personal information, we will notify you and the Information Regulator as POPIA requires.</p>
       </section>
 
       <section>
         <h2>8. Your rights</h2>
-        <p>You can ask to access, correct, delete or export your personal data, object to or restrict certain processing, and withdraw any consent you have given. Email <a href={`mailto:${CONTACT}`}>{CONTACT}</a> and we will respond within one month. If you are in the UK, you also have the right to complain to the Information Commissioner's Office (<a href="https://ico.org.uk" target="_blank" rel="noreferrer">ico.org.uk</a>), or to your local data protection authority if you are in the EU.</p>
+        <p>You can ask whether we hold personal information about you and request a copy of it, ask us to correct or delete it, object to our processing it, and withdraw any consent you have given. If you are in the UK or EU, you can also ask to export your data or restrict how we use it. Email our Information Officer at <a href={`mailto:${CONTACT}`}>{CONTACT}</a> and we will respond within a reasonable time, and within one month where the UK or EU GDPR applies.</p>
+        <p className="mt-3">If you are unhappy with how we handle your personal information, you can complain to South Africa's Information Regulator (<a href="https://inforegulator.org.za" target="_blank" rel="noreferrer">inforegulator.org.za</a>). In the UK you can complain to the Information Commissioner's Office (<a href="https://ico.org.uk" target="_blank" rel="noreferrer">ico.org.uk</a>), and in the EU to your local data protection authority.</p>
       </section>
 
       <section>
         <h2>9. Children</h2>
-        <p>BlackCell is not intended for anyone under 18, and you must be 18 or older to create an account.</p>
+        <p>BlackCell is not intended for anyone under 18, and you must be 18 or older to create an account. We do not knowingly collect personal information about children.</p>
       </section>
 
       <section>
         <h2>10. Changes and contact</h2>
         <p>We will post any changes to this policy on this page and, for significant changes, notify you by email or in the app. Questions? Contact us at <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.</p>
+        <div className="mt-3"><CompanyDetails /></div>
       </section>
     </LegalShell>
   );
 }
 
 export function Terms() {
-  const processor = useProcessor();
+  const { processor, chargedIn } = useBilling();
   return (
     <LegalShell title="Terms of Service">
       <section>
@@ -145,13 +176,14 @@ export function Terms() {
         <h2>3. Plans, billing and cancellation</h2>
         <ul>
           <li>Paid plans are billed monthly in advance through {processor} and renew automatically until cancelled.</li>
+          {chargedIn && <li>Prices are shown in US dollars, but {processor} charges in {chargedIn}. You pay the {chargedIn.split(' (')[0]} amount shown on each plan and at checkout, converted from the dollar price at the exchange rate when you subscribe, and each renewal is charged the same amount. If your card is in another currency, your bank may add its own conversion fees.</li>}
           <li>Each plan includes a monthly number of videos and series. Unused videos do not roll over.</li>
           <li>You can change or cancel your plan at any time from <strong>Plan &amp; billing</strong>. Cancellation takes effect at the end of the current billing period, and you keep access until then.</li>
           <li>Except where required by law, payments are non-refundable and we do not provide refunds or credits for partial months.</li>
           <li>We may change prices with at least 30 days' notice. Changes apply from your next billing period, and you may cancel before they take effect.</li>
           <li>If a payment fails, we may pause video creation until it is resolved.</li>
         </ul>
-        <p className="mt-3">Nothing in these terms affects your statutory rights as a consumer.</p>
+        <p className="mt-3">Nothing in these terms affects your statutory rights as a consumer, including under the Consumer Protection Act, 2008 and the Electronic Communications and Transactions Act, 2002 (such as any right to cancel during a cooling-off period).</p>
       </section>
 
       <section>
@@ -191,12 +223,17 @@ export function Terms() {
 
       <section>
         <h2>9. Liability</h2>
-        <p>The Service is provided "as is". To the extent permitted by law, we are not liable for indirect or consequential losses, lost profits, lost revenue, loss of data or loss of audience or reach, and our total liability to you for any claim is limited to the amount you paid us in the 12 months before the claim. Nothing in these terms limits liability for death or personal injury caused by negligence, for fraud, or for anything else that cannot be limited by law.</p>
+        <p>The Service is provided "as is", to the extent the law allows. To the extent permitted by law, we are not liable for indirect or consequential losses, lost profits, lost revenue, loss of data or loss of audience or reach, and our total liability to you for any claim is limited to the amount you paid us in the 12 months before the claim. Nothing in these terms limits liability for death or personal injury caused by negligence, for fraud, or for anything else that cannot be limited by law, including your rights under the Consumer Protection Act.</p>
       </section>
 
       <section>
         <h2>10. General</h2>
-        <p>These terms are governed by the laws of England and Wales, and the courts of England and Wales have jurisdiction, although if you are a consumer you may also bring proceedings where you live. We may update these terms; we will post changes here and notify you of significant changes. Continuing to use the Service after changes take effect means you accept them. Questions? Contact <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.</p>
+        <p>These terms are governed by the laws of the Republic of South Africa, and the South African courts have jurisdiction, although if you are a consumer you may also have the right to bring proceedings where you live. We may update these terms; we will post changes here and notify you of significant changes. Continuing to use the Service after changes take effect means you accept them. Questions? Contact <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.</p>
+      </section>
+
+      <section>
+        <h2>11. About us</h2>
+        <CompanyDetails />
       </section>
     </LegalShell>
   );

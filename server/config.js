@@ -108,9 +108,11 @@ export const config = {
   paystack: {
     secretKey: env.PAYSTACK_SECRET_KEY || '',
     baseUrl: env.PAYSTACK_BASE_URL || 'https://api.paystack.co',
-    // Blank = the account's own currency (NGN, GHS, ZAR, KES, USD or XOF).
+    // The currency Paystack charges in. Blank = the account's own (ZAR, NGN, GHS, KES, USD or XOF).
     currency: (env.PAYSTACK_CURRENCY || '').toUpperCase(),
-    // Monthly prices in that currency: "free=9000,starter=29000,daily=59000,pro=99000".
+    // Prices are in USD and converted at the day's rate; this fixes the rate (units per 1 USD)...
+    exchangeRate: Number(env.PAYSTACK_EXCHANGE_RATE) || 0,
+    // ...and this fixes exact amounts in the charge currency: "free=99,starter=310,daily=640,pro=1130".
     prices: Object.fromEntries((env.PAYSTACK_PRICES || '').split(',').map((pair) => pair.split('=').map((x) => x.trim()))
       .filter(([id, amount]) => id && Number(amount) > 0).map(([id, amount]) => [id, Number(amount)])),
   },

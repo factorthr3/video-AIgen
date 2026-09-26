@@ -49,63 +49,110 @@ async function ensureCurrency() {
   return currency();
 }
 
-export async function warmUp() {
-  if (!enabled()) return;
-  try {
-    console.log(`[paystack] currency: ${await ensureCurrency()}`);
-  } catch (err) {
-    console.error('[paystack] could not detect the account currency:', err.message);
+// ---------- prices ----------
+// Prices are set in US dollars (the catalog). Paystack charges in the
+// account's currency (rand in South Africa), so the dollar price is converted
+// at the day's exchange rate and rounded up to a whole unit. A Paystack plan
+// is reused while its amount is within 3% of today's conversion, so small rate
+// moves don't create new plans; subscribers keep the amount they signed up at.
+// PAYSTACK_EXCHANGE_RATE fixes the rate; PAYSTACK_PRICES fixes exact amounts.
+const REFRESH_MS = 12 * 3600_000;
+const REPRICE_AT = 0.03;
+let fx = null; // { currency, rate, at }
+
+async function fetchRate(to) {
+  const sources = [
+    [`https://api.frankfurter.app/latest?from=USD&to=${to}`, (d) => d.rates?.[to]],
+    ['https://open.er-api.com/v6/latest/USD', (d) => d.rates?.[to]],
+  ];
+  for (const [url, pick] of sources) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+      const rate = Number(pick(await res.json()));
+      if (rate > 0) return rate;
+    } catch {
+      // try the next source
+    }
   }
+  return null;
 }
 
-// Starting prices per Paystack currency, roughly the catalog's dollar prices
-// rounded to local price points. PAYSTACK_PRICES overrides any of them.
-const LOCAL_PRICES = {
-  USD: Object.fromEntries(PLANS.map((p) => [p.id, p.price])),
-  NGN: { free: 9000, starter: 29000, daily: 59000, pro: 99000 },
-  GHS: { free: 90, starter: 290, daily: 590, pro: 990 },
-  ZAR: { free: 109, starter: 349, daily: 699, pro: 1249 },
-  KES: { free: 790, starter: 2490, daily: 4990, pro: 8990 },
-  XOF: { free: 3500, starter: 11500, daily: 23500, pro: 41500 },
-};
-
-function priceFor(planId) {
-  return config.paystack.prices[planId] ?? LOCAL_PRICES[currency()]?.[planId] ?? null;
+function currentRate() {
+  if (currency() === 'USD') return 1;
+  if (config.paystack.exchangeRate) return config.paystack.exchangeRate;
+  return fx?.currency === currency() ? fx.rate : null;
 }
 
+async function ensureRate() {
+  const stale = !fx || fx.currency !== currency() || Date.now() - fx.at > REFRESH_MS;
+  if (currency() !== 'USD' && !config.paystack.exchangeRate && stale) {
+    const rate = await fetchRate(currency());
+    if (rate) fx = { currency: currency(), rate, at: Date.now() };
+    else console.error(`[paystack] could not fetch the USD→${currency()} rate${currentRate() ? '; keeping the last one' : ''}`);
+  }
+  if (!currentRate()) throw httpError(503, 'Payments are temporarily unavailable. Please try again in a moment.');
+  return currentRate();
+}
+
+/** What a plan costs in the Paystack currency (major units), or null until the rate is known. */
+function chargeFor(planId) {
+  if (config.paystack.prices[planId]) return config.paystack.prices[planId];
+  const rate = currentRate();
+  if (!rate) return null;
+  return currency() === 'USD' ? PLAN[planId].price : Math.ceil(PLAN[planId].price * rate);
+}
+
+/** Dollar prices, plus what is actually charged when that isn't dollars. */
 export function displayPlans() {
-  if (!currency()) return PLANS;
+  const cur = currency();
+  if (!cur || cur === 'USD') return PLANS;
   return PLANS.map((p) => {
-    const price = priceFor(p.id);
-    return { ...p, price: price ?? p.price, priceMissing: price == null };
+    const amount = planCache.get(p.id)?.amount ?? chargeFor(p.id);
+    return amount ? { ...p, charge: { amount, currency: cur.toLowerCase() } } : p;
   });
 }
 
 // ---------- plans ----------
 const planName = (planId) => `BlackCell ${PLAN[planId].name}`;
-const planCodes = new Map();
+const planCache = new Map(); // planId → { code, amount, at }
 const planIdByCode = new Map();
 
-async function planCodeFor(planId) {
-  if (planCodes.has(planId)) return planCodes.get(planId);
-  const price = priceFor(planId);
-  if (price == null) {
-    console.error(`[paystack] no ${currency()} price for "${planId}": set PAYSTACK_PRICES, e.g. free=90,starter=290,daily=590,pro=990`);
-    throw httpError(503, 'Plans are being set up. Please try again soon.');
-  }
-  const amount = Math.round(price * 100);
-  const existing = (await ps(`/plan?perPage=100&interval=monthly&amount=${amount}`)) || [];
-  let plan = existing.find((p) => p.name === planName(planId) && String(p.currency).toUpperCase() === currency()
-    && Number(p.amount) === amount && !p.is_deleted && !p.is_archived);
-  if (!plan) {
-    plan = await ps('/plan', {
-      method: 'POST',
-      body: { name: planName(planId), amount, interval: 'monthly', currency: currency(), description: `${planName(planId)} plan, billed monthly` },
-    });
-  }
-  planCodes.set(planId, plan.plan_code);
+async function planFor(planId) {
+  const cached = planCache.get(planId);
+  if (cached && Date.now() - cached.at < REFRESH_MS) return cached;
+  await ensureCurrency();
+  await ensureRate();
+  const amount = Math.round(chargeFor(planId) * 100);
+  const exact = Boolean(config.paystack.prices[planId]) || currency() === 'USD';
+  const near = (p) => (exact ? Number(p.amount) === amount : Math.abs(Number(p.amount) - amount) / amount <= REPRICE_AT);
+  const existing = ((await ps('/plan?perPage=100&interval=monthly')) || [])
+    .filter((p) => p.name === planName(planId) && String(p.currency).toUpperCase() === currency() && !p.is_deleted && !p.is_archived && near(p))
+    .sort((a, b) => Math.abs(a.amount - amount) - Math.abs(b.amount - amount));
+  const plan = existing[0] || await ps('/plan', {
+    method: 'POST',
+    body: { name: planName(planId), amount, interval: 'monthly', currency: currency(), description: `${planName(planId)} plan, billed monthly` },
+  });
+  const entry = { code: plan.plan_code, amount: Number(plan.amount) / 100, at: Date.now() };
+  planCache.set(planId, entry);
   planIdByCode.set(plan.plan_code, planId);
-  return plan.plan_code;
+  return entry;
+}
+
+/** Look up the currency, rate and plans at startup, then twice a day, so shown prices match checkout. */
+export async function warmUp() {
+  if (!enabled()) return;
+  const refresh = async () => {
+    try {
+      await ensureCurrency();
+      for (const p of PLANS) await planFor(p.id);
+      const plans = PLANS.map((p) => `${p.id} $${p.price}${currency() === 'USD' ? '' : ` = ${planCache.get(p.id).amount} ${currency()}`}`);
+      console.log(`[paystack] ${currency()}${currency() === 'USD' ? '' : ` at ${currentRate()}/USD`}: ${plans.join(', ')}`);
+    } catch (err) {
+      console.error('[paystack] price setup failed:', err.message);
+    }
+  };
+  await refresh();
+  setInterval(refresh, REFRESH_MS + 60_000).unref();
 }
 
 function planIdFrom(plan) {
@@ -179,8 +226,7 @@ function recordPayment(user, tx) {
 export async function choosePlan(user, planId) {
   if (!PLAN[planId]) throw httpError(400, 'Unknown plan.');
   return withPaystack(async () => {
-    await ensureCurrency();
-    const planCode = await planCodeFor(planId);
+    const plan = await planFor(planId);
     // A cancelled plan that has run out means a fresh checkout, not a switch.
     const lapsed = user.cancel_at_period_end && user.current_period_end && new Date(user.current_period_end) < new Date();
     const subscribed = user.paystack_subscription_code && ['active', 'past_due'].includes(user.subscription_status) && !lapsed;
@@ -189,7 +235,7 @@ export async function choosePlan(user, planId) {
       // renewing (after saving the new one, so the old one's events are ignored).
       const sub = await ps('/subscription', {
         method: 'POST',
-        body: { customer: user.paystack_customer_code, plan: planCode, authorization: user.paystack_authorization },
+        body: { customer: user.paystack_customer_code, plan: plan.code, authorization: user.paystack_authorization },
       });
       update('users', user.id, {
         plan: planId,
@@ -207,8 +253,8 @@ export async function choosePlan(user, planId) {
       method: 'POST',
       body: {
         email: user.email,
-        amount: String(Math.round(priceFor(planId) * 100)),
-        plan: planCode,
+        amount: String(Math.round(plan.amount * 100)),
+        plan: plan.code,
         currency: currency(),
         channels: ['card'], // renewals charge the saved card, so subscriptions start with one
         callback_url: `${config.appUrl}/api/paystack/return`,

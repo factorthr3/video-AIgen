@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { Logo, PlatformIcon } from '../components/ui.jsx';
 import ShowcasePhone from '../components/ShowcasePhone.jsx';
-import { useCatalog, useSession, usePrice } from '../lib.jsx';
+import { useCatalog, useSession, usePrice, formatPrice } from '../lib.jsx';
 
 const NAV = [
   ['#how', 'How it works'],
@@ -237,6 +237,7 @@ export function PricingCards({ onSelect, currentPlan, busyPlan, verb = 'Switch t
             <span className="font-display text-5xl font-extrabold">{price.format(p.price)}</span>
             <span className="text-sm text-ink-400">/month</span>
           </p>
+          {p.charge && <p className="mt-1 text-xs text-ink-400">Charged in {p.charge.currency.toUpperCase()}: {formatPrice(p.charge.amount, p.charge.currency)}/month</p>}
           <ul className="mt-6 flex-1 space-y-3 text-sm">
             {p.features.map((f) => <li key={f} className="flex gap-2.5 text-ink-300"><Check className="mt-0.5 size-4 shrink-0 text-emerald-400" />{f}</li>)}
           </ul>
