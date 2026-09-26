@@ -5,7 +5,7 @@ import {
   Wand2, Link2, Rocket, Minus,
 } from 'lucide-react';
 import { Logo, PlatformIcon } from '../components/ui.jsx';
-import PhoneDemo from '../components/PhoneDemo.jsx';
+import ShowcasePhone from '../components/ShowcasePhone.jsx';
 import { useCatalog, useSession } from '../lib.jsx';
 
 const NAV = [
@@ -77,9 +77,12 @@ function Hero() {
             {['tiktok', 'instagram', 'youtube'].map((p) => <PlatformIcon key={p} platform={p} size="sm" />)}
           </div>
         </div>
-        <div className="relative mx-auto flex items-end justify-center">
-          <PhoneDemo demo={1} small className="absolute -left-16 bottom-10 hidden rotate-[-8deg] opacity-80 sm:block" />
-          <PhoneDemo demo={0} className="relative z-10 animate-float" />
+        <div className="relative mx-auto flex flex-col items-center">
+          <div className="relative flex items-end justify-center">
+            <ShowcasePhone src="/showcase/penguin.mp4" poster="/showcase/penguin.jpg" small className="absolute -left-24 bottom-10 hidden rotate-[-8deg] opacity-80 sm:block" />
+            <ShowcasePhone src="/showcase/cleopatra.mp4" poster="/showcase/cleopatra.jpg" withSound className="relative z-10" />
+          </div>
+          <p className="chip mt-6 text-center"><Sparkles className="size-3.5 text-brand-400" /> Real BlackCell videos: script, visuals, voice and edit, all made automatically</p>
         </div>
       </div>
       <div className="relative border-y border-white/5 bg-ink-900/60">

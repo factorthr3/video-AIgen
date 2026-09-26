@@ -65,8 +65,8 @@ function layoutChunk(ctx, chunk, style, W, language) {
   const texts = chunk.words.map((w) => (upper ? w.text.toUpperCase() : w.text));
   for (;;) {
     ctx.font = captionFont(style, size, language);
-    // Extra room so the enlarged active word never touches its neighbours.
-    const space = ctx.measureText(' ').width + (style === 'minimal' ? 0 : size * 0.14);
+    // Extra room so the enlarged active word (and the highlight box's padding) never touches its neighbours.
+    const space = ctx.measureText(' ').width + ({ minimal: 0, boxed: size * 0.4 }[style] ?? size * 0.14);
     const widths = texts.map((t) => ctx.measureText(t).width);
     const lines = [];
     let line = [];
