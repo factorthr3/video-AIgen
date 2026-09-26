@@ -1,10 +1,19 @@
 // SQLite via Node's built-in driver — no native build step, one file on disk.
+import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { DATA_DIR } from './config.js';
 
-const sqlite = new DatabaseSync(path.join(DATA_DIR, 'nrrtv.db'));
+// Databases created before the rebrand were called nrrtv.db; carry them over.
+const dbFile = path.join(DATA_DIR, 'blackcell.db');
+const legacyDb = path.join(DATA_DIR, 'nrrtv.db');
+if (!fs.existsSync(dbFile) && fs.existsSync(legacyDb)) {
+  for (const suffix of ['', '-wal', '-shm']) {
+    if (fs.existsSync(legacyDb + suffix)) fs.renameSync(legacyDb + suffix, dbFile + suffix);
+  }
+}
+const sqlite = new DatabaseSync(dbFile);
 sqlite.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
 
 sqlite.exec(`

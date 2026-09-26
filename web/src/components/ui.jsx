@@ -1,14 +1,30 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { Camera, Music2, Play, LoaderCircle, CircleCheck, TriangleAlert, Clock, Pause, Volume2 } from 'lucide-react';
+
+// The BlackCell mark: a black hexagonal cell with a glowing gradient edge and a play button.
+export function LogoMark({ className = 'size-9' }) {
+  const id = useId();
+  return (
+    <svg viewBox="0 0 40 40" className={`${className} drop-shadow-[0_4px_14px_rgba(236,72,153,0.45)]`} aria-hidden="true">
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#8b5cf6" />
+          <stop offset="0.55" stopColor="#ec4899" />
+          <stop offset="1" stopColor="#f97316" />
+        </linearGradient>
+      </defs>
+      <path d="M20 3 34.7 11.5v17L20 37 5.3 28.5v-17Z" fill="#0b0b12" stroke={`url(#${id})`} strokeWidth="2.6" strokeLinejoin="round" />
+      <path d="M16.5 13.8v12.4l10-6.2Z" fill={`url(#${id})`} />
+    </svg>
+  );
+}
 
 export function Logo({ to = '/', className = '' }) {
   return (
     <Link to={to} className={`flex items-center gap-2.5 ${className}`}>
-      <span className="grid size-9 place-items-center rounded-xl bg-gradient-brand shadow-lg shadow-hot-500/30">
-        <Play className="size-4 fill-white text-white" />
-      </span>
-      <span className="font-display text-xl font-extrabold tracking-tight">Nrrtv</span>
+      <LogoMark />
+      <span className="font-display text-xl font-extrabold tracking-tight">Black<span className="text-gradient">Cell</span></span>
     </Link>
   );
 }
@@ -137,12 +153,12 @@ export function AudioPreview({ src, label = 'Preview' }) {
       return;
     }
     // Only one preview plays at a time across the page.
-    window.dispatchEvent(new CustomEvent('nrrtv:preview'));
+    window.dispatchEvent(new CustomEvent('blackcell:preview'));
     setState('loading');
     audio.current = new Audio(src);
     audio.current.onended = () => setState('idle');
     const stop = () => { audio.current?.pause(); setState('idle'); };
-    window.addEventListener('nrrtv:preview', stop, { once: true });
+    window.addEventListener('blackcell:preview', stop, { once: true });
     try {
       await audio.current.play();
       setState('playing');

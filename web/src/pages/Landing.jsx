@@ -64,7 +64,7 @@ function Hero() {
             Faceless videos that <span className="text-gradient">make — and post —</span> themselves.
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-300">
-            Pick a niche. Nrrtv writes the script, generates the visuals, records the voiceover, adds captions and music,
+            Pick a niche. BlackCell writes the script, generates the visuals, records the voiceover, adds captions and music,
             then posts to TikTok, Instagram and YouTube on your schedule. <span className="text-white">Everything handled.</span>
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -110,7 +110,7 @@ function Niches() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <p className="text-sm font-semibold uppercase tracking-widest text-brand-400">Niches</p>
         <h2 className="mt-3 max-w-2xl font-display text-4xl font-extrabold tracking-tight sm:text-5xl">A channel for every niche. Or invent your own.</h2>
-        <p className="mt-4 max-w-2xl text-ink-300">Start from a proven faceless format, or describe any topic and Nrrtv builds a series around it.</p>
+        <p className="mt-4 max-w-2xl text-ink-300">Start from a proven faceless format, or describe any topic and BlackCell builds a series around it.</p>
       </div>
       <div className="relative mt-12 overflow-hidden [mask-image:linear-gradient(90deg,transparent,#000_8%,#000_92%,transparent)]">
         <div className="flex w-max animate-marquee gap-4 hover:[animation-play-state:paused]">
@@ -203,7 +203,7 @@ function Comparison() {
           <div className="grid grid-cols-[1.3fr_1fr_1fr] border-b border-white/8 bg-white/[0.02] text-sm font-semibold">
             <div className="p-4" />
             <div className="p-4 text-ink-400">Doing it yourself</div>
-            <div className="p-4 text-gradient">With Nrrtv</div>
+            <div className="p-4 text-gradient">With BlackCell</div>
           </div>
           {rows.map(([label, diy, us]) => (
             <div key={label} className="grid grid-cols-[1.3fr_1fr_1fr] border-b border-white/5 text-sm last:border-0">
@@ -264,7 +264,7 @@ function Pricing() {
 
 const FAQS = [
   ['What is a faceless video?', "A short video where you never appear on camera: narration over visuals, with captions. It's one of the fastest ways to grow on TikTok, Reels and Shorts without showing your face."],
-  ['Do I need any editing skills?', 'None. Nrrtv writes, voices, illustrates, captions and edits every video. You can tweak the script if you want to, but you never have to.'],
+  ['Do I need any editing skills?', 'None. BlackCell writes, voices, illustrates, captions and edits every video. You can tweak the script if you want to, but you never have to.'],
   ['Which platforms can it post to?', 'TikTok, Instagram Reels and YouTube Shorts, through their official APIs. You connect each account once and pick which ones each series posts to.'],
   ['Can I review videos before they go live?', 'Yes. Turn off auto-post on a series and new videos wait in your library until you post them.'],
   ['Will my videos be unique?', 'Every script is written fresh, and each series remembers what it has already posted so it never repeats a story.'],
@@ -303,7 +303,7 @@ function FinalCta() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,.25),transparent_40%)]" />
           <Rocket className="relative mx-auto size-10" />
           <h2 className="relative mt-5 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Your first video is five minutes away.</h2>
-          <p className="relative mx-auto mt-4 max-w-xl text-white/85">Pick a niche, hit create, and watch Nrrtv do the rest. Free to start.</p>
+          <p className="relative mx-auto mt-4 max-w-xl text-white/85">Pick a niche, hit create, and watch BlackCell do the rest. Free to start.</p>
           <Link to="/signup" className="btn relative mt-8 bg-white px-7 py-3.5 text-base text-ink-950 hover:bg-white/90">Create your first video <ArrowRight className="size-4" /></Link>
         </div>
       </div>
@@ -317,7 +317,7 @@ function Footer() {
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 text-sm text-ink-400 sm:px-6">
         <Logo />
         <p>AI faceless video generator for TikTok, Reels & Shorts.</p>
-        <p>© {new Date().getFullYear()} Nrrtv</p>
+        <p>© {new Date().getFullYear()} BlackCell</p>
       </div>
     </footer>
   );

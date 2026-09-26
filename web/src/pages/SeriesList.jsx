@@ -16,7 +16,7 @@ export default function SeriesList() {
       <PageHeader title="Series" subtitle="Each series is a channel on autopilot." actions={<Link to="/app/series/new" className="btn-primary"><Plus className="size-4" /> New series</Link>} />
       {data.series.length === 0 ? (
         <EmptyState icon={Layers} title="No series yet" action={<Link to="/app/series/new" className="btn-primary"><Plus className="size-4" /> Create your first series</Link>}>
-          Pick a niche, a look and a schedule, and Nrrtv creates and posts new videos for you.
+          Pick a niche, a look and a schedule, and BlackCell creates and posts new videos for you.
         </EmptyState>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

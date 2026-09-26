@@ -1,6 +1,8 @@
-# Nrrtv: AI faceless video generator
+# BlackCell: AI faceless video generator
 
-**Pick a niche, and Nrrtv handles the rest.** It writes the script, generates the visuals, records the voiceover, adds animated captions and music, renders a vertical video, then posts it to TikTok, Instagram Reels and YouTube Shorts on your schedule.
+Live at **[blackcell.ai](https://blackcell.ai)** (once deployed).
+
+**Pick a niche, and BlackCell handles the rest.** It writes the script, generates the visuals, records the voiceover, adds animated captions and music, renders a vertical video, then posts it to TikTok, Instagram Reels and YouTube Shorts on your schedule.
 
 It's inspired by products like FacelessReels: set up a *series* once (niche, look, voice, schedule, accounts) and it keeps the channel running on autopilot.
 

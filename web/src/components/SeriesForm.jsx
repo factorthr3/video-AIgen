@@ -62,7 +62,7 @@ export function NichePicker({ catalog, form, setForm }) {
         <button type="button" data-selected={form.niche === 'custom'} className="option border-dashed" onClick={() => setForm((f) => ({ ...f, niche: 'custom' }))}>
           <Wand2 className="size-6 text-brand-400" />
           <p className="mt-3 font-semibold">Custom topic</p>
-          <p className="mt-1 text-xs leading-snug text-ink-400">Describe any niche and Nrrtv writes for it</p>
+          <p className="mt-1 text-xs leading-snug text-ink-400">Describe any niche and BlackCell writes for it</p>
         </button>
       </div>
       {form.niche === 'custom' && (

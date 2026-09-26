@@ -29,7 +29,7 @@ export default function Videos() {
 
   return (
     <>
-      <PageHeader title="Videos" subtitle="Everything Nrrtv has made for you." actions={<Link to="/app/series/new" className="btn-primary"><Plus className="size-4" /> New series</Link>} />
+      <PageHeader title="Videos" subtitle="Everything BlackCell has made for you." actions={<Link to="/app/series/new" className="btn-primary"><Plus className="size-4" /> New series</Link>} />
       <div className="mb-6 flex flex-wrap gap-2">
         {FILTERS.map(([k, label]) => (
           <button key={k} onClick={() => setFilter(k)} className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${filter === k ? 'bg-white text-ink-950' : 'bg-white/5 text-ink-300 hover:bg-white/10'}`}>{label}</button>

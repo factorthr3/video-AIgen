@@ -98,7 +98,7 @@ app.use((err, req, res, next) => {
 
 app.listen(config.port, () => {
   const p = providerStatus();
-  console.log(`Nrrtv API on http://localhost:${config.port}  (app: ${config.appUrl})`);
+  console.log(`BlackCell API on http://localhost:${config.port}  (app: ${config.appUrl})`);
   console.log(`  scripts: ${p.script.provider}${p.script.model ? ` (${p.script.model})` : ''} · images: ${p.images.provider} · voice: ${p.voice.provider}`);
   resumePendingJobs();
   if (config.schedulerEnabled) startScheduler();

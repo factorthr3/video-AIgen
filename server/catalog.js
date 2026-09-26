@@ -237,7 +237,7 @@ export const DURATIONS = [
 ];
 
 export const PLANS = [
-  { id: 'free', name: 'Free', price: 0, videosPerMonth: 3, series: 1, watermark: true, features: ['3 videos / month', '1 series', 'All niches & styles', 'Nrrtv watermark'] },
+  { id: 'free', name: 'Free', price: 0, videosPerMonth: 3, series: 1, watermark: true, features: ['3 videos / month', '1 series', 'All niches & styles', 'BlackCell watermark'] },
   { id: 'starter', name: 'Starter', price: 19, videosPerMonth: 12, series: 1, watermark: false, features: ['3 videos / week', '1 series', 'Auto-post to all platforms', 'No watermark'] },
   { id: 'daily', name: 'Daily', price: 39, videosPerMonth: 31, series: 1, watermark: false, popular: true, features: ['1 video every day', '1 series', 'Auto-post to all platforms', 'Premium voices', 'No watermark'] },
   { id: 'pro', name: 'Pro', price: 69, videosPerMonth: 93, series: 3, watermark: false, features: ['3 videos every day', '3 series', 'Auto-post to all platforms', 'Premium voices', 'Priority rendering'] },

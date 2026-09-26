@@ -141,7 +141,7 @@ const send = (res, file, type) => {
 router.get('/:id/file', (req, res) => {
   const v = getOwned(req);
   if (req.query.download) {
-    const safe = (v.title || 'nrrtv-video').replace(/[^\w\- ]+/g, '').trim().slice(0, 60) || 'nrrtv-video';
+    const safe = (v.title || 'blackcell-video').replace(/[^\w\- ]+/g, '').trim().slice(0, 60) || 'blackcell-video';
     res.attachment(`${safe}.mp4`);
   }
   send(res, videoFile(v.id), 'video/mp4');

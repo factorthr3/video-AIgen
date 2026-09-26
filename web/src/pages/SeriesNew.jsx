@@ -6,7 +6,7 @@ import { NichePicker, StylePicker, SchedulePicker, Section, defaultForm } from '
 import { api, useApi, useCatalog, useSession, byId, describeDays } from '../lib.jsx';
 
 const STEPS = ['Niche', 'Look & voice', 'Schedule', 'Review'];
-const DRAFT_KEY = 'nrrtv:series-draft';
+const DRAFT_KEY = 'blackcell:series-draft';
 
 // The wizard draft survives a detour (e.g. upgrading the plan) within the session.
 function loadDraft() {
@@ -89,7 +89,7 @@ export default function SeriesNew() {
 
   return (
     <>
-      <PageHeader title="Create a series" subtitle="Set it up once. Nrrtv keeps the channel running." />
+      <PageHeader title="Create a series" subtitle="Set it up once. BlackCell keeps the channel running." />
 
       <ol className="mb-10 flex flex-wrap items-center gap-2">
         {STEPS.map((s, i) => (

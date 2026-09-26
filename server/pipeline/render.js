@@ -281,7 +281,7 @@ function bottomShade(W, H) {
 function drawWatermark(ctx, W, H) {
   ctx.save();
   ctx.font = '34px "Poppins SemiBold"';
-  const text = 'Made with Nrrtv';
+  const text = 'Made with BlackCell';
   const w = ctx.measureText(text).width + 44;
   ctx.globalAlpha = 0.85;
   ctx.fillStyle = 'rgba(0,0,0,0.45)';

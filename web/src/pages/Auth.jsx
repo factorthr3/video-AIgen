@@ -68,7 +68,7 @@ export function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
   const oauthError = params.get('error');
   return (
-    <AuthShell title="Welcome back" subtitle="Sign in to your autopilot." footer={<>New to Nrrtv? <Link to="/signup" className="font-semibold text-white hover:underline">Create an account</Link></>}>
+    <AuthShell title="Welcome back" subtitle="Sign in to your autopilot." footer={<>New to BlackCell? <Link to="/signup" className="font-semibold text-white hover:underline">Create an account</Link></>}>
       {(error || oauthError) && <Alert>{error || (oauthError === 'google_not_configured' ? 'Google sign-in is not configured on this server.' : oauthError)}</Alert>}
       <GoogleButton />
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); submit(form); }}>

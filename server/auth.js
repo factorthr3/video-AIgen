@@ -6,7 +6,7 @@ import { config } from './config.js';
 import { db, insert, newId, now } from './db.js';
 
 const scrypt = promisify(crypto.scrypt);
-const SESSION_COOKIE = 'nrrtv_session';
+const SESSION_COOKIE = 'blackcell_session';
 const SESSION_DAYS = 30;
 
 export async function hashPassword(password) {

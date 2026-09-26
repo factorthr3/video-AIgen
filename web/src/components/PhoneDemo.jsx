@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Heart, MessageCircle, Share2, Bookmark, Music2 } from 'lucide-react';
 
-// A looping, fully client-side imitation of a finished Nrrtv video: gradient
+// A looping, fully client-side imitation of a finished BlackCell video: gradient
 // "scenes" with Ken Burns motion and karaoke captions.
 const DEMOS = [
   {
@@ -85,7 +85,7 @@ export default function PhoneDemo({ demo = 0, className = '', small = false }) {
         <div className="absolute inset-x-3 bottom-5 text-left text-white">
           <p className="text-xs font-bold">{d.handle}</p>
           <p className="mt-1 line-clamp-2 text-[11px] text-white/85">{d.caption}</p>
-          <p className="mt-1.5 flex items-center gap-1 text-[10px] text-white/70"><Music2 className="size-3" /> original sound · Nrrtv</p>
+          <p className="mt-1.5 flex items-center gap-1 text-[10px] text-white/70"><Music2 className="size-3" /> original sound · BlackCell</p>
         </div>
       </div>
     </div>
