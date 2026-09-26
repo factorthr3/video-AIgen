@@ -22,7 +22,7 @@ export function publicVideo(v) {
     title: v.title,
     description: v.description,
     hashtags: parseJson(v.hashtags, []),
-    scenes: script?.scenes?.map((sc) => ({ narration: sc.narration, visual: sc.visual })) || [],
+    scenes: script?.scenes?.map((sc) => ({ narration: sc.narration, visual: sc.visual, motion: sc.motion || '' })) || [],
     scriptSource: script?.source || null,
     settings: parseJson(v.settings, {}),
     duration: v.duration,
@@ -88,7 +88,11 @@ router.patch('/:id', (req, res) => {
   if (Array.isArray(body.scenes)) {
     if (['queued', 'processing'].includes(v.status)) throw new HttpError(409, 'Wait for the current render to finish before editing the script.');
     const scenes = body.scenes
-      .map((sc) => ({ narration: String(sc.narration || '').trim().slice(0, 600), visual: String(sc.visual || '').trim().slice(0, 600) }))
+      .map((sc) => ({
+        narration: String(sc.narration || '').trim().slice(0, 600),
+        visual: String(sc.visual || '').trim().slice(0, 600),
+        motion: String(sc.motion || '').trim().slice(0, 400),
+      }))
       .filter((sc) => sc.narration);
     if (!scenes.length) throw new HttpError(400, 'A video needs at least one scene.');
     const script = parseJson(v.script, {});

@@ -1,10 +1,11 @@
-// Orchestrates a video from settings to MP4: script → images → voice → audio
-// mix → frame render. Runs jobs through a small in-process queue (rendering is
-// CPU-bound, so one at a time by default) and persists progress to the DB so
-// the UI can poll it and restarts can resume.
+// Orchestrates a video from settings to MP4: script → images → voice →
+// AI video clips → audio mix → frame render. Jobs run through a small
+// in-process queue; the remote stages overlap across jobs while the CPU-bound
+// render runs one at a time. Progress is persisted so the UI can poll it and
+// restarts can resume.
 import fs from 'node:fs';
 import path from 'node:path';
-import { MEDIA_DIR, resolveImageProvider, resolveTtsProvider } from '../config.js';
+import { config, MEDIA_DIR, resolveImageProvider, resolveTtsProvider } from '../config.js';
 import { PLAN } from '../catalog.js';
 import { db, update, now, parseJson } from '../db.js';
 import { writeScript } from './script.js';
@@ -13,10 +14,12 @@ import { speak } from './tts.js';
 import { timeWords, chunkWords } from './captions.js';
 import { buildAudioTrack, renderVideo } from './render.js';
 import { musicTrack } from './music.js';
+import { generateSceneClips } from './clips.js';
 
 const SCENE_GAP = 0.25; // breath between scenes
 const TAIL = 0.9; // hold on the last image after narration ends
-const CONCURRENCY = Number(process.env.RENDER_CONCURRENCY || 1);
+const CONCURRENCY = Number(process.env.JOB_CONCURRENCY || 3); // jobs in flight (mostly waiting on APIs)
+const RENDER_SLOTS = Number(process.env.RENDER_CONCURRENCY || 1); // CPU-bound final renders at once
 
 export const videoDir = (id) => path.join(MEDIA_DIR, id);
 export const videoFile = (id) => path.join(videoDir(id), 'video.mp4');
@@ -30,7 +33,25 @@ function setStage(id, stage, progress, extra = {}) {
 }
 
 // Stage weights for the overall progress bar.
-const W = { script: 0.1, images: 0.35, voice: 0.2, render: 0.35 };
+const WEIGHTS = {
+  still: { script: 0.1, images: 0.35, voice: 0.2, clips: 0, render: 0.35 },
+  video: { script: 0.05, images: 0.2, voice: 0.1, clips: 0.4, render: 0.25 },
+};
+
+// Simple semaphore so only RENDER_SLOTS renders use the CPU at once.
+let renderSlotsFree = RENDER_SLOTS;
+const renderWaiters = [];
+async function withRenderSlot(fn) {
+  if (renderSlotsFree > 0) renderSlotsFree--;
+  else await new Promise((resolve) => renderWaiters.push(resolve));
+  try {
+    return await fn();
+  } finally {
+    const next = renderWaiters.shift();
+    if (next) next();
+    else renderSlotsFree++;
+  }
+}
 
 async function runJob(videoId) {
   const video = db.get('SELECT * FROM videos WHERE id = ?', videoId);
@@ -40,6 +61,8 @@ async function runJob(videoId) {
   const dir = videoDir(videoId);
   fs.mkdirSync(dir, { recursive: true });
   update('videos', videoId, { status: 'processing', error: null, updated_at: now() });
+  const useClips = settings.motion !== 'still' && Boolean(config.fal.key);
+  const W = WEIGHTS[useClips ? 'video' : 'still'];
 
   // 1. Script — skipped when re-rendering an edited script.
   let script = parseJson(video.script, null);
@@ -67,60 +90,81 @@ async function runJob(videoId) {
     onProgress: (p) => setStage(videoId, 'Generating visuals', W.script + W.images * p),
   });
 
-  // 3. Voiceover, one clip per scene
-  const base = W.script + W.images;
-  const clips = [];
+  // 3. Voiceover, one audio clip per scene
+  let progress = W.script + W.images;
+  const voices = [];
   for (let i = 0; i < scenes.length; i++) {
-    setStage(videoId, 'Recording voiceover', base + W.voice * (i / scenes.length));
-    clips.push(await speak({
+    setStage(videoId, 'Recording voiceover', progress + W.voice * (i / scenes.length));
+    voices.push(await speak({
       text: scenes[i].narration, voiceId: settings.voice, language, niche: settings.niche,
       outBase: path.join(dir, `voice-${String(i).padStart(2, '0')}`),
     }));
   }
+  progress += W.voice;
 
   // Scene timeline follows the narration exactly.
   let t = 0;
   const timeline = scenes.map((scene, i) => {
-    const slot = clips[i].duration + (i === scenes.length - 1 ? TAIL : SCENE_GAP);
-    const entry = { ...scene, image: images.files[i], start: t, duration: slot, speechDuration: clips[i].duration, wordTimes: clips[i].words };
+    const slot = voices[i].duration + (i === scenes.length - 1 ? TAIL : SCENE_GAP);
+    const entry = { ...scene, image: images.files[i], start: t, duration: slot, speechDuration: voices[i].duration, wordTimes: voices[i].words };
     t += slot;
     return entry;
   });
   const totalDuration = t;
 
-  setStage(videoId, 'Mixing audio', base + W.voice);
-  const audioFile = path.join(dir, 'audio.m4a');
-  await buildAudioTrack({
-    clips: clips.map((c, i) => ({ file: c.file, slotDuration: timeline[i].duration })),
-    totalDuration,
-    musicFile: await musicTrack(settings.music),
-    out: audioFile,
+  // 4. AI video clips: each scene's image animated to the length of its narration.
+  let clips = null;
+  if (useClips) {
+    setStage(videoId, 'Animating scenes', progress);
+    const clipsStart = progress;
+    clips = await generateSceneClips({
+      timeline, dir,
+      onProgress: (p) => setStage(videoId, 'Animating scenes', clipsStart + W.clips * p),
+    });
+    timeline.forEach((entry, i) => { entry.clip = clips.files[i]; });
+    progress += W.clips;
+  }
+
+  // 5. Mix + render (CPU-bound, so these take turns across jobs).
+  const renderBase = progress;
+  setStage(videoId, 'Waiting to render', renderBase);
+  await withRenderSlot(async () => {
+    setStage(videoId, 'Mixing audio', renderBase);
+    const audioFile = path.join(dir, 'audio.m4a');
+    await buildAudioTrack({
+      clips: voices.map((v, i) => ({ file: v.file, slotDuration: timeline[i].duration })),
+      totalDuration,
+      musicFile: await musicTrack(settings.music),
+      out: audioFile,
+    });
+
+    setStage(videoId, 'Rendering video', renderBase);
+    const words = timeWords(timeline, language);
+    const chunks = chunkWords(words, settings.captionStyle);
+    await renderVideo({
+      scenes: timeline, chunks,
+      captionStyle: settings.captionStyle, language,
+      watermark: PLAN[owner?.plan]?.watermark ?? true,
+      audioFile, out: videoFile(videoId), thumbOut: thumbFile(videoId),
+      onProgress: (p) => setStage(videoId, 'Rendering video', renderBase + W.render * p),
+    });
   });
 
-  // 4. Render
-  const renderBase = base + W.voice;
-  setStage(videoId, 'Rendering video', renderBase);
-  const words = timeWords(timeline, language);
-  const chunks = chunkWords(words, settings.captionStyle);
-  await renderVideo({
-    scenes: timeline, chunks,
-    captionStyle: settings.captionStyle, language,
-    watermark: PLAN[owner?.plan]?.watermark ?? true,
-    audioFile, out: videoFile(videoId), thumbOut: thumbFile(videoId),
-    onProgress: (p) => setStage(videoId, 'Rendering video', renderBase + W.render * p),
-  });
-
-  // Clean up intermediates but keep scene images (shown in the editor).
+  // Clean up intermediates but keep scene images and clips (reused on re-render).
   for (const f of fs.readdirSync(dir)) if (/^voice-.*\.wav$|^audio\.m4a$/.test(f)) fs.rmSync(path.join(dir, f), { force: true });
 
-  const voiceClip = clips.find((c) => c.provider !== 'system') || clips[0];
+  const voiceClip = voices.find((v) => v.provider !== 'system') || voices[0];
   const voiceProvider = voiceClip ? [voiceClip.provider, voiceClip.model].filter(Boolean).join(' · ') : null;
+  const clipCount = clips ? clips.files.filter(Boolean).length : 0;
   update('videos', videoId, {
     status: 'ready', stage: null, progress: 1, duration: totalDuration, updated_at: now(),
     providers: JSON.stringify({
       script: script.edited ? `${script.source} (edited)` : script.source, scriptModel: script.model || null,
       images: [images.provider, images.model].filter(Boolean).join(' · '), imageFallbacks: images.failures.length,
-      voice: voiceProvider, voiceErrors: clips.filter((c) => c.error).length,
+      voice: voiceProvider, voiceErrors: voices.filter((v) => v.error).length,
+      video: clips ? `fal · ${clips.model.replace(/^fal-ai\//, '')}` : 'pan & zoom',
+      clips: clips ? `${clipCount}/${scenes.length}` : null,
+      clipErrors: clips?.failures.length || 0,
     }),
   });
 }

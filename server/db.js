@@ -118,6 +118,7 @@ function ensureColumn(table, column, definition) {
 ensureColumn('videos', 'publish_at', 'TEXT');
 ensureColumn('videos', 'auto_posted', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('posts', 'note', 'TEXT');
+ensureColumn('series', 'motion', "TEXT NOT NULL DEFAULT 'video'");
 
 const stmtCache = new Map();
 function stmt(sql) {

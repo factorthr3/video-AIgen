@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { Check, Upload, Wand2, Plus } from 'lucide-react';
+import { Check, Upload, Wand2, Plus, Clapperboard, Images } from 'lucide-react';
 import { AudioPreview, PlatformIcon, platformLabel } from './ui.jsx';
 import { api, DAYS } from '../lib.jsx';
 
@@ -16,6 +16,7 @@ export const defaultForm = (catalog) => {
     captionStyle: 'bold',
     music: niche.music,
     duration: 60,
+    motion: catalog.providers?.video?.provider ? 'video' : 'still',
     schedule: { days: [0, 1, 2, 3, 4, 5, 6], time: '18:00', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' },
     autoPost: true,
     accountIds: [],
@@ -98,8 +99,30 @@ export function StylePicker({ catalog, form, setForm }) {
     }
   };
 
+  const videoReady = Boolean(catalog.providers?.video?.provider);
+  const klingPricing = /kling-video\/v3\/pro/.test(catalog.providers?.video?.model || '');
   return (
     <>
+      <Section title="Visuals">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {catalog.motion.map((m) => {
+            const disabled = m.id === 'video' && !videoReady;
+            const Icon = m.id === 'video' ? Clapperboard : Images;
+            return (
+              <button key={m.id} type="button" disabled={disabled} data-selected={form.motion === m.id} className="option flex items-start gap-3 disabled:cursor-not-allowed disabled:opacity-60" onClick={() => set('motion')(m.id)}>
+                <Icon className="mt-0.5 size-5 shrink-0 text-brand-400" />
+                <div>
+                  <p className="flex items-center gap-2 font-semibold">{m.name}{m.id === 'video' && <span className="chip py-0 text-[10px] uppercase">Premium</span>}</p>
+                  <p className="mt-1 text-xs leading-snug text-ink-400">{m.description}</p>
+                  {m.id === 'video' && videoReady && klingPricing && <p className="mt-1.5 text-xs text-ink-400">Kling v3 Pro · about $0.11 per second of video, so roughly $3.50 per 30s</p>}
+                  {disabled && <p className="mt-1.5 text-xs text-amber-300/90">Add FAL_KEY to the server's .env to enable.</p>}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </Section>
+
       <Section title="Art style">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {catalog.artStyles.map((a) => (

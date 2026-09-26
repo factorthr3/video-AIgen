@@ -15,6 +15,7 @@ const ScriptSchema = z.object({
   scenes: z.array(z.object({
     narration: z.string().describe('What the narrator says during this scene, in the target language'),
     visual: z.string().describe('English image-generation prompt describing exactly what is on screen'),
+    motion: z.string().describe('English prompt for animating that image into a short video clip: what moves and how the camera moves'),
   })),
 });
 
@@ -29,6 +30,7 @@ What makes these videos work:
 Scene rules:
 - Each scene is one or two sentences of narration (about 8-20 words) that will be on screen for roughly 3-6 seconds.
 - Each visual prompt describes a single striking, concrete image in English: subject, setting, lighting, camera framing. If a character recurs, repeat the same physical description so images stay consistent. Never ask for text, captions, logos or watermarks in the image. Keep visuals non-graphic.
+- Each motion prompt (English, one sentence) says how that image comes alive as a 3-10 second clip: the subject's action and the camera move (e.g. "The wave surges toward the camera as debris tumbles; slow push-in"). Keep motion physically plausible and continuous with the image, with no cuts and no new characters appearing.
 
 Accuracy: when the niche is factual (history, science, true crime, religion, facts), only state things that are true and well established. Use real names, dates and figures only when you are confident they are correct; otherwise leave the detail out.`;
 

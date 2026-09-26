@@ -35,6 +35,8 @@ export default function SeriesNew() {
 
   useEffect(() => {
     if (catalog && !form) setForm(defaultForm(catalog));
+    // Drafts saved before the Visuals option existed.
+    else if (catalog && form && !form.motion) setForm((f) => ({ ...f, motion: defaultForm(catalog).motion }));
   }, [catalog, form]);
   useEffect(() => {
     if (form) saveDraft({ form, step });
@@ -72,6 +74,7 @@ export default function SeriesNew() {
 
   const summary = [
     ['Niche', form.niche === 'custom' ? `Custom: ${form.customTopic}` : `${niche.emoji} ${niche.name}`],
+    ['Visuals', byId(catalog.motion)[form.motion]?.name],
     ['Art style', byId(catalog.artStyles)[form.artStyle]?.name],
     ['Voice', `${byId(catalog.voices)[form.voice]?.name} · ${byId(catalog.languages)[form.language]?.name}`],
     ['Captions', byId(catalog.captionStyles)[form.captionStyle]?.name],

@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
+import { createCanvas, loadImage, GlobalFonts, ImageData } from '@napi-rs/canvas';
 import { config, FONTS_DIR } from '../config.js';
 import { ffmpeg } from './ffmpeg.js';
 
@@ -172,6 +172,79 @@ function drawCaption(ctx, chunk, layout, t, style, W, H) {
   ctx.restore();
 }
 
+// ---------- video clips ----------
+// Streams a clip's frames, scaled and cropped to the output size, one at a
+// time (sequential access). Past the end of the clip it holds the last frame.
+class ClipReader {
+  constructor(file, W, H, fps) {
+    this.frameSize = W * H * 4;
+    this.chunks = [];
+    this.buffered = 0;
+    this.ended = false;
+    this.index = -1;
+    this.last = null;
+    this.waiters = [];
+    this.proc = spawn(config.ffmpeg, [
+      '-hide_banner', '-loglevel', 'error', '-i', file, '-an',
+      '-vf', `scale=${W}:${H}:force_original_aspect_ratio=increase:flags=lanczos,crop=${W}:${H},fps=${fps}`,
+      '-f', 'rawvideo', '-pix_fmt', 'rgba', 'pipe:1',
+    ], { stdio: ['ignore', 'pipe', 'ignore'] });
+    this.proc.stdout.on('data', (d) => {
+      this.chunks.push(d);
+      this.buffered += d.length;
+      if (this.buffered > this.frameSize * 4) this.proc.stdout.pause();
+      this.wake();
+    });
+    const finish = () => {
+      this.ended = true;
+      this.wake();
+    };
+    this.proc.stdout.on('end', finish);
+    this.proc.on('error', finish);
+  }
+
+  wake() {
+    const waiters = this.waiters;
+    this.waiters = [];
+    waiters.forEach((resolve) => resolve());
+  }
+
+  async readOne() {
+    while (this.buffered < this.frameSize && !this.ended) {
+      this.proc.stdout.resume();
+      await new Promise((resolve) => this.waiters.push(resolve));
+    }
+    if (this.buffered < this.frameSize) return null;
+    const frame = Buffer.allocUnsafe(this.frameSize);
+    let offset = 0;
+    while (offset < this.frameSize) {
+      const chunk = this.chunks[0];
+      const take = Math.min(chunk.length, this.frameSize - offset);
+      chunk.copy(frame, offset, 0, take);
+      offset += take;
+      if (take === chunk.length) this.chunks.shift();
+      else this.chunks[0] = chunk.subarray(take);
+    }
+    this.buffered -= this.frameSize;
+    if (this.buffered < this.frameSize * 2) this.proc.stdout.resume();
+    return frame;
+  }
+
+  async frame(index) {
+    while (this.index < index) {
+      const frame = await this.readOne();
+      if (!frame) break;
+      this.last = frame;
+      this.index++;
+    }
+    return this.last;
+  }
+
+  close() {
+    this.proc.kill('SIGKILL');
+  }
+}
+
 // ---------- visuals ----------
 function kenBurns(i) {
   // Alternate zoom direction and pan so consecutive shots feel different.
@@ -221,7 +294,7 @@ function drawWatermark(ctx, W, H) {
 }
 
 /**
- * scenes: [{ image, start, duration }]
+ * scenes: [{ image, clip?, start, duration }]
  * chunks: caption chunks from captions.js (absolute times)
  */
 export async function renderVideo({ scenes, chunks, captionStyle, language, watermark, audioFile, out, thumbOut, onProgress }) {
@@ -235,6 +308,32 @@ export async function renderVideo({ scenes, chunks, captionStyle, language, wate
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext('2d');
   const layoutCache = new Map();
+
+  // Scenes with an AI clip play its frames; the rest animate their still.
+  const readers = new Map();
+  const clipCanvas = createCanvas(W, H);
+  const clipCtx = clipCanvas.getContext('2d');
+  const paintScene = async (i, local) => {
+    const scene = scenes[i];
+    if (scene.clip) {
+      if (!readers.has(i)) readers.set(i, new ClipReader(scene.clip, W, H, fps));
+      const frame = await readers.get(i).frame(Math.max(0, Math.round(local * fps)));
+      if (frame) {
+        clipCtx.putImageData(new ImageData(new Uint8ClampedArray(frame.buffer, frame.byteOffset, frame.length), W, H), 0, 0);
+        ctx.drawImage(clipCanvas, 0, 0);
+        return;
+      }
+    }
+    drawScene(ctx, images[i], motions[i], local / scene.duration, W, H);
+  };
+  const closeReadersBefore = (i) => {
+    for (const [k, reader] of readers) {
+      if (k < i) {
+        reader.close();
+        readers.delete(k);
+      }
+    }
+  };
 
   const tmp = `${out}.part.mp4`;
   const proc = spawn(config.ffmpeg, [
@@ -264,16 +363,17 @@ export async function renderVideo({ scenes, chunks, captionStyle, language, wate
       const s = scenes[sceneIdx];
       const local = t - s.start;
 
+      closeReadersBefore(sceneIdx);
       ctx.globalAlpha = 1;
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, W, H);
-      drawScene(ctx, images[sceneIdx], motions[sceneIdx], local / s.duration, W, H);
+      await paintScene(sceneIdx, local);
 
       const next = scenes[sceneIdx + 1];
       const fadeStart = s.duration - XFADE;
       if (next && local > fadeStart) {
         ctx.globalAlpha = easeInOut(clamp01((local - fadeStart) / XFADE));
-        drawScene(ctx, images[sceneIdx + 1], motions[sceneIdx + 1], (t - next.start) / next.duration, W, H);
+        await paintScene(sceneIdx + 1, t - next.start);
         ctx.globalAlpha = 1;
       }
       // Fade in from black at the very start and out at the very end.
@@ -315,6 +415,8 @@ export async function renderVideo({ scenes, chunks, captionStyle, language, wate
     proc.kill('SIGKILL');
     fs.rmSync(tmp, { force: true });
     throw err;
+  } finally {
+    closeReadersBefore(Infinity);
   }
   fs.renameSync(tmp, out);
   return { duration: totalDuration, frames: totalFrames };

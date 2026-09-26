@@ -120,6 +120,11 @@ export const ART_STYLES = [
   { id: 'vintage', name: 'Vintage Film', prompt: 'vintage 1970s photograph, film grain, faded warm colors, light leaks', palette: { sky: ['#3d2c1e', '#a1785c', '#e8d5b0'], land: '#2b2118', accent: '#fff3d6' } },
 ];
 
+export const MOTION = [
+  { id: 'video', name: 'AI video clips', description: 'Every scene becomes a real AI-generated video clip' },
+  { id: 'still', name: 'Animated images', description: 'Cinematic pan & zoom over still images' },
+];
+
 export const CAPTION_STYLES = [
   { id: 'bold', name: 'Bold Pop', description: 'Chunky uppercase, active word in yellow' },
   { id: 'boxed', name: 'Highlight Box', description: 'Active word gets a colour block' },
@@ -180,6 +185,7 @@ export const PLAN = byId(PLANS);
 export const LANGUAGE = byId(LANGUAGES);
 export const DURATION = byId(DURATIONS);
 export const MUSIC_TRACK = byId(MUSIC);
+export const MOTION_TYPE = byId(MOTION);
 
 export function catalog() {
   return {
@@ -187,6 +193,7 @@ export function catalog() {
     voices: VOICES.map(({ id, name, gender, description }) => ({ id, name, gender, description })),
     artStyles: ART_STYLES.map(({ id, name, palette }) => ({ id, name, colors: palette.sky })),
     captionStyles: CAPTION_STYLES,
+    motion: MOTION,
     music: MUSIC,
     languages: LANGUAGES.map(({ id, name }) => ({ id, name })),
     durations: DURATIONS.map(({ id, name }) => ({ id, name })),

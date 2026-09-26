@@ -6,20 +6,24 @@ import {
 import { Alert, Spinner, ProgressBar, PlatformIcon, platformLabel, StatusBadge, EmptyState } from '../components/ui.jsx';
 import { api, useApi, useCatalog, useSession, byId, formatDateTime, formatDuration } from '../lib.jsx';
 
-const STAGES = ['Writing script', 'Generating visuals', 'Recording voiceover', 'Mixing audio', 'Rendering video'];
+const STAGES = ['Writing script', 'Generating visuals', 'Recording voiceover', 'Animating scenes', 'Mixing audio', 'Rendering video'];
 const busyVideo = (v) => ['queued', 'processing'].includes(v?.status);
 const shouldPoll = (d) => busyVideo(d.video) || d.posts?.some((p) => ['pending', 'uploading'].includes(p.status));
 
-function Progress({ video }) {
-  const current = STAGES.indexOf(video.stage);
+function Progress({ video, withClips }) {
+  const stages = withClips ? STAGES : STAGES.filter((s) => s !== 'Animating scenes');
+  // "Waiting to render" sits between the remote stages and the render.
+  const current = video.stage === 'Waiting to render' ? stages.indexOf('Mixing audio') : stages.indexOf(video.stage);
   return (
     <div className="flex aspect-[9/16] w-full flex-col justify-center rounded-3xl border border-white/8 bg-gradient-to-b from-brand-600/20 via-ink-900 to-ink-900 p-8">
       <LoaderCircle className="mx-auto size-10 animate-spin text-brand-400" />
       <p className="mt-5 text-center font-display text-xl font-bold">{video.status === 'queued' ? 'Waiting in queue' : 'Creating your video'}</p>
-      <p className="mt-1 text-center text-sm text-ink-400">{Math.round(video.progress * 100)}% · usually 1–3 minutes</p>
+      <p className="mt-1 text-center text-sm text-ink-400">
+        {Math.round(video.progress * 100)}% · {video.stage === 'Waiting to render' ? 'waiting for another video to finish rendering' : withClips ? 'AI video usually takes 3–8 minutes' : 'usually 1–3 minutes'}
+      </p>
       <ProgressBar value={video.progress} className="mt-6" />
       <ol className="mt-8 space-y-3">
-        {STAGES.map((s, i) => (
+        {stages.map((s, i) => (
           <li key={s} className={`flex items-center gap-3 text-sm ${i < current ? 'text-ink-300' : i === current ? 'font-semibold text-white' : 'text-ink-400/60'}`}>
             {i < current ? <Check className="size-4 text-emerald-400" /> : i === current ? <LoaderCircle className="size-4 animate-spin text-brand-400" /> : <Clock className="size-4" />}
             {s}
@@ -146,7 +150,7 @@ export default function VideoDetail() {
               <p className="mt-2 text-sm text-ink-400">{video.error}</p>
               <button className="btn-primary mt-6" onClick={() => rerender(false)} disabled={busy}><RefreshCw className="size-4" /> Try again</button>
             </div>
-          ) : <Progress video={video} />}
+          ) : <Progress video={video} withClips={video.settings.motion !== 'still' && Boolean(catalog.providers?.video?.provider)} />}
 
           {video.status === 'ready' && (
             <div className="mt-4 grid grid-cols-2 gap-2">
@@ -158,7 +162,7 @@ export default function VideoDetail() {
             <StatusBadge video={video} />
             {video.duration && <span className="chip">{formatDuration(video.duration)}</span>}
             {niche && <span className="chip">{niche.emoji} {niche.name}</span>}
-            {video.providers && <span className="chip" title="Engines used for this video">script: {video.providers.script} · images: {video.providers.images} · voice: {video.providers.voice}</span>}
+            {video.providers && <span className="chip" title="Engines used for this video">script: {video.providers.script} · images: {video.providers.images} · voice: {video.providers.voice}{video.providers.video ? ` · video: ${video.providers.video}${video.providers.clips ? ` (${video.providers.clips} clips)` : ''}` : ''}</span>}
           </div>
         </div>
 
@@ -230,7 +234,10 @@ export default function VideoDetail() {
                       </div>
                       <div className="min-w-0 flex-1 space-y-2">
                         <textarea className="input min-h-16 py-2" value={sc.narration} onChange={(e) => setScenes(scenes.map((x, k) => (k === i ? { ...x, narration: e.target.value } : x)))} />
-                        <input className="input py-2 text-xs text-ink-300" value={sc.visual} title="Visual prompt" onChange={(e) => setScenes(scenes.map((x, k) => (k === i ? { ...x, visual: e.target.value } : x)))} />
+                        <input className="input py-2 text-xs text-ink-300" value={sc.visual} title="Visual prompt" placeholder="What the image shows" onChange={(e) => setScenes(scenes.map((x, k) => (k === i ? { ...x, visual: e.target.value } : x)))} />
+                        {settings.motion !== 'still' && (
+                          <input className="input py-2 text-xs text-ink-300" value={sc.motion || ''} title="Motion prompt" placeholder="How it moves in the video clip (optional)" onChange={(e) => setScenes(scenes.map((x, k) => (k === i ? { ...x, motion: e.target.value } : x)))} />
+                        )}
                       </div>
                     </li>
                   ))}

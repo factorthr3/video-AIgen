@@ -61,6 +61,14 @@ export const config = {
     baseUrl: (env.ELEVENLABS_BASE_URL || 'https://api.elevenlabs.io').replace(/\/$/, ''),
     model: env.ELEVENLABS_MODEL || 'eleven_v3',
   },
+  // AI video clips (image-to-video) via fal.ai's queue API.
+  fal: {
+    key: env.FAL_KEY || '',
+    baseUrl: (env.FAL_QUEUE_URL || 'https://queue.fal.run').replace(/\/$/, ''),
+    videoModel: env.FAL_VIDEO_MODEL || 'fal-ai/kling-video/v3/pro/image-to-video',
+    // Clip lengths the model accepts, e.g. "5,10". Default: any whole second from 3 to 15 (Kling v3).
+    durations: (env.FAL_VIDEO_DURATIONS || '').split(',').map(Number).filter(Boolean),
+  },
   imageProvider: env.IMAGE_PROVIDER || 'auto', // auto | openai | pollinations | procedural
   ttsProvider: env.TTS_PROVIDER || 'auto', // auto | elevenlabs | openai | system | silent
 
@@ -93,6 +101,7 @@ export function providerStatus() {
     script: config.anthropic.enabled ? { provider: 'claude', model: config.anthropic.model } : { provider: 'library' },
     images: { provider: img },
     voice: { provider: tts },
+    video: config.fal.key ? { provider: 'fal', model: config.fal.videoModel } : { provider: null },
     social: {
       youtube: Boolean(config.google.clientId),
       tiktok: Boolean(config.tiktok.clientKey),

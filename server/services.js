@@ -1,6 +1,6 @@
 // Domain rules shared by the HTTP routes and the scheduler.
 import { db, insert, newId, now, parseJson } from './db.js';
-import { PLAN, NICHE, VOICE, ART, CAPTION, LANGUAGE, DURATION, MUSIC_TRACK } from './catalog.js';
+import { PLAN, NICHE, VOICE, ART, CAPTION, LANGUAGE, DURATION, MUSIC_TRACK, MOTION_TYPE } from './catalog.js';
 import { enqueueVideo } from './pipeline/index.js';
 
 export class HttpError extends Error {
@@ -43,12 +43,13 @@ export function cleanSettings(input, base = {}) {
     captionStyle: pick(input.captionStyle, CAPTION, base.captionStyle || 'bold'),
     music,
     duration: Number(pick(input.duration, DURATION, base.duration || 60)),
+    motion: pick(input.motion, MOTION_TYPE, base.motion || 'video'),
   };
 }
 
 export const seriesSettings = (s) => ({
   niche: s.niche, customTopic: s.custom_topic, language: s.language, voice: s.voice,
-  artStyle: s.art_style, captionStyle: s.caption_style, music: s.music, duration: s.duration,
+  artStyle: s.art_style, captionStyle: s.caption_style, music: s.music, duration: s.duration, motion: s.motion,
 });
 
 // ---------- videos ----------

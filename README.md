@@ -48,6 +48,8 @@ The offline fallbacks are fine for trying the app but not for publishing. For pr
 2. **`OPENAI_API_KEY`** for visuals. Uses `gpt-image-2.5-sunburst` at `high` quality, generated at native 1088×1920. Set `OPENAI_IMAGE_MODEL=gpt-image-2.5-flare` for faster, cheaper images.
 3. **`ELEVENLABS_API_KEY`** for voiceover. Uses `eleven_v3`, the most expressive ElevenLabs model, with word-level timestamps so captions sync exactly to the speech. Each narrator persona maps to a voice in your ElevenLabs account; pin one with e.g. `ELEVENLABS_VOICE_ONYX=<voice id>`.
 
+4. **`FAL_KEY`** for real AI video. Every scene's image becomes the first frame of an AI video clip (Kling v3 Pro on [fal.ai](https://fal.ai) by default), generated at exactly the length of its narration. Pick **AI video clips** or **Animated images** per series under *Visuals*. Kling v3 Pro costs about $0.11 per second of video, so roughly $3.50 for a 30-second video on top of images and voice. Any scene whose clip fails falls back to its animated still. Set `FAL_VIDEO_MODEL` to try another fal image-to-video model.
+
 The video card shows which engines produced each video (e.g. `voice: elevenlabs · eleven_v3`), so you can confirm the upgrade took effect. Re-render older videos to apply the new engines. Check each provider's pricing page for per-video costs.
 
 ### Production
@@ -76,6 +78,7 @@ series settings ─▶ script (Claude / library)
                ─▶ one image per scene (OpenAI / Pollinations / procedural)
                ─▶ one voice clip per scene (ElevenLabs / OpenAI / system)
                ─▶ timeline: each scene lasts exactly as long as its narration
+               ─▶ AI video clip per scene, image-to-video, timed to the narration (fal.ai)
                ─▶ audio mix: voice + quiet music bed, loudness-normalised
                ─▶ frames drawn with Skia (Ken Burns, crossfades, captions, watermark)
                ─▶ raw frames piped into ffmpeg → H.264 1080×1920 MP4
