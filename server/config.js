@@ -98,6 +98,9 @@ export const config = {
   ffmpeg: env.FFMPEG_PATH || 'ffmpeg',
   ffprobe: env.FFPROBE_PATH || 'ffprobe',
   schedulerEnabled: env.SCHEDULER !== 'off',
+  // "open" = anyone can sign up; "invite" = only ALLOWED_EMAILS (comma list) can.
+  signupMode: env.SIGNUP_MODE === 'invite' ? 'invite' : 'open',
+  allowedEmails: (env.ALLOWED_EMAILS || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean),
   // No payment processor yet: free plan switching is only allowed in dev, or
   // when explicitly enabled, so a public deploy can't be upgraded for free.
   demoBilling: env.DEMO_BILLING ? env.DEMO_BILLING === 'true' : !isProd,
@@ -118,6 +121,7 @@ export function providerStatus() {
     },
     googleSignIn: Boolean(config.google.clientId),
     demoBilling: config.demoBilling,
+    signupMode: config.signupMode,
   };
 }
 

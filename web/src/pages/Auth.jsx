@@ -88,9 +88,11 @@ export function Login() {
 
 export function Signup() {
   const { submit, error, busy } = useAuthSubmit('/auth/signup');
+  const catalog = useCatalog();
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   return (
     <AuthShell title="Create your account" subtitle="Your first videos are free. No credit card needed." footer={<>Already have an account? <Link to="/login" className="font-semibold text-white hover:underline">Sign in</Link></>}>
+      {catalog?.providers?.signupMode === 'invite' && !error && <Alert tone="info">BlackCell is in private beta. Sign up with the email address your invite was sent to.</Alert>}
       {error && <Alert>{error}</Alert>}
       <GoogleButton />
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); submit(form); }}>

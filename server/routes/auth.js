@@ -7,6 +7,11 @@ import {
 } from '../auth.js';
 import { usage } from '../services.js';
 
+// Invite-only mode: new accounts only for listed emails (existing users can always sign in).
+const INVITE_ONLY_MESSAGE = 'BlackCell is invite-only right now. Ask for an invite to create an account.';
+const mayCreateAccount = (email) =>
+  config.signupMode === 'open' || config.allowedEmails.includes(String(email).toLowerCase());
+
 const router = Router();
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -30,6 +35,7 @@ router.post('/signup', rateLimit, async (req, res) => {
   if (db.get('SELECT id FROM users WHERE email = ?', email.toLowerCase())) {
     return res.status(409).json({ error: 'An account with that email already exists. Sign in instead.' });
   }
+  if (!mayCreateAccount(email)) return res.status(403).json({ error: INVITE_ONLY_MESSAGE });
   const user = createUser({ email, name: name?.trim(), passwordHash: await hashPassword(password) });
   createSession(res, user.id);
   res.json({ user: publicUser(user), usage: usage(user) });
@@ -95,6 +101,7 @@ router.get('/google/callback', async (req, res) => {
     if (user) {
       update('users', user.id, { google_id: profile.sub, avatar_url: user.avatar_url || profile.picture || null });
     } else {
+      if (!mayCreateAccount(profile.email)) throw new Error(INVITE_ONLY_MESSAGE);
       user = createUser({ email: profile.email, name: profile.name, googleId: profile.sub, avatarUrl: profile.picture });
     }
     createSession(res, user.id);
