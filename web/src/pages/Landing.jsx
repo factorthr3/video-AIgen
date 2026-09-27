@@ -116,21 +116,37 @@ function Niches() {
         <h2 className="mt-3 max-w-2xl font-display text-4xl font-extrabold tracking-tight sm:text-5xl">A channel for every niche. Or invent your own.</h2>
         <p className="mt-4 max-w-2xl text-ink-300">Start from a proven faceless format, or describe any topic and BlackCell builds a series around it.</p>
       </div>
-      <div className="relative mt-12 overflow-hidden [mask-image:linear-gradient(90deg,transparent,#000_8%,#000_92%,transparent)]">
-        <div className="flex w-max animate-marquee gap-4 hover:[animation-play-state:paused]">
-          {row.map((n, i) => (
-            <div key={`${n.id}-${i}`} className="relative flex h-80 w-56 shrink-0 flex-col justify-between overflow-hidden rounded-3xl p-5" style={{ background: `linear-gradient(160deg, ${n.colors[0]}, ${n.colors[1]})` }}>
-              <img src={`/niches/${n.id}.jpg`} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/10" />
-              <span className="relative text-3xl">{n.emoji}</span>
-              <div className="relative">
-                <p className="font-display text-xl font-extrabold">{n.name}</p>
-                <p className="mt-2 text-sm leading-snug text-white/80">“{n.hook}”</p>
-              </div>
-            </div>
-          ))}
+      {/* Phones (and reduced motion): a swipeable row. Desktop: an auto-scrolling
+          marquee of two copies. No mask-image: on a very wide animated strip it
+          makes mobile browsers drop the layer, so the cards vanish. */}
+      <div className="relative mt-12">
+        <div className="overflow-x-auto overscroll-x-contain scroll-px-4 px-4 [scrollbar-width:none] snap-x snap-mandatory md:motion-safe:overflow-hidden md:motion-safe:px-0 [&::-webkit-scrollbar]:hidden">
+          <div className="flex w-max gap-4 md:motion-safe:animate-marquee md:motion-safe:hover:[animation-play-state:paused]">
+            {row.map((n, i) => {
+              const copy = i >= niches.length;
+              return (
+                <div
+                  key={`${n.id}-${i}`}
+                  aria-hidden={copy || undefined}
+                  className={`relative flex h-80 w-56 shrink-0 snap-start flex-col justify-between overflow-hidden rounded-3xl p-5 ${copy ? 'max-md:hidden motion-reduce:hidden' : ''}`}
+                  style={{ background: `linear-gradient(160deg, ${n.colors[0]}, ${n.colors[1]})` }}
+                >
+                  <img src={`/niches/${n.id}.jpg`} alt="" loading={i < 6 ? 'eager' : 'lazy'} decoding="async" className="absolute inset-0 size-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/10" />
+                  <span className="relative text-3xl">{n.emoji}</span>
+                  <div className="relative">
+                    <p className="font-display text-xl font-extrabold">{n.name}</p>
+                    <p className="mt-2 text-sm leading-snug text-white/80">“{n.hook}”</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
+        <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 hidden w-24 bg-gradient-to-r from-ink-950 to-transparent md:motion-safe:block" />
+        <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-ink-950 to-transparent md:w-24" />
       </div>
+      <p className="mt-4 px-4 text-center text-xs text-ink-400 md:motion-safe:hidden">Swipe to see all {niches.length} niches →</p>
     </section>
   );
 }
