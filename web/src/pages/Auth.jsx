@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { ArrowRight } from 'lucide-react';
 import { Logo, Alert } from '../components/ui.jsx';
-import PhoneDemo from '../components/PhoneDemo.jsx';
+import { ShowcasePair, ShowcaseGlow } from '../components/ShowcasePhone.jsx';
 import { api, useCatalog, useSession } from '../lib.jsx';
 
 function GoogleButton() {
@@ -35,9 +35,9 @@ function AuthShell({ title, subtitle, children, footer }) {
           <p className="mt-8 text-center text-sm text-ink-400">{footer}</p>
         </div>
       </div>
-      <div className="relative hidden items-center justify-center overflow-hidden border-l border-white/5 bg-ink-900 lg:flex">
-        <div className="absolute h-[500px] w-[500px] rounded-full bg-brand-600/30 blur-[120px]" />
-        <PhoneDemo demo={0} className="relative" />
+      <div className="relative flex items-center justify-center overflow-hidden border-t border-white/5 px-6 py-16 lg:border-l lg:border-t-0">
+        <ShowcaseGlow />
+        <ShowcasePair />
       </div>
     </div>
   );

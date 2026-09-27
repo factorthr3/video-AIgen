@@ -5,7 +5,7 @@ import {
   Wand2, Link2, Rocket, Minus,
 } from 'lucide-react';
 import { Logo, PlatformIcon } from '../components/ui.jsx';
-import ShowcasePhone from '../components/ShowcasePhone.jsx';
+import { ShowcasePair, ShowcaseGlow } from '../components/ShowcasePhone.jsx';
 import { useCatalog, useSession, usePrice, formatPrice } from '../lib.jsx';
 
 const NAV = [
@@ -52,10 +52,7 @@ function Hero() {
   const price = usePrice();
   return (
     <section className="relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-40 left-1/2 h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-brand-600/25 blur-[140px]" />
-        <div className="absolute top-40 right-0 h-[400px] w-[500px] rounded-full bg-hot-500/15 blur-[120px]" />
-      </div>
+      <ShowcaseGlow />
       <div className="relative mx-auto grid max-w-7xl items-center gap-14 px-4 pb-20 pt-14 sm:px-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:pb-28 lg:pt-20">
         <div className="min-w-0">
           <span className="chip border-brand-500/30 bg-brand-500/10 text-brand-400">
@@ -78,13 +75,7 @@ function Hero() {
             {['tiktok', 'instagram', 'youtube'].map((p) => <PlatformIcon key={p} platform={p} size="sm" />)}
           </div>
         </div>
-        <div className="relative mx-auto flex flex-col items-center">
-          <div className="relative flex items-end justify-center">
-            <ShowcasePhone src="/showcase/penguin.mp4" poster="/showcase/penguin.jpg" small className="absolute -left-24 bottom-10 hidden rotate-[-8deg] opacity-80 sm:block" />
-            <ShowcasePhone src="/showcase/cleopatra.mp4" poster="/showcase/cleopatra.jpg" withSound className="relative z-10" />
-          </div>
-          <p className="chip mt-6 text-center"><Sparkles className="size-3.5 text-brand-400" /> Real BlackCell videos: script, visuals, voice and edit, all made automatically</p>
-        </div>
+        <ShowcasePair />
       </div>
       <div className="relative border-y border-white/5 bg-ink-900/60">
         <div className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 py-8 text-center sm:px-6 md:grid-cols-4">
