@@ -62,7 +62,7 @@ function Hero() {
             <Sparkles className="size-3.5" /> AI faceless video generator
           </span>
           <h1 className="mt-6 font-display text-5xl font-extrabold leading-[1.02] tracking-tight sm:text-6xl xl:text-7xl">
-            Faceless videos that <span className="text-gradient">make — and post —</span> themselves.
+            Faceless videos that <span className="text-gradient">make - and post -</span> themselves.
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-300">
             Pick a niche. BlackCell writes the script, generates the visuals, records the voiceover, adds captions and music,
@@ -209,10 +209,10 @@ function Features() {
 
 function Comparison() {
   const rows = [
-    ['Research & scriptwriting', '1–2 hours', 'Seconds'],
+    ['Research & scriptwriting', '1-2 hours', 'Seconds'],
     ['Finding or making visuals', 'An hour or more', 'Generated per scene'],
     ['Voiceover', 'Record, retake, clean up', '8 AI narrators'],
-    ['Editing & captions', '1–2 hours', 'Automatic'],
+    ['Editing & captions', '1-2 hours', 'Automatic'],
     ['Posting to 3 platforms', 'Every day, by hand', 'On autopilot'],
     ['Consistency', 'Whenever you find time', 'Every scheduled slot'],
   ];

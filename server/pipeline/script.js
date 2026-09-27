@@ -8,6 +8,11 @@ import { config } from '../config.js';
 import { NICHE, LANGUAGE, DURATION, ART } from '../catalog.js';
 import { libraryScript } from './library.js';
 
+// House style: plain hyphens, never em or en dashes (ranges like 1-2 stay tight).
+export const plainDashes = (text) => String(text ?? '')
+  .replace(/(\d)\s*[\u2013\u2014]\s*(\d)/g, '$1-$2')
+  .replace(/\s*[\u2013\u2014]\s*/g, ' - ');
+
 const ScriptSchema = z.object({
   title: z.string().describe('Scroll-stopping title, max 70 characters, in the target language'),
   description: z.string().describe('1-2 sentence post caption in the target language, no hashtags'),
@@ -26,6 +31,7 @@ What makes these videos work:
 - Every scene earns the next one. Short, concrete, spoken-language sentences. No filler, no rhetorical padding.
 - The ending pays off the hook: a twist, a reveal, a lesson, or a line that makes people rewatch or comment.
 - Narration is written to be read aloud: no emojis, no stage directions, no hashtags, numbers written the way they are spoken when that helps.
+- Never use em dashes or en dashes in the title, description or narration; use a comma, a full stop or a plain hyphen instead.
 
 Scene rules:
 - Each scene is one or two sentences of narration (about 8-20 words) that will be on screen for roughly 3-6 seconds.
@@ -87,8 +93,10 @@ Write one complete video script.
   const script = response.parsed_output;
   if (!script?.scenes?.length) throw new Error('Claude returned an empty script.');
 
+  script.title = plainDashes(script.title);
+  script.description = plainDashes(script.description);
   script.hashtags = script.hashtags.map((h) => h.replace(/^#/, '').replace(/\s+/g, '')).filter(Boolean).slice(0, 8);
-  script.scenes = script.scenes.filter((sc) => sc.narration?.trim());
+  script.scenes = script.scenes.filter((sc) => sc.narration?.trim()).map((sc) => ({ ...sc, narration: plainDashes(sc.narration) }));
   if (!script.scenes.length) throw new Error('Claude returned a script with no narration.');
   return { ...script, source: 'claude', model: response.model };
 }

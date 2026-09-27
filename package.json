@@ -2,7 +2,7 @@
   "name": "blackcell",
   "version": "0.1.0",
   "private": true,
-  "description": "BlackCell — AI faceless video generator that writes, renders and auto-posts Reels, Shorts and TikToks.",
+  "description": "BlackCell - AI faceless video generator that writes, renders and auto-posts Reels, Shorts and TikToks.",
   "type": "module",
   "engines": {
     "node": ">=22.13"

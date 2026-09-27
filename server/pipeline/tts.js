@@ -178,7 +178,7 @@ async function system(text, voice, file, language) {
 const estimateSeconds = (text) => Math.max(1.2, text.split(/\s+/).filter(Boolean).length / 2.6);
 
 // Synthesise one clip → normalised WAV.
-// Returns { file, duration, provider, model?, words? } — `words` are exact
+// Returns { file, duration, provider, model?, words? } - `words` are exact
 // per-word timings when the provider supplies them (ElevenLabs).
 export async function speak({ text, voiceId, language, niche, outBase, provider = resolveTtsProvider() }) {
   const voice = VOICE[voiceId] || VOICE.nova;

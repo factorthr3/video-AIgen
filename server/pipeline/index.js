@@ -68,7 +68,7 @@ async function runJob(videoId) {
   const clipMode = engine.provider && ['hook', 'video'].includes(settings.motion) ? settings.motion : null;
   const W = WEIGHTS[clipMode || 'still'];
 
-  // 1. Script — skipped when re-rendering an edited script.
+  // 1. Script - skipped when re-rendering an edited script.
   let script = parseJson(video.script, null);
   if (!script?.scenes?.length) {
     setStage(videoId, 'Writing script', 0.02);

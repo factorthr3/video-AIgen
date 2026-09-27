@@ -72,8 +72,8 @@ export default function SeriesDetail() {
         title={<span className="flex items-center gap-3"><span>{niche?.emoji || '✨'}</span>{s.name}</span>}
         subtitle={
           s.active
-            ? <span className="flex items-center gap-1.5"><CalendarClock className="size-4" /> {describeDays(s.schedule.days)} at {s.schedule.time} · next {s.nextRunAt ? `${relativeTime(s.nextRunAt)} (${formatDateTime(s.nextRunAt)})` : '—'}</span>
-            : 'Paused — no new videos will be created.'
+            ? <span className="flex items-center gap-1.5"><CalendarClock className="size-4" /> {describeDays(s.schedule.days)} at {s.schedule.time} · next {s.nextRunAt ? `${relativeTime(s.nextRunAt)} (${formatDateTime(s.nextRunAt)})` : '-'}</span>
+            : 'Paused - no new videos will be created.'
         }
         actions={
           <>

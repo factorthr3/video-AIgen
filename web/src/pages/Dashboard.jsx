@@ -65,7 +65,7 @@ export default function Dashboard() {
           { icon: Film, label: 'Videos this month', value: `${usage?.videosUsed ?? 0} / ${usage?.videosLimit ?? 0}` },
           { icon: Layers, label: 'Active series', value: series.filter((s) => s.active).length },
           { icon: Send, label: 'Posts published', value: posted },
-          { icon: CalendarClock, label: 'Next post', value: upcoming ? relativeTime(upcoming.nextRunAt) : '—', hint: upcoming && formatDateTime(upcoming.nextRunAt) },
+          { icon: CalendarClock, label: 'Next post', value: upcoming ? relativeTime(upcoming.nextRunAt) : '-', hint: upcoming && formatDateTime(upcoming.nextRunAt) },
         ].map((s) => (
           <div key={s.label} className="card p-5">
             <s.icon className="size-5 text-brand-400" />

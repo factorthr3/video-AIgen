@@ -1,4 +1,4 @@
-// SQLite via Node's built-in driver — no native build step, one file on disk.
+// SQLite via Node's built-in driver - no native build step, one file on disk.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -138,6 +138,15 @@ ensureColumn('users', 'paystack_customer_id', 'TEXT');
 ensureColumn('users', 'paystack_subscription_code', 'TEXT');
 ensureColumn('users', 'paystack_email_token', 'TEXT');
 ensureColumn('users', 'paystack_authorization', 'TEXT');
+
+// House style: plain hyphens. Tidies AI-written text saved before that rule;
+// a no-op once clean. char(8212) is an em dash, char(8211) an en dash.
+{
+  const plain = (col) => `replace(replace(replace(replace(${col}, ' ' || char(8212) || ' ', ' - '), char(8212), ' - '), ' ' || char(8211) || ' ', ' - '), char(8211), '-')`;
+  const dirty = (col) => `instr(${col}, char(8212)) OR instr(${col}, char(8211))`;
+  sqlite.exec(`UPDATE videos SET title = ${plain('title')}, description = ${plain('description')}, script = ${plain('script')}
+    WHERE ${dirty('title')} OR ${dirty('description')} OR ${dirty('script')}`);
+}
 
 const stmtCache = new Map();
 function stmt(sql) {

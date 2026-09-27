@@ -1,5 +1,5 @@
 // Stage 2: one image per scene. OpenAI images when a key is configured,
-// Pollinations (free, keyless) when opted in, procedural art otherwise — and
+// Pollinations (free, keyless) when opted in, procedural art otherwise - and
 // procedural art for any individual image request that fails.
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
@@ -54,7 +54,7 @@ async function openaiImage(prompt) {
     // Only an unavailable/unsupported model is worth retrying on the legacy one.
     const modelProblem = [400, 403, 404].includes(res.status) && /model|size|quality/i.test(`${body.error?.param} ${body.error?.code} ${body.error?.message}`);
     if (!modelProblem) break;
-    console.error(`[images] ${lastError.message} — trying ${LEGACY_IMAGE_MODEL}`);
+    console.error(`[images] ${lastError.message} - trying ${LEGACY_IMAGE_MODEL}`);
   }
   throw lastError;
 }

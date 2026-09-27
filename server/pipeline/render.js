@@ -1,7 +1,7 @@
 // Stage 4: compose every frame with Skia (Ken Burns motion, crossfades,
 // animated captions, watermark) and stream raw RGBA frames into ffmpeg.
 // Doing the compositing in-process means we only need a stock ffmpeg with
-// libx264 — no libass/freetype builds required.
+// libx264 - no libass/freetype builds required.
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';

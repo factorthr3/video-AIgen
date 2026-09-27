@@ -39,7 +39,7 @@ export const LIBRARY = {
   }],
   mythology: [{
     title: 'Pandora Never Had a Box',
-    description: 'The real myth of Pandora — and the one thing left inside.',
+    description: 'The real myth of Pandora - and the one thing left inside.',
     hashtags: ['mythology', 'greekmythology', 'pandora', 'myths', 'legends'],
     scenes: [
       s('Prometheus stole fire from the gods and gave it to humanity. Zeus wanted revenge.', 'a titan holding a blazing torch on a mountaintop under a stormy sky'),
@@ -123,7 +123,7 @@ export const LIBRARY = {
   }],
   bible: [{
     title: 'Five Smooth Stones',
-    description: 'David and Goliath — 1 Samuel 17.',
+    description: 'David and Goliath - 1 Samuel 17.',
     hashtags: ['bible', 'biblestories', 'faith', 'davidandgoliath', 'christian'],
     scenes: [
       s('For forty days, a giant stood in the Valley of Elah and mocked the armies of Israel.', 'two ancient armies facing each other across a valley at dawn'),

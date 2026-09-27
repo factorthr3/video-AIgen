@@ -19,7 +19,7 @@ function Progress({ video, withClips }) {
       <LoaderCircle className="mx-auto size-10 animate-spin text-brand-400" />
       <p className="mt-5 text-center font-display text-xl font-bold">{video.status === 'queued' ? 'Waiting in queue' : 'Creating your video'}</p>
       <p className="mt-1 text-center text-sm text-ink-400">
-        {Math.round(video.progress * 100)}% · {video.stage === 'Waiting to render' ? 'waiting for another video to finish rendering' : withClips ? 'AI video usually takes 3–8 minutes' : 'usually 1–3 minutes'}
+        {Math.round(video.progress * 100)}% · {video.stage === 'Waiting to render' ? 'waiting for another video to finish rendering' : withClips ? 'AI video usually takes 3-8 minutes' : 'usually 1-3 minutes'}
       </p>
       <ProgressBar value={video.progress} className="mt-6" />
       <ol className="mt-8 space-y-3">
