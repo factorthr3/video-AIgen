@@ -39,6 +39,7 @@ export function publicClip(c, user) {
     width: c.width,
     height: c.height,
     shared: Boolean(c.shared),
+    credit: c.credit,
     mine: c.user_id === user.id,
     canDelete: c.user_id === user.id || isAdmin(user),
     createdAt: c.created_at,
@@ -66,7 +67,7 @@ export function hasGameplay(user, game) {
 }
 
 // ---------- uploads ----------
-export function addUpload(user, file, gameNameInput) {
+export function addUpload(user, file, gameNameInput, creditInput) {
   const name = String(gameNameInput || '').trim().slice(0, 60);
   const game = gameSlug(name);
   if (!game) {
@@ -82,12 +83,20 @@ export function addUpload(user, file, gameNameInput) {
     game,
     game_name: existing?.game_name || name,
     original_name: String(file.originalname || 'gameplay').slice(0, 120),
+    credit: String(creditInput || '').trim().slice(0, 200) || null,
     source: file.path,
     status: 'processing',
     created_at: now(),
   });
   enqueueProcessing(clip.id);
   return clip;
+}
+
+export function setCredit(user, id, credit) {
+  const clip = visibleClip(user, id);
+  if (!clip) throw Object.assign(new Error('Clip not found.'), { status: 404, expose: true });
+  if (clip.user_id !== user.id && !isAdmin(user)) throw Object.assign(new Error('Only the uploader or an admin can change this clip.'), { status: 403, expose: true });
+  update('gameplay_clips', id, { credit: String(credit || '').trim().slice(0, 200) || null });
 }
 
 export function removeClip(user, id) {
@@ -183,45 +192,93 @@ export function resumeGameplayProcessing() {
 }
 
 // ---------- building a video's gameplay track ----------
-const shuffle = (list) => {
-  const a = [...list];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
+// Merge [start, end] ranges that overlap or touch.
+function merge(ranges) {
+  const sorted = [...ranges].sort((a, b) => a.start - b.start);
+  const out = [];
+  for (const r of sorted) {
+    const last = out.at(-1);
+    if (last && r.start <= last.end + 0.05) last.end = Math.max(last.end, r.end);
+    else out.push({ ...r });
   }
-  return a;
-};
+  return out;
+}
+
+// The parts of a clip not covered by `used` (merged ranges).
+function freeRanges(duration, used) {
+  const free = [];
+  let at = 0;
+  for (const r of used) {
+    if (r.start > at) free.push({ start: at, end: Math.min(r.start, duration) });
+    at = Math.max(at, r.end);
+  }
+  if (at < duration) free.push({ start: at, end: duration });
+  return free.filter((r) => r.end - r.start > 0.05);
+}
 
 /**
- * Continuous footage for `duration` seconds from the game's clips: long
- * stretches of one clip, cutting to another (random) clip when it runs out.
+ * Footage for `duration` seconds, taken in order: clips in upload order, each
+ * from its start, skipping whatever `used` (earlier videos in the same series)
+ * already covered. So a long video uploaded once is chopped into consecutive
+ * stretches, one per video, until it's used up; then the series starts over.
+ * Returns [{ clipId, file, start, duration }].
  */
-export function pickSegments(user, game, duration) {
-  const clips = db.all(`SELECT id, duration FROM gameplay_clips WHERE game = ? AND status = 'ready' AND ${VISIBLE}`, game, user.id);
+export function pickSegments(user, game, duration, used = []) {
+  const clips = db.all(
+    `SELECT id, duration FROM gameplay_clips WHERE game = ? AND status = 'ready' AND ${VISIBLE} ORDER BY created_at, id`, game, user.id,
+  );
   if (!clips.length) {
     const name = gameName(game);
     throw new Error(`There's no ${name ? `${name} footage` : 'footage for this game'} in the gameplay library. Upload some clips, then try again.`);
   }
   const segments = [];
   let remaining = duration;
-  let order = shuffle(clips);
-  let guard = 0;
-  while (remaining > 0.01 && guard++ < 200) {
-    if (!order.length) order = shuffle(clips);
-    const clip = order.shift();
-    const take = Math.min(remaining, clip.duration);
-    // Start somewhere random, leaving room for the stretch we need.
-    const slack = Math.max(0, clip.duration - take);
-    const start = Math.random() * slack;
-    segments.push({ file: clipFile(clip.id), start, duration: take });
-    remaining -= take;
-    // Avoid a tiny leftover: fold it into the previous segment when possible.
-    if (remaining > 0 && remaining < MIN_SEGMENT && clip.duration - start >= take + remaining) {
-      segments.at(-1).duration += remaining;
-      remaining = 0;
+  const take = (avoid) => {
+    for (const clip of clips) {
+      const covered = merge([...avoid.filter((u) => u.clip === clip.id), ...segments.filter((s) => s.clipId === clip.id).map((s) => ({ start: s.start, end: s.start + s.duration }))]);
+      for (const r of freeRanges(clip.duration, covered)) {
+        if (remaining <= 0.01) return;
+        const length = r.end - r.start;
+        // Skip slivers, unless it's exactly what's left to fill.
+        if (length < Math.min(MIN_SEGMENT, remaining)) continue;
+        const d = Math.min(length, remaining);
+        segments.push({ clipId: clip.id, file: clipFile(clip.id), start: r.start, duration: d });
+        remaining -= d;
+      }
     }
+  };
+  take(used);
+  // Footage used up: start over from the beginning (only this video's picks are avoided).
+  if (remaining > 0.01) take([]);
+  // Still short (the whole library is shorter than the video): loop it.
+  for (let guard = 0; remaining > 0.01 && guard < 50; guard++) {
+    const clip = clips[guard % clips.length];
+    const d = Math.min(clip.duration, remaining);
+    segments.push({ clipId: clip.id, file: clipFile(clip.id), start: 0, duration: d });
+    remaining -= d;
   }
   return segments;
+}
+
+/**
+ * What the current round of a series has covered, from its earlier videos'
+ * footage (oldest first). A video that overlaps earlier footage started a new
+ * round (the footage ran out and wrapped), so coverage restarts from it.
+ */
+export function seriesCoverage(history) {
+  let covered = [];
+  for (const ranges of history) {
+    const wrapped = ranges.some((r) => covered.some((c) => c.clip === r.clip && r.start < c.end - 0.05 && r.end > c.start + 0.05));
+    covered = wrapped ? [...ranges] : [...covered, ...ranges];
+  }
+  return covered;
+}
+
+/** Credits of the clips a video used, for its caption (e.g. Creative Commons attribution). */
+export function creditsFor(segments) {
+  const ids = [...new Set(segments.map((s) => s.clipId))];
+  const credits = ids.map((id) => db.get('SELECT credit FROM gameplay_clips WHERE id = ?', id)?.credit).filter(Boolean);
+  return [...new Set(credits)];
 }
 
 /** Layout sizes: "framed" keeps landscape footage whole in a band; "full" crops to fill the frame. */

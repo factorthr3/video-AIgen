@@ -8,7 +8,7 @@ import { requireAuth } from '../auth.js';
 import { HttpError } from '../services.js';
 import { isAdmin } from '../billing/index.js';
 import {
-  GAMEPLAY_INCOMING, addUpload, removeClip, visibleClips, visibleClip, publicClip, gamesFor, clipThumb, clipVideo,
+  GAMEPLAY_INCOMING, addUpload, removeClip, setCredit, visibleClips, visibleClip, publicClip, gamesFor, clipThumb, clipVideo,
 } from '../gameplay.js';
 
 export const MAX_UPLOAD_MB = 1024;
@@ -36,8 +36,13 @@ router.get('/', (req, res) => {
 
 router.post('/', upload.single('file'), (req, res) => {
   if (!req.file) throw new HttpError(400, 'Choose a video file (MP4, MOV, MKV or WebM).');
-  const clip = addUpload(req.user, req.file, req.body?.game);
+  const clip = addUpload(req.user, req.file, req.body?.game, req.body?.credit);
   res.status(201).json({ clip: publicClip(clip, req.user) });
+});
+
+router.patch('/:id', (req, res) => {
+  setCredit(req.user, req.params.id, req.body?.credit);
+  res.json({ clip: publicClip(visibleClip(req.user, req.params.id), req.user) });
 });
 
 router.delete('/:id', (req, res) => {

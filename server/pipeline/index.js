@@ -16,7 +16,7 @@ import { timeWords, chunkWords } from './captions.js';
 import { buildAudioTrack, renderVideo } from './render.js';
 import { musicTrack } from './music.js';
 import { generateSceneClips } from './clips.js';
-import { pickSegments, buildGameplayTrack, gameName } from '../gameplay.js';
+import { pickSegments, buildGameplayTrack, gameName, creditsFor, seriesCoverage } from '../gameplay.js';
 
 const SCENE_GAP = 0.25; // breath between scenes
 const TAIL = 0.9; // hold on the last image after narration ends
@@ -162,9 +162,20 @@ async function runJob(videoId) {
     const { width, height, fps } = config.render;
     const file = path.join(dir, 'gameplay.mp4');
     const layout = settings.gameLayout || 'framed';
-    const size = await buildGameplayTrack({
-      segments: pickSegments({ id: video.user_id }, settings.game, totalDuration), layout, W: width, H: height, fps, out: file,
-    });
+    // Continue where the series' earlier videos stopped, so footage doesn't repeat.
+    const earlier = video.series_id
+      ? db.all('SELECT gameplay_used FROM videos WHERE series_id = ? AND id != ? AND gameplay_used IS NOT NULL ORDER BY created_at', video.series_id, videoId)
+      : db.all('SELECT gameplay_used FROM videos WHERE user_id = ? AND series_id IS NULL AND id != ? AND gameplay_used IS NOT NULL ORDER BY created_at', video.user_id, videoId);
+    const used = seriesCoverage(earlier.map((r) => parseJson(r.gameplay_used, [])));
+    const segments = pickSegments({ id: video.user_id }, settings.game, totalDuration, used);
+    // Claim the footage straight away (no await in between), so another video
+    // of the series rendering at the same time picks the next stretch.
+    update('videos', videoId, { gameplay_used: JSON.stringify(segments.map((s) => ({ clip: s.clipId, start: s.start, end: s.start + s.duration }))) });
+    // Credit the footage's creators in the caption (Creative Commons footage requires it).
+    const current = db.get('SELECT description FROM videos WHERE id = ?', videoId)?.description || '';
+    const missing = creditsFor(segments).filter((c) => !current.includes(c));
+    if (missing.length) update('videos', videoId, { description: `${current}${current ? '\n\n' : ''}Gameplay: ${missing.join(', ')}` });
+    const size = await buildGameplayTrack({ segments, layout, W: width, H: height, fps, out: file });
     gameplay = { file, ...size, layout, headline: script.headline || script.title };
     progress += W.clips;
   }

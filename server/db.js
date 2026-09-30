@@ -148,6 +148,9 @@ ensureColumn('posts', 'note', 'TEXT');
 ensureColumn('series', 'motion', "TEXT NOT NULL DEFAULT 'video'");
 ensureColumn('series', 'game', 'TEXT');
 ensureColumn('series', 'game_layout', "TEXT NOT NULL DEFAULT 'framed'");
+ensureColumn('gameplay_clips', 'credit', 'TEXT');
+// Footage a video played ([{ clip, start, end }]), so a series doesn't repeat it.
+ensureColumn('videos', 'gameplay_used', 'TEXT');
 ensureColumn('users', 'stripe_customer_id', 'TEXT');
 ensureColumn('users', 'stripe_subscription_id', 'TEXT');
 ensureColumn('users', 'subscription_status', 'TEXT');

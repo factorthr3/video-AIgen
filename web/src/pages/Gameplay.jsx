@@ -1,14 +1,15 @@
 import { useRef, useState } from 'react';
-import { Gamepad2, Upload, Trash2, Users, Lock, AlertTriangle } from 'lucide-react';
+import { Gamepad2, Upload, Trash2, Users, Lock, AlertTriangle, Pencil } from 'lucide-react';
 import { PageHeader, Alert, Spinner, EmptyState } from '../components/ui.jsx';
 import { useApi, api, formatDuration } from '../lib.jsx';
 
 // Upload with progress (fetch can't report upload progress).
-function uploadClip(file, game, onProgress) {
+function uploadClip(file, game, credit, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const form = new FormData();
     form.append('game', game);
+    form.append('credit', credit);
     form.append('file', file);
     xhr.open('POST', '/api/gameplay');
     xhr.withCredentials = true;
@@ -28,7 +29,7 @@ function uploadClip(file, game, onProgress) {
   });
 }
 
-function ClipCard({ clip, onDelete }) {
+function ClipCard({ clip, onDelete, onCredit }) {
   const [playing, setPlaying] = useState(false);
   return (
     <div className="card overflow-hidden">
@@ -54,9 +55,13 @@ function ClipCard({ clip, onDelete }) {
           <p className="flex items-center gap-1 text-xs text-ink-400">
             {clip.shared ? <><Users className="size-3" /> Shared with everyone</> : <><Lock className="size-3" /> Only you</>}
           </p>
+          <p className="mt-0.5 truncate text-xs text-ink-400" title={clip.credit || ''}>{clip.credit ? `Credit: ${clip.credit}` : 'No credit set'}</p>
         </div>
         {clip.canDelete && (
-          <button type="button" className="btn-ghost p-2 text-ink-400 hover:text-red-300" onClick={() => onDelete(clip)} title="Delete clip"><Trash2 className="size-4" /></button>
+          <div className="flex shrink-0">
+            <button type="button" className="btn-ghost p-2 text-ink-400 hover:text-white" onClick={() => onCredit(clip)} title="Edit credit"><Pencil className="size-4" /></button>
+            <button type="button" className="btn-ghost p-2 text-ink-400 hover:text-red-300" onClick={() => onDelete(clip)} title="Delete clip"><Trash2 className="size-4" /></button>
+          </div>
         )}
       </div>
     </div>
@@ -67,6 +72,7 @@ export default function Gameplay() {
   const { data, reload } = useApi('/gameplay', { poll: (d) => d.clips.some((c) => c.status === 'processing') });
   const fileRef = useRef(null);
   const [game, setGame] = useState('');
+  const [credit, setCredit] = useState('');
   const [files, setFiles] = useState([]);
   const [progress, setProgress] = useState(null);
   const [notice, setNotice] = useState(null);
@@ -83,7 +89,7 @@ export default function Gameplay() {
     try {
       for (let i = 0; i < files.length; i++) {
         setProgress({ index: i, total: files.length, fraction: 0 });
-        await uploadClip(files[i], game.trim(), (fraction) => setProgress({ index: i, total: files.length, fraction }));
+        await uploadClip(files[i], game.trim(), credit.trim(), (fraction) => setProgress({ index: i, total: files.length, fraction }));
         reload();
       }
       setNotice({ tone: 'success', text: `Uploaded ${files.length} clip${files.length === 1 ? '' : 's'}. ${files.length === 1 ? 'It' : 'They'}'ll be ready to use in a minute or two, once processed.` });
@@ -94,6 +100,17 @@ export default function Gameplay() {
     }
     setProgress(null);
     reload();
+  };
+
+  const editCredit = async (clip) => {
+    const next = window.prompt('Credit added to the caption of every video that uses this clip (e.g. the channel that made it). Leave empty for none.', clip.credit || '');
+    if (next === null) return;
+    try {
+      await api(`/gameplay/${clip.id}`, { method: 'PATCH', body: { credit: next } });
+      reload();
+    } catch (err) {
+      setNotice({ tone: 'error', text: err.message });
+    }
   };
 
   const remove = async (clip) => {
@@ -116,11 +133,15 @@ export default function Gameplay() {
       />
       {notice && <Alert tone={notice.tone} onClose={() => setNotice(null)}>{notice.text}</Alert>}
 
-      <form onSubmit={upload} className="card mb-10 grid gap-5 p-6 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
+      <form onSubmit={upload} className="card mb-10 grid gap-5 p-6 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end">
         <div>
           <label className="label" htmlFor="game">Game</label>
           <input id="game" className="input" list="games" placeholder="e.g. GTA V, Marvel's Spider-Man 2" value={game} onChange={(e) => setGame(e.target.value)} maxLength={60} required />
           <datalist id="games">{gameNames.map((n) => <option key={n} value={n} />)}</datalist>
+        </div>
+        <div>
+          <label className="label" htmlFor="credit">Credit <span className="normal-case text-ink-400">(optional)</span></label>
+          <input id="credit" className="input" placeholder="e.g. Orbital - No Copyright Gameplay" value={credit} onChange={(e) => setCredit(e.target.value)} maxLength={200} />
         </div>
         <div>
           <label className="label" htmlFor="clips">Video files</label>
@@ -130,11 +151,13 @@ export default function Gameplay() {
           <Upload className="size-4" /> {progress ? `Uploading ${pct}%` : `Upload${files.length > 1 ? ` ${files.length} clips` : ''}`}
         </button>
         {progress && (
-          <div className="h-1.5 overflow-hidden rounded-full bg-white/10 lg:col-span-3"><div className="h-full bg-gradient-brand transition-all" style={{ width: `${pct}%` }} /></div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-white/10 lg:col-span-4"><div className="h-full bg-gradient-brand transition-all" style={{ width: `${pct}%` }} /></div>
         )}
-        <p className="text-xs leading-relaxed text-ink-400 lg:col-span-3">
+        <p className="text-xs leading-relaxed text-ink-400 lg:col-span-4">
           Use footage you're allowed to use: your own recordings, or gameplay packs whose creators allow reuse. Don't upload clips taken from other people's videos, as platforms flag reposted footage.
-          Longer clips (1 to 10 minutes) give more variety. Up to {data.maxUploadMb >= 1024 ? `${data.maxUploadMb / 1024} GB` : `${data.maxUploadMb} MB`} per file; game audio is removed.
+          If the footage's licence asks for credit (Creative Commons usually does), fill in <strong className="text-ink-300">Credit</strong>: it's added to the caption of every video that uses it.
+          A series works through the footage in order, so each video gets a fresh stretch until it's all used, then starts over.
+          Upload long videos in parts if they're over the size limit. Up to {data.maxUploadMb >= 1024 ? `${data.maxUploadMb / 1024} GB` : `${data.maxUploadMb} MB`} per file; game audio is removed.
           {data.shareUploads ? ' As an admin, your uploads are shared with every user.' : ' Your uploads are only visible to you.'}
         </p>
       </form>
@@ -148,7 +171,7 @@ export default function Gameplay() {
               <span className="text-sm font-normal text-ink-400">{ready.length} clip{ready.length === 1 ? '' : 's'} · {formatDuration(ready.reduce((sum, c) => sum + (c.duration || 0), 0))} of footage</span>
             </h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {clips.map((c) => <ClipCard key={c.id} clip={c} onDelete={remove} />)}
+              {clips.map((c) => <ClipCard key={c.id} clip={c} onDelete={remove} onCredit={editCredit} />)}
             </div>
           </section>
         );
