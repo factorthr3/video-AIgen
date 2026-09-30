@@ -117,6 +117,24 @@ CREATE TABLE IF NOT EXISTS oauth_states (
 CREATE INDEX IF NOT EXISTS idx_videos_user ON videos(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_videos_series ON videos(series_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_posts_video ON posts(video_id);
+
+-- Gameplay library: footage for "gameplay" videos. Admin uploads are shared.
+CREATE TABLE IF NOT EXISTS gameplay_clips (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  shared INTEGER NOT NULL DEFAULT 0,
+  game TEXT NOT NULL,
+  game_name TEXT NOT NULL,
+  original_name TEXT,
+  source TEXT,
+  status TEXT NOT NULL DEFAULT 'processing',
+  error TEXT,
+  duration REAL,
+  width INTEGER,
+  height INTEGER,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_gameplay_game ON gameplay_clips(game, status);
 `);
 
 // Additive migrations for databases created by earlier versions.
@@ -128,6 +146,8 @@ ensureColumn('videos', 'publish_at', 'TEXT');
 ensureColumn('videos', 'auto_posted', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('posts', 'note', 'TEXT');
 ensureColumn('series', 'motion', "TEXT NOT NULL DEFAULT 'video'");
+ensureColumn('series', 'game', 'TEXT');
+ensureColumn('series', 'game_layout', "TEXT NOT NULL DEFAULT 'framed'");
 ensureColumn('users', 'stripe_customer_id', 'TEXT');
 ensureColumn('users', 'stripe_subscription_id', 'TEXT');
 ensureColumn('users', 'subscription_status', 'TEXT');

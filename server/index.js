@@ -21,6 +21,8 @@ import authRoutes from './routes/auth.js';
 import seriesRoutes from './routes/series.js';
 import videoRoutes from './routes/videos.js';
 import accountRoutes from './routes/accounts.js';
+import gameplayRoutes from './routes/gameplay.js';
+import { resumeGameplayProcessing, removeUserClips } from './gameplay.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -44,6 +46,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/series', seriesRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/accounts', accountRoutes);
+app.use('/api/gameplay', gameplayRoutes);
 
 // Voice samples for the series wizard (cached per provider/voice/language).
 app.get('/api/voices/:id/preview', requireAuth, async (req, res) => {
@@ -124,6 +127,7 @@ app.delete('/api/account', requireAuth, async (req, res) => {
   if (req.body?.confirm !== 'DELETE') throw new HttpError(400, 'Type DELETE to confirm.');
   await cancelSubscriptionNow(req.user);
   const videoIds = db.all('SELECT id FROM videos WHERE user_id = ?', req.user.id).map((v) => v.id);
+  removeUserClips(req.user.id);
   db.run('DELETE FROM users WHERE id = ?', req.user.id); // cascades to sessions, series, videos, accounts, posts
   for (const id of videoIds) fs.rmSync(videoDir(id), { recursive: true, force: true });
   destroySession(req, res);
@@ -164,6 +168,7 @@ app.listen(config.port, () => {
   console.log(`  payments: ${billingProvider() ? `${billingProvider()}${testMode() ? ' (test mode)' : ''}` : 'off'}`);
   warmUpBilling();
   resumePendingJobs();
+  resumeGameplayProcessing();
   if (config.schedulerEnabled) startScheduler();
   // Warm the synthesised music beds in the background.
   (async () => {

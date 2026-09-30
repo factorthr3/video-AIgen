@@ -16,6 +16,7 @@ import VideoDetail from './pages/VideoDetail.jsx';
 import Accounts from './pages/Accounts.jsx';
 import Billing from './pages/Billing.jsx';
 import Settings from './pages/Settings.jsx';
+import Gameplay from './pages/Gameplay.jsx';
 
 function RequireAuth({ children }) {
   const { loading, user } = useSession();
@@ -53,6 +54,7 @@ createRoot(document.getElementById('root')).render(
               <Route path="series/:id" element={<SeriesDetail />} />
               <Route path="videos" element={<Videos />} />
               <Route path="videos/:id" element={<VideoDetail />} />
+              <Route path="gameplay" element={<Gameplay />} />
               <Route path="accounts" element={<Accounts />} />
               <Route path="billing" element={<Billing />} />
               <Route path="settings" element={<Settings />} />

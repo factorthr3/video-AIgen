@@ -98,12 +98,11 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-function drawCaption(ctx, chunk, layout, t, style, W, H) {
+function drawCaption(ctx, chunk, layout, t, style, W, H, centerY = H * 0.7) {
   const { lines, size, space } = layout;
   const appear = clamp01((t - chunk.start) / 0.14);
   const pop = style === 'minimal' ? 1 : 0.82 + 0.18 * easeOutBack(appear);
   const lineHeight = size * (style === 'bold' ? 1.08 : 1.2);
-  const centerY = H * 0.7;
   const top = centerY - (lines.length * lineHeight) / 2 + lineHeight / 2;
   const active = chunk.words.findIndex((w) => t >= w.start && t < w.end);
 
@@ -282,6 +281,72 @@ function bottomShade(W, H) {
   return c;
 }
 
+// ---------- gameplay layout ----------
+// Colour emoji fonts: Apple's on macOS, Noto's on the Linux server.
+const HEADLINE_FONT = (size) => `${size}px "Poppins ExtraBold", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+
+/** Where things go: framed = landscape footage in a band, headline above, captions below. */
+function gameplayLayout(layout, W, H, trackH) {
+  if (layout === 'full') return { bandTop: 0, bandHeight: H, headlineBottom: H * 0.24, captionY: H * 0.7, full: true };
+  const bandTop = Math.round((H - trackH) / 2) - 40;
+  return { bandTop, bandHeight: trackH, headlineBottom: bandTop - 44, captionY: bandTop + trackH + (H - bandTop - trackH) * 0.36, full: false };
+}
+
+function layoutHeadline(ctx, text, W) {
+  const maxWidth = W * 0.88;
+  for (let size = 80; ; size -= 4) {
+    ctx.font = HEADLINE_FONT(size);
+    const lines = [];
+    let line = '';
+    for (const word of String(text).split(/\s+/).filter(Boolean)) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && ctx.measureText(next).width > maxWidth) {
+        lines.push(line);
+        line = word;
+      } else line = next;
+    }
+    if (line) lines.push(line);
+    if ((lines.length <= 3 && lines.every((l) => ctx.measureText(l).width <= maxWidth)) || size <= 44) return { lines, size };
+  }
+}
+
+function drawHeadline(ctx, headline, place, W) {
+  const { lines, size } = headline;
+  const lineHeight = size * 1.18;
+  const top = place.headlineBottom - lines.length * lineHeight;
+  ctx.save();
+  ctx.font = HEADLINE_FONT(size);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.lineJoin = 'round';
+  lines.forEach((line, i) => {
+    const y = top + i * lineHeight;
+    if (place.full) {
+      // Over footage: outline and shadow so it reads on any background.
+      ctx.shadowColor = 'rgba(0,0,0,0.6)';
+      ctx.shadowBlur = 12;
+      ctx.lineWidth = size * 0.14;
+      ctx.strokeStyle = '#000';
+      ctx.strokeText(line, W / 2, y);
+      ctx.shadowColor = 'transparent';
+    }
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(line, W / 2, y);
+  });
+  ctx.restore();
+}
+
+function topShade(W, H) {
+  const c = createCanvas(W, H);
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, H * 0.35);
+  g.addColorStop(0, 'rgba(0,0,0,0.6)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H * 0.35);
+  return c;
+}
+
 function drawWatermark(ctx, W, H) {
   ctx.save();
   ctx.font = '34px "Poppins SemiBold"';
@@ -300,14 +365,21 @@ function drawWatermark(ctx, W, H) {
 /**
  * scenes: [{ image, clip?, start, duration }]
  * chunks: caption chunks from captions.js (absolute times)
+ * gameplay: { file, width, height, layout, headline } plays continuous
+ *   footage instead of the scenes' images (see gameplay.js).
  */
-export async function renderVideo({ scenes, chunks, captionStyle, language, watermark, audioFile, out, thumbOut, onProgress }) {
+export async function renderVideo({ scenes, chunks, captionStyle, language, watermark, gameplay, audioFile, out, thumbOut, onProgress }) {
   const { width: W, height: H, fps } = config.render;
   const totalDuration = scenes.at(-1).start + scenes.at(-1).duration;
   const totalFrames = Math.ceil(totalDuration * fps);
-  const images = await Promise.all(scenes.map((s) => loadImage(fs.readFileSync(s.image))));
+  const images = await Promise.all(scenes.map((s) => (s.image ? loadImage(fs.readFileSync(s.image)) : null)));
   const motions = scenes.map((_, i) => kenBurns(i));
   const shade = bottomShade(W, H);
+  const place = gameplay && gameplayLayout(gameplay.layout, W, H, gameplay.height);
+  const gameplayReader = gameplay && new ClipReader(gameplay.file, gameplay.width, gameplay.height, fps);
+  const gameplayCanvas = gameplay && createCanvas(gameplay.width, gameplay.height);
+  const headlineShade = place?.full ? topShade(W, H) : null;
+  let headline = null;
 
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext('2d');
@@ -371,14 +443,25 @@ export async function renderVideo({ scenes, chunks, captionStyle, language, wate
       ctx.globalAlpha = 1;
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, W, H);
-      await paintScene(sceneIdx, local);
-
-      const next = scenes[sceneIdx + 1];
-      const fadeStart = s.duration - XFADE;
-      if (next && local > fadeStart) {
-        ctx.globalAlpha = easeInOut(clamp01((local - fadeStart) / XFADE));
-        await paintScene(sceneIdx + 1, t - next.start);
-        ctx.globalAlpha = 1;
+      if (gameplay) {
+        // One continuous track: no per-scene images or crossfades.
+        const frame = await gameplayReader.frame(f);
+        if (frame) {
+          gameplayCanvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(frame.buffer, frame.byteOffset, frame.length), gameplay.width, gameplay.height), 0, 0);
+          ctx.drawImage(gameplayCanvas, 0, place.bandTop);
+        }
+        if (headlineShade) ctx.drawImage(headlineShade, 0, 0);
+        headline ??= layoutHeadline(ctx, gameplay.headline, W);
+        drawHeadline(ctx, headline, place, W);
+      } else {
+        await paintScene(sceneIdx, local);
+        const next = scenes[sceneIdx + 1];
+        const fadeStart = s.duration - XFADE;
+        if (next && local > fadeStart) {
+          ctx.globalAlpha = easeInOut(clamp01((local - fadeStart) / XFADE));
+          await paintScene(sceneIdx + 1, t - next.start);
+          ctx.globalAlpha = 1;
+        }
       }
       // Fade in from black at the very start and out at the very end.
       const edge = Math.min(t / 0.3, (totalDuration - t) / 0.5);
@@ -388,7 +471,7 @@ export async function renderVideo({ scenes, chunks, captionStyle, language, wate
       }
 
       if (captionStyle !== 'none') {
-        ctx.drawImage(shade, 0, 0);
+        if (!gameplay || place.full) ctx.drawImage(shade, 0, 0);
         while (chunkIdx < chunks.length - 1 && t >= chunks[chunkIdx].end) chunkIdx++;
         const chunk = chunks[chunkIdx];
         if (chunk && t >= chunk.start && t < chunk.end) {
@@ -397,7 +480,7 @@ export async function renderVideo({ scenes, chunks, captionStyle, language, wate
             layout = { ...layoutChunk(ctx, chunk, captionStyle, W, language), language };
             layoutCache.set(chunkIdx, layout);
           }
-          drawCaption(ctx, chunk, layout, t, captionStyle, W, H);
+          drawCaption(ctx, chunk, layout, t, captionStyle, W, H, place?.captionY);
         }
       }
       if (watermark) drawWatermark(ctx, W, H);
@@ -421,6 +504,7 @@ export async function renderVideo({ scenes, chunks, captionStyle, language, wate
     throw err;
   } finally {
     closeReadersBefore(Infinity);
+    gameplayReader?.close();
   }
   fs.renameSync(tmp, out);
   return { duration: totalDuration, frames: totalFrames };

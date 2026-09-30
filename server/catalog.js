@@ -1,9 +1,43 @@
 // Everything a user can pick when creating a series. Shared with the web app
 // via GET /api/catalog so the two never drift.
 
-export const NICHE_CATEGORIES = ['Animals', 'Stories', 'Kids', 'Facts & History', 'Mindset & Faith'];
+export const NICHE_CATEGORIES = ['Gaming', 'Animals', 'Stories', 'Kids', 'Facts & History', 'Mindset & Faith'];
 
+// Gaming niches play footage from the gameplay library (`motion: 'gameplay'`)
+// and are written about the chosen game (`gaming: true`).
 export const NICHES = [
+  {
+    id: 'game-secrets', category: 'Gaming', name: 'Game Secrets', emoji: '🎮', gaming: true,
+    tagline: 'Hidden details, easter eggs and wild facts about your game',
+    brief: 'TRUE, surprising facts about the game: hidden details, easter eggs, developer secrets, cut content, speedrun tricks, record-breaking numbers. Name specific places, characters and missions. Only facts you are confident are real; never invent easter eggs.',
+    hook: 'There is a room in this game that almost nobody has ever found.',
+    motifs: ['city'], art: 'cinematic', voice: 'ash', music: 'epic-pulse', motion: 'gameplay',
+    colors: ['#7c3aed', '#06b6d4'],
+  },
+  {
+    id: 'game-lore', category: 'Gaming', name: 'Gaming Lore', emoji: '📜', gaming: true,
+    tagline: 'The story behind the game, explained',
+    brief: 'The lore of the game explained like a gripping story: character backstories, timelines, theories and the dark details players missed. Stay faithful to the real canon and label fan theories as theories.',
+    hook: 'You played the whole game. You still missed what really happened.',
+    motifs: ['city', 'ruins'], art: 'cinematic', voice: 'onyx', music: 'dark-ambient', motion: 'gameplay',
+    colors: ['#1e1b4b', '#be123c'],
+  },
+  {
+    id: 'game-hot-takes', category: 'Gaming', name: 'Gaming Hot Takes', emoji: '🔥', gaming: true,
+    tagline: 'Funny, relatable gamer opinions and memes',
+    brief: 'Short, funny, meme-style commentary about the game written the way gamers talk: bold hot takes, comparisons with other games, relatable player moments, playful roasts of game mechanics. Punchy and comment-bait, never mean-spirited.',
+    hook: 'Nobody talks about how broken this mechanic really is.',
+    motifs: ['city'], art: 'cinematic', voice: 'ash', music: 'bright-pluck', motion: 'gameplay',
+    colors: ['#ea580c', '#db2777'],
+  },
+  {
+    id: 'gamer-stories', category: 'Gaming', name: 'Gamer Storytime', emoji: '🕹️',
+    tagline: 'Gripping first-person stories over gameplay',
+    brief: 'Original first-person "storytime" stories (funny, dramatic or unbelievable moments from everyday life) with a twist at the end, told over gameplay footage. The story does not need to be about the game.',
+    hook: 'My roommate thought I was asleep. I was not.',
+    motifs: ['city'], art: 'cinematic', voice: 'coral', music: 'bright-pluck', motion: 'gameplay',
+    colors: ['#16a34a', '#0ea5e9'],
+  },
   {
     id: 'animal-tales', category: 'Animals', name: 'Animal Tales', emoji: '🦊',
     tagline: 'Animated animal heroes in funny, heartwarming stories',
@@ -193,9 +227,16 @@ const STYLE_BLURBS = {
 };
 
 export const MOTION = [
+  { id: 'gameplay', name: 'Gameplay footage', description: 'Narration and captions over real clips from the gameplay library' },
   { id: 'hook', name: 'AI video hook', description: 'The opening scene is a real AI video clip to stop the scroll; the rest are animated images' },
   { id: 'video', name: 'AI video, every scene', description: 'Every scene becomes a real AI-generated video clip' },
   { id: 'still', name: 'Animated images', description: 'Cinematic pan & zoom over still images' },
+];
+
+// How gameplay footage sits in the vertical frame.
+export const GAME_LAYOUTS = [
+  { id: 'framed', name: 'Framed', description: 'Gameplay in the middle, headline on top, captions below' },
+  { id: 'full', name: 'Full screen', description: 'Gameplay cropped to fill the screen, headline and captions over it' },
 ];
 
 export const CAPTION_STYLES = [
@@ -260,6 +301,7 @@ export const LANGUAGE = byId(LANGUAGES);
 export const DURATION = byId(DURATIONS);
 export const MUSIC_TRACK = byId(MUSIC);
 export const MOTION_TYPE = byId(MOTION);
+export const GAME_LAYOUT = byId(GAME_LAYOUTS);
 
 export function catalog() {
   return {
@@ -270,6 +312,7 @@ export function catalog() {
     artStyles: ART_STYLES.map(({ id, name, category, palette }) => ({ id, name, category, blurb: STYLE_BLURBS[id], colors: palette.sky })),
     captionStyles: CAPTION_STYLES,
     motion: MOTION,
+    gameLayouts: GAME_LAYOUTS,
     music: MUSIC,
     languages: LANGUAGES.map(({ id, name }) => ({ id, name })),
     durations: DURATIONS.map(({ id, name }) => ({ id, name })),

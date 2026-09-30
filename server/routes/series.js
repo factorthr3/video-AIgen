@@ -3,7 +3,7 @@ import { db, insert, update, newId, now, parseJson } from '../db.js';
 import { requireAuth } from '../auth.js';
 import { PLAN, NICHE } from '../catalog.js';
 import {
-  HttpError, cleanSettings, createVideo, nextRunAt, seriesSettings, seriesSchedule, validTimeZone, usage, NEEDS_PLAN_MESSAGE,
+  HttpError, cleanSettings, checkGameplay, createVideo, nextRunAt, seriesSettings, seriesSchedule, validTimeZone, usage, NEEDS_PLAN_MESSAGE,
 } from '../services.js';
 import { publicVideo } from './videos.js';
 
@@ -68,6 +68,7 @@ router.post('/', (req, res) => {
   }
   const body = req.body || {};
   const settings = cleanSettings(body);
+  checkGameplay(req.user, settings);
   const schedule = cleanSchedule(body);
   const accountIds = ownedAccountIds(req.user.id, body.accountIds) || [];
   const name = String(body.name || '').trim().slice(0, 80)
@@ -86,6 +87,8 @@ router.post('/', (req, res) => {
     music: settings.music,
     duration: settings.duration,
     motion: settings.motion,
+    game: settings.game,
+    game_layout: settings.gameLayout,
     schedule_days: JSON.stringify(schedule.days),
     schedule_time: schedule.time,
     timezone: schedule.timeZone,
@@ -117,6 +120,7 @@ router.patch('/:id', (req, res) => {
   const s = getOwned(req);
   const body = req.body || {};
   const settings = cleanSettings(body, seriesSettings(s));
+  if (body.motion !== undefined || body.game !== undefined) checkGameplay(req.user, settings);
   const schedule = cleanSchedule(body, seriesSchedule(s));
   const active = body.active === undefined ? Boolean(s.active) : Boolean(body.active);
   const accountIds = ownedAccountIds(req.user.id, body.accountIds) ?? parseJson(s.account_ids, []);
@@ -131,6 +135,8 @@ router.patch('/:id', (req, res) => {
     music: settings.music,
     duration: settings.duration,
     motion: settings.motion,
+    game: settings.game,
+    game_layout: settings.gameLayout,
     schedule_days: JSON.stringify(schedule.days),
     schedule_time: schedule.time,
     timezone: schedule.timeZone,

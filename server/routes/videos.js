@@ -22,6 +22,7 @@ export function publicVideo(v) {
     title: v.title,
     description: v.description,
     hashtags: parseJson(v.hashtags, []),
+    headline: script?.headline || null,
     scenes: script?.scenes?.map((sc) => ({ narration: sc.narration, visual: sc.visual, motion: sc.motion || '' })) || [],
     scriptSource: script?.source || null,
     settings: parseJson(v.settings, {}),
@@ -85,8 +86,16 @@ router.patch('/:id', (req, res) => {
   if (Array.isArray(body.hashtags)) {
     fields.hashtags = JSON.stringify(body.hashtags.map((h) => String(h).replace(/^#/, '').replace(/\s+/g, '')).filter(Boolean).slice(0, 15));
   }
-  if (Array.isArray(body.scenes)) {
+  let script = null;
+  if (Array.isArray(body.scenes) || typeof body.headline === 'string') {
     if (['queued', 'processing'].includes(v.status)) throw new HttpError(409, 'Wait for the current render to finish before editing the script.');
+    script = parseJson(v.script, {});
+  }
+  // The on-screen headline of gameplay videos.
+  if (typeof body.headline === 'string' && body.headline.trim() !== (script.headline || '')) {
+    script = { ...script, headline: body.headline.trim().slice(0, 80), edited: true };
+  }
+  if (Array.isArray(body.scenes)) {
     const scenes = body.scenes
       .map((sc) => ({
         narration: String(sc.narration || '').trim().slice(0, 600),
@@ -95,9 +104,11 @@ router.patch('/:id', (req, res) => {
       }))
       .filter((sc) => sc.narration);
     if (!scenes.length) throw new HttpError(400, 'A video needs at least one scene.');
-    const script = parseJson(v.script, {});
-    fields.script = JSON.stringify({ ...script, scenes, edited: true });
+    if (JSON.stringify(scenes) !== JSON.stringify((script.scenes || []).map((sc) => ({ narration: sc.narration, visual: sc.visual, motion: sc.motion || '' })))) {
+      script = { ...script, scenes, edited: true };
+    }
   }
+  if (script) fields.script = JSON.stringify(script);
   update('videos', v.id, fields);
   res.json({ video: publicVideo(db.get('SELECT * FROM videos WHERE id = ?', v.id)) });
 });

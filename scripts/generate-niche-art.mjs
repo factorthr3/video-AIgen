@@ -21,6 +21,10 @@ fs.mkdirSync(OUT, { recursive: true });
 
 // What each card shows: the niche's signature story, not a generic scene.
 const SUBJECTS = {
+  'game-secrets': 'a glowing hidden doorway in a dark alley of a neon open-world video game city at night, a lone player character approaching it, cinematic modern video game graphics',
+  'game-lore': 'a lone armoured hero silhouetted before a colossal ancient temple covered in glowing runes in a vast fantasy video game world at dusk, cinematic game art',
+  'game-hot-takes': 'a teenage gamer in a headset on a gaming chair reacting in comic disbelief to a bright screen, colourful RGB-lit gaming room with neon lights',
+  'gamer-stories': 'a cosy dark bedroom gaming setup at night, a controller on the desk and a racing game glowing on a wide monitor, purple and green neon light',
   'animal-tales': 'a tiny penguin chick in a red knitted scarf flapping its little wings on an iceberg at golden hour, determined and hopeful expression',
   'animal-facts': 'an octopus gliding over a vibrant coral reef, tentacles flowing, shafts of sunlight through blue water',
   'pet-pov': 'a fluffy orange cat crouched low, staring with comically intense focus at a small red laser dot on a living room rug',

@@ -1,11 +1,12 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { Check, Upload, Wand2, Plus, Clapperboard, Images, Zap } from 'lucide-react';
+import { Check, Upload, Wand2, Plus, Clapperboard, Images, Zap, Gamepad2 } from 'lucide-react';
 import { AudioPreview, PlatformIcon, platformLabel } from './ui.jsx';
-import { api, DAYS } from '../lib.jsx';
+import { api, useApi, DAYS, formatDuration } from '../lib.jsx';
 
 export const defaultForm = (catalog) => {
-  const niche = catalog.niches[0];
+  // Start on a niche that needs no gameplay footage.
+  const niche = catalog.niches.find((n) => n.motion !== 'gameplay') || catalog.niches[0];
   return {
     name: '',
     niche: niche.id,
@@ -17,6 +18,8 @@ export const defaultForm = (catalog) => {
     music: niche.music,
     duration: 60,
     motion: catalog.providers?.video?.provider ? 'hook' : 'still',
+    game: '',
+    gameLayout: 'framed',
     schedule: { days: [0, 1, 2, 3, 4, 5, 6], time: '18:00', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' },
     autoPost: true,
     accountIds: [],
@@ -45,7 +48,8 @@ function Chips({ options, value, onChange }) {
 
 export function NichePicker({ catalog, form, setForm }) {
   const [category, setCategory] = useState('All');
-  const choose = (n) => setForm((f) => ({ ...f, niche: n.id, voice: n.voice, artStyle: n.art, music: f.music.startsWith('upload:') ? f.music : n.music }));
+  // Gaming niches switch the visuals to gameplay footage.
+  const choose = (n) => setForm((f) => ({ ...f, niche: n.id, voice: n.voice, artStyle: n.art, music: f.music.startsWith('upload:') ? f.music : n.music, ...(n.motion ? { motion: n.motion } : {}) }));
   const niches = category === 'All' ? catalog.niches : catalog.niches.filter((n) => n.category === category);
   return (
     <>
@@ -90,6 +94,66 @@ const CAPTION_PREVIEW = {
   none: <span className="text-xs text-ink-400">No captions</span>,
 };
 
+// Which game's footage, and how it's framed (see the gameplay library).
+function GameplayPicker({ catalog, form, setForm }) {
+  const { data } = useApi('/gameplay');
+  const games = data?.games || [];
+  // Pick the first game automatically, or drop a game that no longer has footage.
+  useEffect(() => {
+    if (data && games.length && !games.some((g) => g.id === form.game)) setForm((f) => ({ ...f, game: games[0].id }));
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!data) return null;
+  return (
+    <>
+      <Section title="Game" hint="Footage comes from the gameplay library, cut to fit each video.">
+        {games.length ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {games.map((g) => (
+              <button key={g.id} type="button" data-selected={form.game === g.id} className="option" onClick={() => setForm((f) => ({ ...f, game: g.id }))}>
+                <Gamepad2 className="size-5 text-brand-400" />
+                <p className="mt-2 font-semibold">{g.name}</p>
+                <p className="text-xs text-ink-400">{g.clips} clip{g.clips === 1 ? '' : 's'} · {formatDuration(g.seconds)}</p>
+              </button>
+            ))}
+            <Link to="/app/gameplay" className="option grid place-items-center border-dashed text-center text-sm text-ink-300">
+              <span><Plus className="mx-auto mb-1 size-5 text-brand-400" />Add footage</span>
+            </Link>
+          </div>
+        ) : (
+          <div className="card border-dashed p-5 text-sm text-ink-300">
+            There's no gameplay in the library yet. <Link to="/app/gameplay" className="font-semibold text-white underline">Upload some clips</Link> (GTA, Spider-Man, Minecraft…), then come back and pick the game.
+          </div>
+        )}
+      </Section>
+      <Section title="Layout">
+        <div className="grid grid-cols-2 gap-3 sm:max-w-md">
+          {(catalog.gameLayouts || []).map((l) => (
+            <button key={l.id} type="button" data-selected={form.gameLayout === l.id} className="option p-3 text-left" onClick={() => setForm((f) => ({ ...f, gameLayout: l.id }))}>
+              <span className="mx-auto mb-2 flex aspect-[9/16] w-14 flex-col overflow-hidden rounded-lg border border-white/15 bg-black">
+                {l.id === 'framed' ? (
+                  <>
+                    <span className="mx-1.5 mt-3 h-1 rounded bg-white/80" />
+                    <span className="mx-3 mt-0.5 h-1 rounded bg-white/80" />
+                    <span className="mt-1.5 h-7 bg-gradient-to-br from-emerald-500 to-sky-600" />
+                    <span className="mx-2.5 mt-2 h-1 rounded bg-yellow-300/90" />
+                  </>
+                ) : (
+                  <span className="relative flex-1 bg-gradient-to-br from-emerald-500 to-sky-600">
+                    <span className="absolute inset-x-1.5 top-2 h-1 rounded bg-white/90" />
+                    <span className="absolute inset-x-2.5 bottom-6 h-1 rounded bg-yellow-300/90" />
+                  </span>
+                )}
+              </span>
+              <p className="text-sm font-semibold">{l.name}</p>
+              <p className="text-xs leading-snug text-ink-400">{l.description}</p>
+            </button>
+          ))}
+        </div>
+      </Section>
+    </>
+  );
+}
+
 export function StylePicker({ catalog, form, setForm }) {
   const fileRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -133,14 +197,15 @@ export function StylePicker({ catalog, form, setForm }) {
       hook: /ltx-2\.3\/image-to-video\/fast/.test(video.hookModel || '') && 'LTX-2.3 Fast (fal.ai) · about $0.36 per video (one 6-second clip)',
       video: /kling-video\/v3\/pro/.test(video.model || '') && 'Kling v3 Pro (fal.ai) · about $0.11 per second, roughly $3.50 per 30s video',
     };
-  const icons = { hook: Zap, video: Clapperboard, still: Images };
-  const badges = { hook: 'Best value', video: 'Premium' };
+  const icons = { gameplay: Gamepad2, hook: Zap, video: Clapperboard, still: Images };
+  const badges = { gameplay: 'New', hook: 'Best value', video: 'Premium' };
+  const gameplay = form.motion === 'gameplay';
   return (
     <>
       <Section title="Visuals">
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {catalog.motion.map((m) => {
-            const needsFal = m.id !== 'still';
+            const needsFal = m.id === 'hook' || m.id === 'video';
             const disabled = needsFal && !videoReady;
             const Icon = icons[m.id] || Images;
             return (
@@ -150,7 +215,7 @@ export function StylePicker({ catalog, form, setForm }) {
                   <p className="flex flex-wrap items-center gap-2 font-semibold">{m.name}{badges[m.id] && <span className="chip py-0 text-[10px] uppercase">{badges[m.id]}</span>}</p>
                   <p className="mt-1 text-xs leading-snug text-ink-400">{m.description}</p>
                   {videoReady && costHint[m.id] && <p className="mt-1.5 text-xs text-ink-400">{costHint[m.id]}</p>}
-                  {m.id === 'still' && <p className="mt-1.5 text-xs text-ink-400">No video cost</p>}
+                  {(m.id === 'still' || m.id === 'gameplay') && <p className="mt-1.5 text-xs text-ink-400">No video cost</p>}
                   {disabled && <p className="mt-1.5 text-xs text-amber-300/90">Add GEMINI_API_KEY (Google Veo) or FAL_KEY to the server's .env to enable.</p>}
                 </div>
               </button>
@@ -159,7 +224,9 @@ export function StylePicker({ catalog, form, setForm }) {
         </div>
       </Section>
 
-      <Section title="Art style" hint={mix ? `Mixing ${selectedStyles.length} style${selectedStyles.length === 1 ? '' : 's'}: each new video uses the next one, so the channel keeps looking fresh.` : null}>
+      {gameplay && <GameplayPicker catalog={catalog} form={form} setForm={setForm} />}
+
+      {!gameplay && <Section title="Art style" hint={mix ? `Mixing ${selectedStyles.length} style${selectedStyles.length === 1 ? '' : 's'}: each new video uses the next one, so the channel keeps looking fresh.` : null}>
         <label className="mb-4 flex w-fit cursor-pointer items-center gap-2.5 text-sm text-ink-300">
           <input type="checkbox" className="size-4 accent-brand-500" checked={mix} onChange={(e) => { setMix(e.target.checked); if (!e.target.checked) set('artStyle')(selectedStyles[0]); }} />
           Mix styles: rotate through several, one per video
@@ -185,7 +252,7 @@ export function StylePicker({ catalog, form, setForm }) {
             </div>
           );
         })}
-      </Section>
+      </Section>}
 
       <Section title="Narrator voice" hint={`Previews use your server's current voice engine (${catalog.providers?.voice?.provider}).`}>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

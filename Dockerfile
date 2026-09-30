@@ -2,9 +2,10 @@
 FROM node:24-bookworm-slim
 
 # ffmpeg encodes videos; Noto fonts cover non-Latin captions (Hindi, Japanese,
-# Korean, Chinese); espeak-ng is the last-resort offline voice.
+# Korean, Chinese) and emoji in gameplay headlines; espeak-ng is the
+# last-resort offline voice.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ffmpeg espeak-ng fontconfig fonts-noto-core fonts-noto-cjk ca-certificates \
+  && apt-get install -y --no-install-recommends ffmpeg espeak-ng fontconfig fonts-noto-core fonts-noto-cjk fonts-noto-color-emoji ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

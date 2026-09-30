@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router';
-import { LayoutDashboard, Layers, Film, Link2, CreditCard, Settings, LogOut, Plus, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Layers, Film, Gamepad2, Link2, CreditCard, Settings, LogOut, Plus, Menu, X } from 'lucide-react';
 import { Logo, ProgressBar } from './ui.jsx';
 import { useSession, useCatalog, byId } from '../lib.jsx';
 
@@ -8,6 +8,7 @@ const NAV = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/app/series', label: 'Series', icon: Layers },
   { to: '/app/videos', label: 'Videos', icon: Film },
+  { to: '/app/gameplay', label: 'Gameplay library', icon: Gamepad2 },
   { to: '/app/accounts', label: 'Accounts', icon: Link2 },
   { to: '/app/billing', label: 'Plan & billing', icon: CreditCard },
   { to: '/app/settings', label: 'Settings', icon: Settings },

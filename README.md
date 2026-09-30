@@ -9,14 +9,15 @@ It's inspired by products like FacelessReels: set up a *series* once (niche, loo
 ## Features
 
 - **Series on autopilot:** choose posting days, time and timezone. Videos render ahead of each slot and publish on time. Restarts are safe: nothing is lost or double-posted.
-- **17 built-in niches plus custom topics**, grouped into Animals (animated Animal Tales, Wild Animal Facts, Funny Pet POV), Stories, Kids (Bedtime Stories, Fables), Facts & History and Mindset & Faith.
+- **21 built-in niches plus custom topics**, grouped into Gaming (Game Secrets, Gaming Lore, Gaming Hot Takes, Gamer Storytime), Animals (animated Animal Tales, Wild Animal Facts, Funny Pet POV), Stories, Kids (Bedtime Stories, Fables), Facts & History and Mindset & Faith.
+- **Gameplay videos:** narration and captions over real game footage from the **Gameplay library**, with a meme-style headline on top. Admins' uploads are shared with every user; users can add private clips. See *Gameplay videos* below.
 - **19 art styles** in three groups: Animation (3D Animation, Claymation, 2D Cartoon, Anime, Felt Puppets, Paper Cutout, Low Poly, Kawaii, Pixel Art), Realistic (Cinematic, Nature Documentary, Tiny World, Dark Fantasy, Vintage Film) and Illustrated. **Mix styles** makes a series rotate through several looks, one per video.
 - **Hook-first AI scripts** from Claude, with structured scene-by-scene output. Each series remembers its past titles so it never repeats a story.
 - **Visuals per scene:** OpenAI image generation in any art style, or procedural illustrated art when no key is set. Claude writes visuals to suit the chosen style, keeping animated characters identical from scene to scene.
 - **Voiceover:** 8 narrator personas across 12 languages via ElevenLabs, OpenAI TTS or the system voice.
 - **Animated captions:** word-by-word karaoke captions in 4 styles (Bold Pop, Highlight Box, Neon Glow, Minimal).
 - **Music:** four synthesised royalty-free mood beds, or upload your own.
-- **Editor:** edit title, caption, hashtags and every scene's narration and visual prompt, then re-render. Unchanged images are reused.
+- **Editor:** edit title, caption, hashtags, the gameplay headline and every scene's narration and visual prompt, then re-render. Unchanged images and voice lines are reused.
 - **Posting:** real OAuth and upload integrations for YouTube (Data API v3), TikTok (Content Posting API) and Instagram (Instagram API with Instagram Login). **Demo accounts** simulate posting so you can try the full flow without developer apps.
 - **Review mode:** turn off auto-post and videos wait in the library for approval.
 - **Plans & quotas:** Tester ($5.99) / Starter / Daily / Pro with monthly video and series limits.
@@ -59,6 +60,12 @@ The offline fallbacks are fine for trying the app but not for publishing. For pr
    The scene image is the clip's first frame, so the style stays consistent, and clips are timed to the narration. Any clip that fails falls back to the animated still, and the video page says why. Get a Gemini key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) on a Google Cloud project with billing enabled (Veo has no free tier).
 
 The video card shows which engines produced each video (e.g. `voice: elevenlabs · eleven_v3`), so you can confirm the upgrade took effect. Re-render older videos to apply the new engines. Check each provider's pricing page for per-video costs.
+
+### Gameplay videos
+
+Choose **Gameplay footage** under Visuals (the Gaming niches pick it automatically) and a game from the library. Each video plays one continuous stretch of that game's clips, cutting to another clip when one runs out, with narration, word-by-word captions and a headline Claude writes like a gaming meme caption (editable before re-rendering). Two layouts: **Framed** (landscape gameplay in the middle, headline above, captions below) and **Full screen** (cropped to fill the frame).
+
+Upload footage on **Gameplay library** (sidebar): name the game and add MP4/MOV/MKV/WebM files up to 1 GB each. Uploads are normalised once (max 1080p, 30 fps, H.264, game audio removed, since it often contains licensed music) and stored under `DATA_DIR/gameplay`. Use footage you're allowed to use: your own recordings or packs whose creators permit reuse. Clips ripped from other creators' videos get flagged by TikTok, YouTube and Instagram. Storage adds up (roughly 30 to 60 MB per minute of footage after normalising, depending on how busy the game is), and it shares the Railway volume with rendered videos, so keep an eye on the volume size (5 GB at the moment).
 
 ### Payments (Paystack)
 
@@ -111,12 +118,13 @@ OAuth tokens are encrypted at rest (AES-256-GCM) and refreshed automatically.
 
 ```
 series settings ─▶ script (Claude / library)
-               ─▶ one image per scene (OpenAI / Pollinations / procedural)
+               ─▶ one image per scene (OpenAI / Pollinations / procedural), or gameplay footage from the library
                ─▶ one voice clip per scene (ElevenLabs / OpenAI / system)
                ─▶ timeline: each scene lasts exactly as long as its narration
                ─▶ AI video clips (hook or every scene), image-to-video, timed to the narration (Veo / fal.ai)
                ─▶ audio mix: voice + quiet music bed, loudness-normalised
-               ─▶ frames drawn with Skia (Ken Burns, crossfades, captions, watermark)
+               ─▶ gameplay videos: one continuous track cut from the game's clips
+               ─▶ frames drawn with Skia (Ken Burns, crossfades or gameplay layout, headline, captions, watermark)
                ─▶ raw frames piped into ffmpeg → H.264 1080×1920 MP4
 ```
 

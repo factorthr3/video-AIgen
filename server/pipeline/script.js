@@ -15,6 +15,7 @@ export const plainDashes = (text) => String(text ?? '')
 
 const ScriptSchema = z.object({
   title: z.string().describe('Scroll-stopping title, max 70 characters, in the target language'),
+  headline: z.string().describe('Big on-screen caption shown at the top for the whole video: max 45 characters, punchy, in the target language'),
   description: z.string().describe('1-2 sentence post caption in the target language, no hashtags'),
   hashtags: z.array(z.string()).describe('5-8 relevant hashtags without the # symbol'),
   scenes: z.array(z.object({
@@ -43,7 +44,7 @@ Accuracy: when the niche is factual (history, science, true crime, religion, fac
 let client;
 const getClient = () => (client ??= new Anthropic());
 
-export async function writeScript({ niche, customTopic, language, duration, artStyle, usedTitles = [] }) {
+export async function writeScript({ niche, customTopic, language, duration, artStyle, motion, gameName, usedTitles = [] }) {
   if (!config.anthropic.enabled) {
     const script = libraryScript(niche, usedTitles);
     return { ...script, source: 'library' };
@@ -66,11 +67,21 @@ export async function writeScript({ niche, customTopic, language, duration, artS
     ? `\n- Visual style: ${style.name} animation. Write visuals as animated scenes: give each recurring character a distinct look (species, colours, clothing, expression) and repeat it word for word in every scene so the character stays identical. Motion prompts can include expressive character actions.`
     : `\n- Visual style: ${style.name}. Write visuals that suit this look.`;
 
+  // Gameplay videos: real footage from the library plays instead of generated images.
+  let gameNote = '';
+  if (motion === 'gameplay' && gameName) {
+    const about = n?.gaming || customTopic?.trim()
+      ? `The video is about ${gameName}: write about this specific game (its world, characters, missions, mechanics and community), naming real places and characters.`
+      : `The footage is only a background to keep viewers watching; the script does not need to mention ${gameName}.`;
+    gameNote = `\n- Visuals: gameplay footage from ${gameName} plays behind the narration instead of generated images. ${about} Keep each visual and motion prompt to a few words, as they are not used.`
+      + '\n- Headline: write it like a viral gaming meme caption (a hot take, a reaction or a bold claim, e.g. "This game had no business being this good"). It may end with one or two emojis.';
+  }
+
   const prompt = `${topic}
 
 Write one complete video script.
-- Language for title, description and narration: ${lang.name}. Visual prompts stay in English.
-- Target length: about ${target.words} spoken words across ${target.scenes} scenes (roughly ${target.id} seconds).${styleNote}${avoid}`;
+- Language for title, headline, description and narration: ${lang.name}. Visual prompts stay in English.
+- Target length: about ${target.words} spoken words across ${target.scenes} scenes (roughly ${target.id} seconds).${gameNote || styleNote}${avoid}`;
 
   const params = {
     model: config.anthropic.model,
@@ -94,6 +105,7 @@ Write one complete video script.
   if (!script?.scenes?.length) throw new Error('Claude returned an empty script.');
 
   script.title = plainDashes(script.title);
+  script.headline = plainDashes(script.headline || script.title).slice(0, 80);
   script.description = plainDashes(script.description);
   script.hashtags = script.hashtags.map((h) => h.replace(/^#/, '').replace(/\s+/g, '')).filter(Boolean).slice(0, 8);
   script.scenes = script.scenes.filter((sc) => sc.narration?.trim()).map((sc) => ({ ...sc, narration: plainDashes(sc.narration) }));

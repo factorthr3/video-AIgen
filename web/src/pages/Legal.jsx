@@ -78,7 +78,7 @@ export function Privacy() {
         <h2>1. What we collect</h2>
         <ul>
           <li><strong>Account details:</strong> your name, email address and a securely hashed password. If you sign in with Google, we receive your name, email address and profile picture from Google.</li>
-          <li><strong>Content you create:</strong> series settings, topics, scripts, generated images, voiceovers, videos, captions and any music you upload.</li>
+          <li><strong>Content you create:</strong> series settings, topics, scripts, generated images, voiceovers, videos, captions, and any music or gameplay footage you upload.</li>
           <li><strong>Connected social accounts:</strong> when you connect TikTok, YouTube or Instagram, we store the account's ID, username, profile picture and the access tokens needed to post on your behalf. Tokens are encrypted at rest.</li>
           <li><strong>Billing:</strong> payments are processed by {processor}. We never see or store your full card details; we keep your {processor} customer and subscription references, your plan and its status.</li>
           <li><strong>Technical data:</strong> a session cookie that keeps you signed in, and server logs (including IP address, browser type and request times) used for security and debugging.</li>
@@ -191,7 +191,7 @@ export function Terms() {
       <section>
         <h2>4. Your content</h2>
         <p>As between you and us, you own the inputs you provide and, to the extent permitted by law, the videos and other output the Service generates for you. You grant us a limited licence to host, process, reproduce and publish your content solely to operate the Service for you, including posting it to accounts you connect. Because AI output is not always unique, similar content may be generated for other users.</p>
-        <p className="mt-3">You are responsible for the content you create and publish, and for making sure you have the rights to anything you upload, such as music.</p>
+        <p className="mt-3">You are responsible for the content you create and publish, and for making sure you have the rights to anything you upload, such as music or gameplay footage. Only upload gameplay you recorded yourself or that its creator allows you to reuse.</p>
       </section>
 
       <section>

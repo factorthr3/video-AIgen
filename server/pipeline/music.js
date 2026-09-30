@@ -80,14 +80,19 @@ export async function musicTrack(trackId) {
   if (!recipe) return null;
   const out = path.join(CACHE_DIR, `music-${trackId}.m4a`);
   if (fs.existsSync(out)) return out;
-  const tmp = `${out}.tmp.m4a`;
-  await ffmpeg([
-    '-f', 'lavfi', '-i', `aevalsrc='${recipe.expr}':s=44100:d=${LENGTH}`,
-    '-af', `${recipe.post},afade=t=in:d=2,volume=1.6`,
-    '-ac', '2', '-c:a', 'aac', '-b:a', '160k', tmp,
-  ]);
-  fs.renameSync(tmp, out);
+  // One synthesis per track at a time: the startup warm-up and a video job can
+  // ask for the same track together, and must not share a temp file.
+  if (!building.has(trackId)) {
+    const tmp = `${out}.tmp.m4a`;
+    building.set(trackId, ffmpeg([
+      '-f', 'lavfi', '-i', `aevalsrc='${recipe.expr}':s=44100:d=${LENGTH}`,
+      '-af', `${recipe.post},afade=t=in:d=2,volume=1.6`,
+      '-ac', '2', '-c:a', 'aac', '-b:a', '160k', tmp,
+    ]).then(() => fs.renameSync(tmp, out)).finally(() => building.delete(trackId)));
+  }
+  await building.get(trackId);
   return out;
 }
+const building = new Map();
 
 export const MUSIC_IDS = Object.keys(RECIPES);

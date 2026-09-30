@@ -16,6 +16,7 @@ import { timeWords, chunkWords } from './captions.js';
 import { buildAudioTrack, renderVideo } from './render.js';
 import { musicTrack } from './music.js';
 import { generateSceneClips } from './clips.js';
+import { pickSegments, buildGameplayTrack, gameName } from '../gameplay.js';
 
 const SCENE_GAP = 0.25; // breath between scenes
 const TAIL = 0.9; // hold on the last image after narration ends
@@ -38,6 +39,7 @@ const WEIGHTS = {
   still: { script: 0.1, images: 0.35, voice: 0.2, clips: 0, render: 0.35 },
   hook: { script: 0.08, images: 0.3, voice: 0.15, clips: 0.17, render: 0.3 },
   video: { script: 0.05, images: 0.2, voice: 0.1, clips: 0.4, render: 0.25 },
+  gameplay: { script: 0.12, images: 0, voice: 0.25, clips: 0.13, render: 0.5 },
 };
 
 // Simple semaphore so only RENDER_SLOTS renders use the CPU at once.
@@ -63,10 +65,13 @@ async function runJob(videoId) {
   const dir = videoDir(videoId);
   fs.mkdirSync(dir, { recursive: true });
   update('videos', videoId, { status: 'processing', error: null, updated_at: now() });
-  // "hook": AI clip for the opening scene(s) only; "video": every scene.
+  // "hook": AI clip for the opening scene(s) only; "video": every scene;
+  // "gameplay": library footage instead of generated images.
   const engine = videoEngine();
-  const clipMode = engine.provider && ['hook', 'video'].includes(settings.motion) ? settings.motion : null;
-  const W = WEIGHTS[clipMode || 'still'];
+  const gameplayMode = settings.motion === 'gameplay';
+  const game = gameplayMode ? gameName(settings.game) || settings.game : null;
+  const clipMode = !gameplayMode && engine.provider && ['hook', 'video'].includes(settings.motion) ? settings.motion : null;
+  const W = WEIGHTS[gameplayMode ? 'gameplay' : clipMode || 'still'];
 
   // 1. Script - skipped when re-rendering an edited script.
   let script = parseJson(video.script, null);
@@ -75,7 +80,7 @@ async function runJob(videoId) {
     const usedTitles = video.series_id
       ? db.all("SELECT title FROM videos WHERE series_id = ? AND id != ? AND title IS NOT NULL ORDER BY created_at", video.series_id, videoId).map((r) => r.title)
       : [];
-    script = await writeScript({ ...settings, usedTitles });
+    script = await writeScript({ ...settings, gameName: game, usedTitles });
     update('videos', videoId, {
       title: script.title,
       description: script.description,
@@ -87,12 +92,15 @@ async function runJob(videoId) {
   // Library scripts are English, so voice and caption them in English.
   const language = script.source === 'library' ? 'en' : settings.language;
 
-  // 2. Images
-  setStage(videoId, 'Generating visuals', W.script);
-  const images = await generateSceneImages({
-    scenes, artStyle: settings.artStyle, niche: settings.niche, videoId, dir,
-    onProgress: (p) => setStage(videoId, 'Generating visuals', W.script + W.images * p),
-  });
+  // 2. Images (gameplay videos use library footage instead)
+  let images = { files: [], provider: 'gameplay library', model: null, failures: [] };
+  if (!gameplayMode) {
+    setStage(videoId, 'Generating visuals', W.script);
+    images = await generateSceneImages({
+      scenes, artStyle: settings.artStyle, niche: settings.niche, videoId, dir,
+      onProgress: (p) => setStage(videoId, 'Generating visuals', W.script + W.images * p),
+    });
+  }
 
   // 3. Voiceover, one audio clip per scene
   let progress = W.script + W.images;
@@ -147,6 +155,20 @@ async function runJob(videoId) {
     progress += W.clips;
   }
 
+  // 4b. Gameplay: one continuous track cut from the game's library clips.
+  let gameplay = null;
+  if (gameplayMode) {
+    setStage(videoId, 'Cutting gameplay', progress);
+    const { width, height, fps } = config.render;
+    const file = path.join(dir, 'gameplay.mp4');
+    const layout = settings.gameLayout || 'framed';
+    const size = await buildGameplayTrack({
+      segments: pickSegments({ id: video.user_id }, settings.game, totalDuration), layout, W: width, H: height, fps, out: file,
+    });
+    gameplay = { file, ...size, layout, headline: script.headline || script.title };
+    progress += W.clips;
+  }
+
   // 5. Mix + render (CPU-bound, so these take turns across jobs).
   const renderBase = progress;
   setStage(videoId, 'Waiting to render', renderBase);
@@ -167,6 +189,7 @@ async function runJob(videoId) {
       scenes: timeline, chunks,
       captionStyle: settings.captionStyle, language,
       watermark: PLAN[owner?.plan]?.watermark ?? false,
+      gameplay,
       audioFile, out: videoFile(videoId), thumbOut: thumbFile(videoId),
       onProgress: (p) => setStage(videoId, 'Rendering video', renderBase + W.render * p),
     });
@@ -175,7 +198,7 @@ async function runJob(videoId) {
   // Clean up intermediates. Scene images, clips and current voice lines are kept for re-renders.
   for (const f of fs.readdirSync(dir)) {
     const stale = /^voicecache-/.test(f) && !voiceFiles.has(f.replace(/\.(wav|json)$/, ''));
-    if (stale || /^voice-.*\.wav$|^audio\.m4a$/.test(f)) fs.rmSync(path.join(dir, f), { force: true });
+    if (stale || /^voice-.*\.wav$|^audio\.m4a$|^gameplay\.mp4$/.test(f)) fs.rmSync(path.join(dir, f), { force: true });
   }
 
   const voiceClip = voices.find((v) => v.provider !== 'system') || voices[0];
@@ -189,7 +212,7 @@ async function runJob(videoId) {
       imageError: images.failures[0] || null,
       voice: voiceProvider, voiceErrors: voices.filter((v) => v.error).length,
       voiceError: voices.find((v) => v.error)?.error || null,
-      video: clips ? `${engine.provider} · ${clips.model.replace(/^fal-ai\//, '')}${clipMode === 'hook' ? ' (hook)' : ''}` : 'pan & zoom',
+      video: gameplay ? `gameplay · ${game}` : clips ? `${engine.provider} · ${clips.model.replace(/^fal-ai\//, '')}${clipMode === 'hook' ? ' (hook)' : ''}` : 'pan & zoom',
       clips: clips ? `${clipCount}/${clips.requested}` : null,
       clipErrors: clips?.failures.length || 0,
       clipError: clips?.failures[0] || null,

@@ -100,7 +100,7 @@ export default function VideoDetail() {
   // Load editable copies once the script exists (and after each re-render).
   useEffect(() => {
     if (video && !busyVideo(video)) {
-      setMeta({ title: video.title || '', description: video.description || '', hashtags: video.hashtags.map((h) => `#${h}`).join(' ') });
+      setMeta({ title: video.title || '', headline: video.headline || '', description: video.description || '', hashtags: video.hashtags.map((h) => `#${h}`).join(' ') });
       setScenes(video.scenes);
     }
   }, [video?.updatedAt, video?.status]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -117,12 +117,14 @@ export default function VideoDetail() {
   const accounts = accountData.accounts;
   const settings = video.settings;
   const niche = byId(catalog.niches)[settings.niche];
+  const gameplay = settings.motion === 'gameplay';
+  const headlineDirty = meta && gameplay && meta.headline !== (video.headline || '');
   const dirty = meta && scenes && (
-    meta.title !== (video.title || '') || meta.description !== (video.description || '')
+    meta.title !== (video.title || '') || meta.description !== (video.description || '') || headlineDirty
     || meta.hashtags !== video.hashtags.map((h) => `#${h}`).join(' ')
     || JSON.stringify(scenes) !== JSON.stringify(video.scenes)
   );
-  const scriptDirty = scenes && JSON.stringify(scenes) !== JSON.stringify(video.scenes);
+  const scriptDirty = (scenes && JSON.stringify(scenes) !== JSON.stringify(video.scenes)) || headlineDirty;
 
   const run = async (fn, success) => {
     setBusy(true);
@@ -140,6 +142,7 @@ export default function VideoDetail() {
 
   const saveBody = () => ({
     title: meta.title,
+    ...(gameplay ? { headline: meta.headline } : {}),
     description: meta.description,
     hashtags: meta.hashtags.split(/[\s,]+/).filter(Boolean),
     scenes,
@@ -234,6 +237,13 @@ export default function VideoDetail() {
                   <label className="label" htmlFor="title">Title</label>
                   <input id="title" className="input" value={meta.title} onChange={(e) => setMeta({ ...meta, title: e.target.value })} />
                 </div>
+                {gameplay && (
+                  <div>
+                    <label className="label" htmlFor="headline">On-screen headline</label>
+                    <input id="headline" className="input" maxLength={80} value={meta.headline} onChange={(e) => setMeta({ ...meta, headline: e.target.value })} />
+                    <p className="mt-1 text-xs text-ink-400">Shown at the top for the whole video. Re-render to apply changes.</p>
+                  </div>
+                )}
                 <div>
                   <label className="label" htmlFor="description">Caption</label>
                   <textarea id="description" className="input min-h-20" value={meta.description} onChange={(e) => setMeta({ ...meta, description: e.target.value })} />
@@ -248,22 +258,26 @@ export default function VideoDetail() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="font-display text-lg font-bold">Script</h2>
-                    <p className="text-sm text-ink-400">Edit narration or visuals, then re-render. Unchanged images are reused.</p>
+                    <p className="text-sm text-ink-400">{gameplay ? 'Edit the narration, then re-render. New gameplay is cut for each render.' : 'Edit narration or visuals, then re-render. Unchanged images are reused.'}</p>
                   </div>
                   <button className="btn-ghost" onClick={() => confirm('Write a brand-new script and re-render?') && rerender(true)} disabled={busy}><Wand2 className="size-4" /> New script</button>
                 </div>
                 <ol className="mt-6 space-y-4">
                   {scenes.map((sc, i) => (
                     <li key={i} className="flex gap-4 rounded-2xl border border-white/5 bg-ink-850 p-3">
-                      <div className="relative w-20 shrink-0 sm:w-24">
-                        {video.status === 'ready' && !scriptDirty
-                          ? <img src={`/api/videos/${id}/scenes/${i}?v=${encodeURIComponent(video.updatedAt)}`} alt="" className="aspect-[9/16] w-full rounded-lg object-cover" loading="lazy" />
-                          : <div className="aspect-[9/16] w-full rounded-lg bg-ink-700" />}
-                        <span className="absolute left-1.5 top-1.5 rounded-md bg-black/60 px-1.5 text-xs font-bold">{i + 1}</span>
-                      </div>
+                      {gameplay ? (
+                        <span className="grid size-7 shrink-0 place-items-center rounded-md bg-white/10 text-xs font-bold">{i + 1}</span>
+                      ) : (
+                        <div className="relative w-20 shrink-0 sm:w-24">
+                          {video.status === 'ready' && !scriptDirty
+                            ? <img src={`/api/videos/${id}/scenes/${i}?v=${encodeURIComponent(video.updatedAt)}`} alt="" className="aspect-[9/16] w-full rounded-lg object-cover" loading="lazy" />
+                            : <div className="aspect-[9/16] w-full rounded-lg bg-ink-700" />}
+                          <span className="absolute left-1.5 top-1.5 rounded-md bg-black/60 px-1.5 text-xs font-bold">{i + 1}</span>
+                        </div>
+                      )}
                       <div className="min-w-0 flex-1 space-y-2">
                         <textarea className="input min-h-16 py-2" value={sc.narration} onChange={(e) => setScenes(scenes.map((x, k) => (k === i ? { ...x, narration: e.target.value } : x)))} />
-                        <input className="input py-2 text-xs text-ink-300" value={sc.visual} title="Visual prompt" placeholder="What the image shows" onChange={(e) => setScenes(scenes.map((x, k) => (k === i ? { ...x, visual: e.target.value } : x)))} />
+                        {!gameplay && <input className="input py-2 text-xs text-ink-300" value={sc.visual} title="Visual prompt" placeholder="What the image shows" onChange={(e) => setScenes(scenes.map((x, k) => (k === i ? { ...x, visual: e.target.value } : x)))} />}
                         {(settings.motion === 'video' || (settings.motion === 'hook' && i < (catalog.providers?.video?.hookScenes || 1))) && (
                           <input className="input py-2 text-xs text-ink-300" value={sc.motion || ''} title="Motion prompt" placeholder="How it moves in the video clip (optional)" onChange={(e) => setScenes(scenes.map((x, k) => (k === i ? { ...x, motion: e.target.value } : x)))} />
                         )}

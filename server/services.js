@@ -1,8 +1,9 @@
 // Domain rules shared by the HTTP routes and the scheduler.
 import { db, insert, newId, now, parseJson } from './db.js';
-import { PLAN, NICHE, VOICE, ART, CAPTION, LANGUAGE, DURATION, MUSIC_TRACK, MOTION_TYPE } from './catalog.js';
+import { PLAN, NICHE, VOICE, ART, CAPTION, LANGUAGE, DURATION, MUSIC_TRACK, MOTION_TYPE, GAME_LAYOUT } from './catalog.js';
 import { enqueueVideo } from './pipeline/index.js';
 import { billingState } from './billing/index.js';
+import { hasGameplay, gameName, gameSlug } from './gameplay.js';
 
 export class HttpError extends Error {
   constructor(status, message) {
@@ -61,13 +62,27 @@ export function cleanSettings(input, base = {}) {
     captionStyle: pick(input.captionStyle, CAPTION, base.captionStyle || 'bold'),
     music,
     duration: Number(pick(input.duration, DURATION, base.duration || 60)),
-    motion: pick(input.motion, MOTION_TYPE, base.motion || 'hook'),
+    motion: pick(input.motion, MOTION_TYPE, base.motion || n?.motion || 'hook'),
+    // Gameplay videos: which game's library footage, and how it's framed.
+    game: gameSlug(input.game ?? base.game ?? '') || null,
+    gameLayout: pick(input.gameLayout, GAME_LAYOUT, base.gameLayout || 'framed'),
   };
+}
+
+/** Gameplay settings need footage for the chosen game that this user can use. */
+export function checkGameplay(user, settings) {
+  if (settings.motion !== 'gameplay') return;
+  if (!settings.game) throw new HttpError(400, 'Choose which game\'s footage to use.');
+  if (!hasGameplay(user, settings.game)) {
+    const name = gameName(settings.game);
+    throw new HttpError(400, `There's no ${name ? `${name} footage` : 'footage for that game'} in the gameplay library yet. Upload some clips first.`);
+  }
 }
 
 export const seriesSettings = (s) => ({
   niche: s.niche, customTopic: s.custom_topic, language: s.language, voice: s.voice,
   artStyle: s.art_style, captionStyle: s.caption_style, music: s.music, duration: s.duration, motion: s.motion,
+  game: s.game, gameLayout: s.game_layout,
 });
 
 // ---------- videos ----------
@@ -77,6 +92,7 @@ export function createVideo({ user, seriesId = null, settings, origin = 'manual'
   if (u.videosUsed >= u.videosLimit) {
     throw new HttpError(402, `You've used all ${u.videosLimit} videos in your ${PLAN[u.plan].name} plan this month. Upgrade to keep creating.`);
   }
+  checkGameplay(user, settings);
   // A series with several art styles rotates through them, one per video.
   const styles = String(settings.artStyle || '').split(',').filter(Boolean);
   if (styles.length > 1) {
