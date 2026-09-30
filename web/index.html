@@ -2,6 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Google tag (gtag.js). Not loaded on localhost, so development traffic isn't counted. -->
+    <script>
+      if (!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) {
+        var gtagScript = document.createElement('script');
+        gtagScript.async = true;
+        gtagScript.src = 'https://www.googletagmanager.com/gtag/js?id=G-H834J4YTLX';
+        document.head.appendChild(gtagScript);
+      }
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-H834J4YTLX');
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BlackCell - AI Faceless Video Generator</title>
     <meta name="description" content="BlackCell writes, voices, edits and auto-posts faceless videos to TikTok, Instagram Reels and YouTube Shorts every day. Everything handled." />

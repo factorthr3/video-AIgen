@@ -6,7 +6,7 @@ import { useCatalog } from '../lib.jsx';
 // Before a full public launch, have an attorney review these, and fill in
 // COMPANY: section 43 of the ECTA requires these details on the website.
 // Blank fields are left out of the page.
-const UPDATED = '26 September 2026';
+const UPDATED = '30 September 2026';
 const CONTACT = 'support@blackcell.app';
 const COMPANY = {
   name: 'BlackCell', // registered name, e.g. 'BlackCell (Pty) Ltd'
@@ -82,6 +82,7 @@ export function Privacy() {
           <li><strong>Connected social accounts:</strong> when you connect TikTok, YouTube or Instagram, we store the account's ID, username, profile picture and the access tokens needed to post on your behalf. Tokens are encrypted at rest.</li>
           <li><strong>Billing:</strong> payments are processed by {processor}. We never see or store your full card details; we keep your {processor} customer and subscription references, your plan and its status.</li>
           <li><strong>Technical data:</strong> a session cookie that keeps you signed in, and server logs (including IP address, browser type and request times) used for security and debugging.</li>
+          <li><strong>Usage data:</strong> how you use the site (pages viewed, approximate location, device and browser), collected with Google Analytics cookies. See section 5.</li>
         </ul>
       </section>
 
@@ -104,7 +105,7 @@ export function Privacy() {
           <li><strong>Anthropic</strong> (script writing): your topic, niche and settings.</li>
           <li><strong>OpenAI</strong> (image generation): scene descriptions.</li>
           <li><strong>ElevenLabs</strong> (voiceover): narration text.</li>
-          <li><strong>Google</strong> (Veo video generation, Google sign-in and YouTube publishing): scene images and prompts; your Google account details if you sign in with Google.</li>
+          <li><strong>Google</strong> (Veo video generation, Google sign-in, YouTube publishing and Google Analytics): scene images and prompts; your Google account details if you sign in with Google; site usage data collected by Google Analytics.</li>
           <li><strong>fal.ai</strong> (optional AI video clips): scene images and prompts.</li>
           <li><strong>{processor}</strong> (payments): billing details you enter at checkout.</li>
           <li><strong>Railway</strong> (hosting): all Service data is stored on its servers.</li>
@@ -121,7 +122,8 @@ export function Privacy() {
 
       <section>
         <h2>5. Cookies and local storage</h2>
-        <p>We use one essential cookie to keep you signed in. We also store small pieces of data in your browser, such as an unfinished series draft, so you don't lose your work. We do not use advertising or third-party tracking cookies.</p>
+        <p>We use one essential cookie to keep you signed in. We also store small pieces of data in your browser, such as an unfinished series draft, so you don't lose your work.</p>
+        <p className="mt-3">We use Google Analytics to understand how visitors use the site, such as which pages are visited and how people find us. It sets its own cookies (named <code>_ga</code>) and collects information like pages viewed, approximate location, device and browser type; Google processes this on our behalf. We do not use advertising cookies, and we do not send Google your name, email address or the content you create. You can block these cookies in your browser settings or install Google's <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noreferrer">opt-out add-on</a>.</p>
       </section>
 
       <section>
