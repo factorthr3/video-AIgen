@@ -215,7 +215,7 @@ export default function AdSetNew() {
                 {!hasFootage && <span className="chip py-0 text-[10px] uppercase">Recommended</span>}
               </span>
               <span className="mt-1 block text-xs leading-relaxed text-ink-400">
-                AI turns up to {Math.min(3, animatable)} of your best photos into short video clips with a slow camera move and natural movement, and the videos open on them. Your product stays as photographed. Adds a few minutes; the clips are saved to your brand library for next time.
+                AI turns {animatable === 1 ? 'your photo into a short video clip' : `up to ${Math.min(3, animatable)} of your best photos into short video clips`} with a slow camera move and natural movement, and the videos open on {animatable === 1 ? 'it' : 'them'}. Your product stays as photographed. Adds a few minutes; clips are saved to your brand library for next time.
               </span>
             </span>
           </label>
