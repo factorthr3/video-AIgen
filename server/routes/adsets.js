@@ -172,6 +172,7 @@ router.patch('/:id/copy', (req, res) => {
   const t = (v, fallback, max) => (typeof v === 'string' ? plainDashes(v.trim()).slice(0, max) : fallback);
   copy.cta = t(edit.cta, copy.cta, 24) || copy.cta;
   copy.badge = t(edit.badge, copy.badge, 14);
+  copy.music = t(edit.music, copy.music || '', 300);
   if (Array.isArray(edit.videos)) {
     for (const v of copy.videos) {
       const ev = edit.videos.find((x) => Number(x.length) === v.length);

@@ -5,6 +5,7 @@
 // around the product.
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
@@ -113,6 +114,30 @@ async function probeVideo(file) {
   return { width: stream.width, height: stream.height, duration };
 }
 
+/**
+ * Letterbox or pillarbox bars baked into a video, as an ffmpeg crop filter
+ * (or null). Only even bars on one axis count, so dark footage isn't cropped.
+ */
+function detectBars(file, { width: W, height: H, duration }) {
+  return new Promise((resolve) => {
+    const proc = spawn(config.ffmpeg, [
+      '-hide_banner', '-ss', String(Math.min(duration * 0.1, 2)), '-i', file, '-t', String(Math.min(5, duration)),
+      '-an', '-vf', 'cropdetect=limit=24:round=2:reset=0', '-f', 'null', '-',
+    ], { stdio: ['ignore', 'ignore', 'pipe'] });
+    let log = '';
+    proc.stderr.on('data', (d) => { log += d; });
+    proc.on('error', () => resolve(null));
+    proc.on('close', () => {
+      const m = [...log.matchAll(/crop=(\d+):(\d+):(\d+):(\d+)/g)].at(-1);
+      if (!m) return resolve(null);
+      const [w, h, x, y] = m.slice(1).map(Number);
+      const letterbox = w >= W - 4 && h < H * 0.97 && h > H * 0.4 && Math.abs(H - h - 2 * y) <= 6;
+      const pillarbox = h >= H - 4 && w < W * 0.97 && w > W * 0.4 && Math.abs(W - w - 2 * x) <= 6;
+      resolve(letterbox || pillarbox ? `crop=${w}:${h}:${x}:${y},` : null);
+    });
+  });
+}
+
 async function decodeImage(file) {
   try {
     return await loadImage(fs.readFileSync(file));
@@ -141,9 +166,10 @@ async function processAsset(id) {
     const src = await probeVideo(asset.source);
     if (src.duration < 1) throw new Error('too short');
     const out = assetFile(asset);
+    const bars = (await detectBars(asset.source, src)) || '';
     await ffmpeg([
       '-i', asset.source, '-an',
-      '-vf', "scale='if(gte(iw,ih),min(1920,iw),-2)':'if(gte(iw,ih),-2,min(1920,ih))',scale=trunc(iw/2)*2:trunc(ih/2)*2,fps=30,format=yuv420p",
+      '-vf', `${bars}scale='if(gte(iw,ih),min(1920,iw),-2)':'if(gte(iw,ih),-2,min(1920,ih))',scale=trunc(iw/2)*2:trunc(ih/2)*2,fps=30,format=yuv420p`,
       '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-movflags', '+faststart', `${out}.part.mp4`,
     ]);
     fs.renameSync(`${out}.part.mp4`, out);

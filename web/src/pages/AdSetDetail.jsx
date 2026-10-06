@@ -80,6 +80,13 @@ function CopyEditor({ adset, onSaved, onCancel }) {
           <label className="label" htmlFor="badge">Offer badge <span className="normal-case text-ink-400">(Promo style)</span></label>
           <input id="badge" className="input" maxLength={14} value={copy.badge} onChange={(e) => setCopy({ ...copy, badge: e.target.value })} />
         </div>
+        {adset.options.music === 'ai' && (
+          <div className="sm:col-span-2">
+            <label className="label" htmlFor="music">Soundtrack brief</label>
+            <textarea id="music" className="input min-h-16" maxLength={300} value={copy.music || ''} onChange={(e) => setCopy({ ...copy, music: e.target.value })} placeholder="e.g. Warm, upbeat indie-pop instrumental with acoustic guitar and hand claps, 110 BPM" />
+            <p className="mt-1 text-xs text-ink-400">{adset.options.musicMood && adset.options.musicMood !== 'auto' ? `Used when the mood is "Match the ad" (this set uses ${adset.options.musicMood}).` : 'A new track is composed when you re-render. Describe genre, mood, tempo and instruments; no artist names.'}</p>
+          </div>
+        )}
       </div>
       {copy.videos.map((v, vi) => (
         <div key={v.length} className="mb-6">

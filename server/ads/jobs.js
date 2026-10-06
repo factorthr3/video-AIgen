@@ -89,6 +89,8 @@ async function runAdSet(id) {
     ? db.all(`SELECT * FROM assets WHERE brand_id = ? AND status = 'ready' AND kind != 'logo' AND id IN (${options.assetIds.map(() => '?').join(',')})`, brand.id, ...options.assetIds)
     : db.all("SELECT * FROM assets WHERE brand_id = ? AND status = 'ready' AND kind != 'logo' ORDER BY created_at", brand.id);
   if (!chosen.length) throw new Error('Add at least one photo or video to this brand, then try again.');
+  // Keep the order the client picked them in (the storyboard leans on it without Claude).
+  if (options.assetIds?.length) chosen.sort((x, y) => options.assetIds.indexOf(x.id) - options.assetIds.indexOf(y.id));
   const assets = new Map(chosen.map((a) => [a.id, a]));
   const logoAsset = brand.logo_asset_id ? db.get('SELECT * FROM assets WHERE id = ?', brand.logo_asset_id) : null;
   fs.mkdirSync(adsetDir(id), { recursive: true });
