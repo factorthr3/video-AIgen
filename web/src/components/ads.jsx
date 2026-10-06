@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, LoaderCircle, TriangleAlert, Check, Copy, Play } from 'lucide-react';
+import { Download, LoaderCircle, TriangleAlert, Check, Copy, Play, Clapperboard } from 'lucide-react';
 import { ProgressBar } from './ui.jsx';
 
 export const ASPECT = { '9:16': 'aspect-[9/16]', '4:5': 'aspect-[4/5]', '1:1': 'aspect-square', '16:9': 'aspect-video' };
@@ -57,8 +57,13 @@ export function AdCard({ ad, label }) {
           <div className="absolute inset-0 grid place-items-center p-3 text-center text-xs text-ink-300">
             {ad.status === 'failed'
               ? <span><TriangleAlert className="mx-auto mb-1 size-5 text-red-300" />{ad.error || 'Failed'}</span>
-              : <span><LoaderCircle className="mx-auto mb-1 size-5 animate-spin text-brand-400" />{ad.status === 'processing' ? 'Rendering…' : 'Queued'}</span>}
+              : ad.status === 'pending'
+                ? <span><Clapperboard className="mx-auto mb-1 size-5 text-ink-400" />Not generated yet</span>
+                : <span><LoaderCircle className="mx-auto mb-1 size-5 animate-spin text-brand-400" />{ad.status === 'processing' ? 'Rendering…' : 'Queued'}</span>}
           </div>
+        )}
+        {ad.outdated && !playing && (
+          <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-amber-400/90 px-2 py-0.5 text-[11px] font-semibold text-black" title="Generate to update this ad with your changes">Older version</span>
         )}
       </div>
       <div className="mt-2 flex items-start justify-between gap-2">

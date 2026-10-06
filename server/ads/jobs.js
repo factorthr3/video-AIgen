@@ -19,6 +19,19 @@ export const adThumb = (ad) => path.join(adsetDir(ad.adset_id), `${ad.id}-thumb.
 
 const JOBS = Number(process.env.JOB_CONCURRENCY || 2);
 
+/** A fingerprint of everything an ad is rendered from; it changes exactly when the ad would look or sound different. */
+export function adSignature(copy, options, ad) {
+  const parts = { style: options.style, cta: copy.cta, badge: copy.badge };
+  if (ad.kind === 'image') parts.image = copy.statics?.[ad.variant] || copy.statics?.[0] || null;
+  else {
+    parts.video = copy.videos?.find((v) => v.length === ad.length) || null;
+    parts.voice = options.voiceover ? options.voice : null;
+    parts.music = options.music;
+    if (options.music === 'ai') parts.soundtrack = musicBrief({ mood: options.musicMood, copyBrief: copy.music, style: options.style });
+  }
+  return crypto.createHash('sha1').update(JSON.stringify(parts)).digest('hex').slice(0, 16);
+}
+
 // ---------- one render at a time ----------
 let renderFree = true;
 const renderWaiters = [];
@@ -135,14 +148,14 @@ async function runAdSet(id) {
           audioFile: audio, out: adFile(ad), thumbOut: adThumb(ad),
           onProgress: (p) => setStage(id, `Rendering the ${ad.length}s ${ad.format} video`, progress(p)),
         }));
-        update('ads', ad.id, { status: 'ready', duration: scenes.reduce((s, x) => s + x.duration, 0) + endCard, updated_at: now() });
+        update('ads', ad.id, { status: 'ready', duration: scenes.reduce((s, x) => s + x.duration, 0) + endCard, rendered_sig: adSignature(copy, options, ad), updated_at: now() });
       } else {
         const variant = copy.statics[ad.variant] || copy.statics[0];
         await withRender(() => renderStaticAd({
           brand, logo, asset: assets.get(variant?.assetId) || chosen[0], headline: variant?.headline || brief.product, subline: variant?.subline || '',
           copy, format: ad.format, style: options.style, out: adFile(ad), thumbOut: adThumb(ad),
         }));
-        update('ads', ad.id, { status: 'ready', updated_at: now() });
+        update('ads', ad.id, { status: 'ready', rendered_sig: adSignature(copy, options, ad), updated_at: now() });
       }
     } catch (err) {
       console.error(`[ads] ${ad.id} failed:`, err.message);
@@ -197,15 +210,30 @@ async function prepareTimeline({ id, copy, video, options, bed }) {
   let musicNote = null;
   let fade = 1.2;
   if (options.music === 'ai') {
-    try {
-      music = await soundtrack({ brief: musicBrief({ mood: options.musicMood, copyBrief: copy.music, style: options.style }), seconds: total });
-      fade = 0.4; // composed to end on time
-    } catch (err) {
-      console.error('[ads] soundtrack failed:', err.message);
-      musicNote = /paid|subscription|plan|permission|401|403/i.test(err.message)
-        ? 'The AI soundtrack needs a paid ElevenLabs plan with Music access, so a standard music bed was used.'
-        : 'The AI soundtrack could not be composed this time, so a standard music bed was used. Re-render to try again.';
-      music = await musicTrack('bright-pluck');
+    // Each ad set keeps the track each video length was made with, so re-rendering
+    // with the same music settings and timing plays exactly the same soundtrack.
+    const brief = musicBrief({ mood: options.musicMood, copyBrief: copy.music, style: options.style });
+    const key = JSON.stringify([brief, Math.round(total * 100)]);
+    const metaFile = path.join(dir, `soundtrack-${video.length}.json`);
+    const kept = fs.existsSync(metaFile) ? parseJson(fs.readFileSync(metaFile, 'utf8'), null) : null;
+    if (kept?.key === key && fs.existsSync(path.join(dir, kept.file))) {
+      music = path.join(dir, kept.file);
+      fade = 0.4;
+    } else {
+      try {
+        const composed = await soundtrack({ brief, seconds: total });
+        fade = 0.4; // composed to end on time
+        const file = `soundtrack-${video.length}${path.extname(composed)}`;
+        fs.copyFileSync(composed, path.join(dir, file));
+        fs.writeFileSync(metaFile, JSON.stringify({ key, file }));
+        music = path.join(dir, file);
+      } catch (err) {
+        console.error('[ads] soundtrack failed:', err.message);
+        musicNote = /paid|subscription|plan|permission|401|403/i.test(err.message)
+          ? 'The AI soundtrack needs a paid ElevenLabs plan with Music access, so a standard music bed was used.'
+          : 'The AI soundtrack could not be composed this time, so a standard music bed was used. Generate again to try again.';
+        music = await musicTrack('bright-pluck');
+      }
     }
   }
   const audio = path.join(dir, `audio-${video.length}-${crypto.randomBytes(3).toString('hex')}.m4a`);

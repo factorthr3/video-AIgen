@@ -1,7 +1,8 @@
 // Change requests: the client says what to change in their own words ("punchier
 // headlines", "open on the pouring clip", "add a square version") and Claude
-// turns it into edits to the copy, storyboard and settings. Only the ads those
-// edits touch are re-rendered, and each change can be undone.
+// turns it into edits to the copy, storyboard and settings. Changes are a draft
+// until the client presses Generate, which re-renders only the ads they touch.
+// Each change can be undone.
 import fs from 'node:fs';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
@@ -13,12 +14,14 @@ import { plainDashes } from '../text.js';
 import { STYLES, STYLE, FORMAT_IDS, LENGTHS } from './design.js';
 import { MUSIC_MOODS, MUSIC_MOOD, soundtrackEnabled } from './soundtrack.js';
 import { CopySchema, COPY_RULES, SCENES_FOR, assetLine, claude, modelParams, tidy } from './brief.js';
-import { plannedAds, enqueueAdSet, adFile, adThumb } from './jobs.js';
+import { plannedAds, enqueueAdSet, adFile, adThumb, adSignature } from './jobs.js';
 
 export const REVISIONS_PER_SET = 30;
 export const reviseEnabled = () => config.anthropic.enabled;
 
 const SYSTEM = `You are the creative director of an advertising studio. A client has a finished set of social media ads (videos and image ads made from their own photos and footage) and asks for changes in their own words. Make the changes they ask for and keep everything else exactly as it is.
+
+Your changes are saved as a draft. The client presses Generate when they're ready, and only then are the ads re-made, so never say the ads have been re-made: say what you changed. If the client says they're happy, that nothing needs changing, or asks you to generate or render, change nothing and tell them to press Generate.
 
 What you can change:
 - Words: on-screen headlines and sublines, the button text (cta), the offer badge, voiceover lines and the post captions.
@@ -36,6 +39,7 @@ How to answer:
 - Return the complete settings and copy. Copy every field you are not changing exactly as it is now, word for word.
 - When the request is broad ("make it better", "more exciting"), make a clear improvement in that direction instead of asking questions.
 - When only part of a request is possible, do that part and say what you couldn't do.
+- Leave the soundtrack (music setting, mood and the soundtrack brief in the copy) exactly as it is unless the client asks to change the music.
 - Use an offer, price or claim only when the client states it, in the brief or in their request.
 - When voiceover is on, every scene needs a line of about 2.5 words per second of the scene.
 - Reply in one or two short, plain sentences, like a helpful designer: what you changed, not how.
@@ -49,7 +53,8 @@ const musicChoices = () => ['current', 'none', ...MUSIC.filter((m) => m.id !== '
 function revisionSchema() {
   return z.object({
     reply: z.string().describe("Your reply to the client: one or two short sentences saying what you changed, or why you couldn't and what they can do instead"),
-    changed: z.boolean().describe('True if you changed anything; false if the request was unclear or not possible here'),
+    changed: z.boolean().describe('True if you changed anything; false if the request was unclear, not possible here, or asked for no changes'),
+    soundtrackChanged: z.boolean().describe('True only if the client asked to change the music or soundtrack'),
     settings: z.object({
       style: z.enum(STYLES.map((s) => s.id)),
       formats: z.array(z.enum(FORMAT_IDS)).describe('Ad sizes in the set'),
@@ -133,8 +138,11 @@ async function askClaude({ adset, brand, request }) {
         : MUSIC_TRACK[s.music] ? s.music : options.music,
   };
   if (!next.lengths.length && !next.statics) Object.assign(next, { lengths: options.lengths, statics: options.statics });
+  // The music only changes when the client asks for it.
+  if (!out.soundtrackChanged) Object.assign(next, { music: options.music, musicMood: options.musicMood });
 
   const revised = tidy(out.copy, { assets, lengths: next.lengths, voiceover: next.voiceover });
+  if (!out.soundtrackChanged) revised.music = copy.music;
   revised.statics = revised.statics.slice(0, next.statics);
   if (copy.musicNote) revised.musicNote = copy.musicNote;
   // Ad sets made from picked assets render only those, so add any newly used ones.
@@ -146,58 +154,64 @@ async function askClaude({ adset, brand, request }) {
 }
 
 // ---------- applying a change ----------
-const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 const adKey = (a) => `${a.kind}|${a.format}|${a.length ?? ''}|${a.variant}`;
+const lastChange = (adsetId) => db.get('SELECT MAX(created_at) AS t FROM adset_revisions WHERE adset_id = ? AND changed = 1', adsetId)?.t;
 
-/** Does this ad look different with the new copy and settings? */
-function stale(prev, next, ad) {
-  const [po, no, pc, nc] = [prev.options, next.options, prev.copy, next.copy];
-  if (po.style !== no.style || pc.cta !== nc.cta || pc.badge !== nc.badge) return true;
-  if (ad.kind === 'image') {
-    const pick = (c) => c.statics?.[ad.variant] || c.statics?.[0];
-    return !same(pick(pc), pick(nc));
-  }
-  const video = (c) => c.videos?.find((v) => v.length === ad.length);
-  if (!same(video(pc), video(nc))) return true;
-  if (po.voiceover !== no.voiceover || (no.voiceover && po.voice !== no.voice) || po.music !== no.music) return true;
-  return no.music === 'ai' && (po.musicMood !== no.musicMood || (no.musicMood === 'auto' && pc.music !== nc.music));
+// What a ready ad was rendered from. Ads made before signatures were kept count
+// as current, unless a change was made after they were rendered.
+function renderedSig(ad, copy, options, changedAt) {
+  if (ad.rendered_sig) return ad.rendered_sig;
+  return changedAt && changedAt > (ad.updated_at || ad.created_at) ? 'before-changes' : adSignature(copy, options, ad);
 }
 
-/** Save new copy and settings, add or drop ads to match, and queue the ones that changed. Returns how many will render. */
+/** IDs of the ads Generate would make: never rendered, failed, or out of date with the copy and settings. */
+export function outdatedAds(adset) {
+  const copy = parseJson(adset.copy, null);
+  const options = parseJson(adset.options, {});
+  const ads = db.all('SELECT * FROM ads WHERE adset_id = ?', adset.id);
+  const changedAt = lastChange(adset.id);
+  return new Set(ads.filter((ad) => ad.status !== 'ready'
+    || (copy && renderedSig(ad, copy, options, changedAt) !== adSignature(copy, options, ad))).map((ad) => ad.id));
+}
+
+/** Save new copy and settings, and add or drop ads to match. Nothing renders until Generate. */
 export function applyChanges(adset, next) {
   const prev = { copy: parseJson(adset.copy, {}), options: parseJson(adset.options, {}) };
+  const changedAt = lastChange(adset.id);
   const planned = plannedAds(next.options);
   const wanted = new Set(planned.map(adKey));
   const existing = db.all('SELECT * FROM ads WHERE adset_id = ?', adset.id);
   const have = new Set(existing.map(adKey));
   const dropped = existing.filter((ad) => !wanted.has(adKey(ad)));
-  let queued = 0;
   db.transaction(() => {
     for (const ad of dropped) db.run('DELETE FROM ads WHERE id = ?', ad.id);
+    // Pin down what older ads were made from before the copy changes under them.
     for (const ad of existing) {
-      if (wanted.has(adKey(ad)) && (ad.status !== 'ready' || stale(prev, next, ad))) {
-        db.run("UPDATE ads SET status = 'queued', error = NULL WHERE id = ?", ad.id);
-        queued++;
+      if (!ad.rendered_sig && ad.status === 'ready' && wanted.has(adKey(ad))) {
+        db.run('UPDATE ads SET rendered_sig = ? WHERE id = ?', renderedSig(ad, prev.copy, prev.options, changedAt), ad.id);
       }
     }
     for (const p of planned) {
-      if (have.has(adKey(p))) continue;
-      insert('ads', { id: newId('ad'), adset_id: adset.id, ...p, status: 'queued', created_at: now() });
-      queued++;
+      if (!have.has(adKey(p))) insert('ads', { id: newId('ad'), adset_id: adset.id, ...p, status: 'pending', created_at: now() });
     }
-    update('adsets', adset.id, {
-      copy: JSON.stringify(next.copy),
-      options: JSON.stringify(next.options),
-      updated_at: now(),
-      ...(queued ? { status: 'queued', stage: 'Queued', progress: 0, error: null } : {}),
-    });
+    update('adsets', adset.id, { copy: JSON.stringify(next.copy), options: JSON.stringify(next.options), updated_at: now() });
   });
   for (const ad of dropped) {
     fs.rmSync(adFile(ad), { force: true });
     fs.rmSync(adThumb(ad), { force: true });
   }
-  if (queued) enqueueAdSet(adset.id);
-  return queued;
+}
+
+/** Render the ads that are out of date (or, when everything is current, all of them). Returns how many. */
+export function generateAds(adset) {
+  const outdated = outdatedAds(adset);
+  const ids = outdated.size ? [...outdated] : db.all('SELECT id FROM ads WHERE adset_id = ?', adset.id).map((r) => r.id);
+  db.transaction(() => {
+    for (const id of ids) db.run("UPDATE ads SET status = 'queued', error = NULL WHERE id = ?", id);
+    update('adsets', adset.id, { status: 'queued', stage: 'Queued', progress: 0, error: null, updated_at: now() });
+  });
+  enqueueAdSet(adset.id);
+  return ids.length;
 }
 
 // ---------- requests and undo ----------
@@ -226,8 +240,7 @@ export async function reviseAdSet(adset, request) {
   if (!current) throw new HttpError(404, 'Ad set not found.');
   if (['queued', 'processing'].includes(current.status)) throw new HttpError(409, 'These ads started rendering in the meantime. Try again when they finish.');
   const before = { copy: parseJson(current.copy, {}), options: parseJson(current.options, {}) };
-  let rendering = 0;
-  if (result.changed) rendering = applyChanges(current, { copy: result.copy, options: result.options });
+  if (result.changed) applyChanges(current, { copy: result.copy, options: result.options });
   insert('adset_revisions', {
     id: newId('rev'),
     adset_id: adset.id,
@@ -238,7 +251,9 @@ export async function reviseAdSet(adset, request) {
     after: result.changed ? snapshot(result.copy, result.options) : null,
     created_at: now(),
   });
-  return { changed: result.changed, rendering };
+  const pending = outdatedAds(db.get('SELECT * FROM adsets WHERE id = ?', adset.id)).size;
+  console.log(`[ads] change request on ${adset.id}: ${result.changed ? 'changed' : 'no change'}, ${pending} ad(s) to generate`);
+  return { changed: result.changed, pending };
 }
 
 /** The most recent change that can still be undone (nothing edited since), if any. */

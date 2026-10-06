@@ -238,6 +238,8 @@ ensureColumn('users', 'paystack_customer_id', 'TEXT');
 ensureColumn('users', 'paystack_subscription_code', 'TEXT');
 ensureColumn('users', 'paystack_email_token', 'TEXT');
 ensureColumn('users', 'paystack_authorization', 'TEXT');
+// What each ad was last rendered from (see adSignature), to tell which ads a change makes out of date.
+ensureColumn('ads', 'rendered_sig', 'TEXT');
 
 // House style: plain hyphens. Tidies AI-written text saved before that rule;
 // a no-op once clean. char(8212) is an em dash, char(8211) an en dash.

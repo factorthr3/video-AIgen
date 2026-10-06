@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { Link2, Trash2, Wand2, RefreshCw, ExternalLink, Pencil, X, Sparkles, SendHorizontal, Undo2, LoaderCircle } from 'lucide-react';
+import { Link2, Trash2, Wand2, RefreshCw, ExternalLink, Pencil, X, Sparkles, SendHorizontal, Undo2, LoaderCircle, Clapperboard } from 'lucide-react';
 import { PageHeader, Alert, Spinner, EmptyState } from '../components/ui.jsx';
 import { AdGroups, AdSetProgress, AdSetStatus, Captions, CopyButton } from '../components/ads.jsx';
 import { api, useApi, formatDateTime } from '../lib.jsx';
@@ -39,7 +39,43 @@ function SharePanel({ adset, onChange }) {
 
 const SUGGESTIONS = ['Make the headlines punchier', 'Open with the video clip', 'Use a more upbeat soundtrack', 'Add a square version'];
 
-/** Ask for changes in plain words; replies and undo sit in a short conversation. */
+/** Renders the changes: only the ads they touch, or every ad when all are current. */
+function GenerateBar({ adset, onChange, disabled }) {
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState(null);
+  const { pending } = adset;
+  const total = adset.items.length;
+  const generate = async () => {
+    if (!pending && !window.confirm(`Everything is already up to date. Make all ${total} ads again anyway?`)) return;
+    setWorking(true);
+    setError(null);
+    try {
+      onChange((await api(`/adsets/${adset.id}/generate`, { method: 'POST', body: {} })).adset);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setWorking(false);
+    }
+  };
+  if (busy(adset)) return null;
+  return (
+    <div className="border-t border-white/5 bg-white/[0.02] px-5 py-4">
+      {error && <Alert onClose={() => setError(null)}>{error}</Alert>}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-ink-300">
+          {pending
+            ? <><strong className="text-white">{pending} {pending === 1 ? 'ad needs' : 'ads need'} generating</strong> with your changes. The soundtrack stays the same unless you asked to change it.</>
+            : 'All ads are up to date with your changes.'}
+        </p>
+        <button type="button" className={pending ? 'btn-primary' : 'btn-secondary'} onClick={generate} disabled={disabled || working}>
+          <Clapperboard className="size-4" /> {working ? 'Starting…' : pending ? `Generate ${pending} ${pending === 1 ? 'ad' : 'ads'}` : 'Generate again'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Ask for changes in plain words; replies and undo sit in a short conversation, then Generate makes them. */
 function ChangeRequests({ adset, onChange }) {
   const { available, left, items } = adset.revisions;
   const [text, setText] = useState('');
@@ -50,9 +86,9 @@ function ChangeRequests({ adset, onChange }) {
   useEffect(() => {
     list.current?.scrollTo({ top: list.current.scrollHeight, behavior: 'smooth' });
   }, [items.length, sending]);
-  if (!available && !items.length) return null;
 
   const rendering = busy(adset);
+  const editor = available || items.length > 0;
   const locked = rendering || Boolean(sending) || undoing || !available || left === 0;
   const send = async (value) => {
     const request = value.trim();
@@ -85,8 +121,8 @@ function ChangeRequests({ adset, onChange }) {
     <section className="card mb-8 overflow-hidden">
       <div className="flex flex-wrap items-start justify-between gap-2 border-b border-white/5 px-5 py-4">
         <div>
-          <h2 className="flex items-center gap-2 font-display text-lg font-bold"><Sparkles className="size-4 text-brand-400" /> Ask for changes</h2>
-          <p className="mt-0.5 text-sm text-ink-400">Say what you'd like different, in your own words. Only the ads that change are re-made.</p>
+          <h2 className="flex items-center gap-2 font-display text-lg font-bold"><Sparkles className="size-4 text-brand-400" /> {editor ? 'Ask for changes' : 'Generate'}</h2>
+          <p className="mt-0.5 text-sm text-ink-400">{editor ? 'Say what you\'d like different, in your own words. Ask for as many changes as you like, then press Generate to make them.' : 'Make the ads with your latest edits.'}</p>
         </div>
         {items.length > 0 && <span className="text-xs text-ink-400">{left} {left === 1 ? 'change' : 'changes'} left</span>}
       </div>
@@ -114,6 +150,7 @@ function ChangeRequests({ adset, onChange }) {
           )}
         </ol>
       )}
+      {editor && (
       <form className="border-t border-white/5 p-4" onSubmit={(e) => { e.preventDefault(); send(text); }}>
         {error && <Alert onClose={() => setError(null)}>{error}</Alert>}
         {!items.length && !sending && (
@@ -142,6 +179,8 @@ function ChangeRequests({ adset, onChange }) {
         </div>
         {!available && <p className="mt-2 text-xs text-ink-400">The AI editor isn't available right now. You can still change the words with Edit copy.</p>}
       </form>
+      )}
+      <GenerateBar adset={adset} onChange={onChange} disabled={Boolean(sending) || undoing} />
     </section>
   );
 }
@@ -193,7 +232,7 @@ function CopyEditor({ adset, onSaved, onCancel }) {
           <div className="sm:col-span-2">
             <label className="label" htmlFor="music">Soundtrack brief</label>
             <textarea id="music" className="input min-h-16" maxLength={300} value={copy.music || ''} onChange={(e) => setCopy({ ...copy, music: e.target.value })} placeholder="e.g. Warm, upbeat indie-pop instrumental with acoustic guitar and hand claps, 110 BPM" />
-            <p className="mt-1 text-xs text-ink-400">{adset.options.musicMood && adset.options.musicMood !== 'auto' ? `Used when the mood is "Match the ad" (this set uses ${adset.options.musicMood}).` : 'A new track is composed when you re-render. Describe genre, mood, tempo and instruments; no artist names.'}</p>
+            <p className="mt-1 text-xs text-ink-400">{adset.options.musicMood && adset.options.musicMood !== 'auto' ? `Used when the mood is "Match the ad" (this set uses ${adset.options.musicMood}).` : 'Changing this composes a new track when you generate. Describe genre, mood, tempo and instruments; no artist names.'}</p>
           </div>
         )}
       </div>
@@ -227,7 +266,7 @@ function CopyEditor({ adset, onSaved, onCancel }) {
         </div>
       )}
       <div className="flex flex-wrap gap-2">
-        <button className="btn-primary" onClick={() => save(true)} disabled={saving}><RefreshCw className="size-4" /> {saving ? 'Saving…' : 'Save and re-render'}</button>
+        <button className="btn-primary" onClick={() => save(true)} disabled={saving}><RefreshCw className="size-4" /> {saving ? 'Saving…' : 'Save and generate'}</button>
         <button className="btn-ghost" onClick={() => save(false)} disabled={saving}>Save only</button>
       </div>
     </div>

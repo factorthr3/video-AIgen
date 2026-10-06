@@ -10,7 +10,7 @@ import { HttpError, usage, NEEDS_PLAN_MESSAGE } from '../services.js';
 import { enqueueAdSet, adsetDir, adFile, adThumb } from '../ads/jobs.js';
 import { soundtrackEnabled, MUSIC_MOOD } from '../ads/soundtrack.js';
 import { assetFile } from '../ads/assets.js';
-import { reviseAdSet, undoRevision, revisionList, reviseEnabled } from '../ads/revise.js';
+import { reviseAdSet, undoRevision, revisionList, reviseEnabled, outdatedAds, generateAds } from '../ads/revise.js';
 import { plainDashes } from '../text.js';
 
 export { adsetDir };
@@ -25,7 +25,7 @@ const adName = (ad, brand, adset) => {
   return `${slug(brand?.name)}-${slug(parseJson(adset.brief, {}).product)}-${ad.kind === 'video' ? `${ad.length}s` : `image${ad.variant + 1}`}-${size}.${ad.kind === 'video' ? 'mp4' : 'jpg'}`;
 };
 
-function publicAd(ad, base) {
+function publicAd(ad, base, outdated = false) {
   return {
     id: ad.id,
     kind: ad.kind,
@@ -35,6 +35,7 @@ function publicAd(ad, base) {
     status: ad.status,
     error: ad.error,
     duration: ad.duration,
+    outdated: ad.status === 'ready' && outdated, // shows an older version until the next Generate
     platforms: FORMATS[ad.format]?.platforms || [],
     file: `${base}/${ad.id}/file?v=${encodeURIComponent(ad.updated_at || '')}`,
     thumb: `${base}/${ad.id}/thumb?v=${encodeURIComponent(ad.updated_at || '')}`,
@@ -62,13 +63,15 @@ export function publicAdSetSummary(a) {
 function publicAdSet(a) {
   const brand = db.get('SELECT id, name FROM brands WHERE id = ?', a.brand_id);
   const ads = db.all('SELECT * FROM ads WHERE adset_id = ? ORDER BY kind DESC, length, variant, format', a.id);
+  const outdated = outdatedAds(a);
   return {
     ...publicAdSetSummary(a),
     brand,
     brief: parseJson(a.brief, {}),
     options: parseJson(a.options, {}),
     copy: parseJson(a.copy, null),
-    items: ads.map((ad) => publicAd(ad, '/api/ads')),
+    items: ads.map((ad) => publicAd(ad, '/api/ads', outdated.has(ad.id))),
+    pending: ['queued', 'processing'].includes(a.status) ? 0 : outdated.size, // ads Generate would make
     share: a.share_token ? { token: a.share_token, path: `/share/${a.share_token}` } : null,
     revisions: revisionList(a),
   };
@@ -202,20 +205,19 @@ router.patch('/:id/copy', (req, res) => {
   res.json({ adset: publicAdSet(db.get('SELECT * FROM adsets WHERE id = ?', a.id)) });
 });
 
-// Re-render every ad with the current copy, or start over with fresh copy.
-router.post('/:id/rerender', (req, res) => {
+// Generate: render the ads the latest changes affect (or all of them when everything is current).
+// With newCopy, start over with fresh copy.
+router.post(['/:id/generate', '/:id/rerender'], (req, res) => {
   const a = owned(req);
   if (['queued', 'processing'].includes(a.status)) throw new HttpError(409, 'These ads are already being made.');
-  const fields = { status: 'queued', stage: 'Queued', progress: 0, error: null, updated_at: now() };
   if (req.body?.newCopy) {
-    fields.copy = null;
     db.run('DELETE FROM ads WHERE adset_id = ?', a.id);
     fs.rmSync(adsetDir(a.id), { recursive: true, force: true });
+    update('adsets', a.id, { copy: null, status: 'queued', stage: 'Queued', progress: 0, error: null, updated_at: now() });
+    enqueueAdSet(a.id);
   } else {
-    db.run("UPDATE ads SET status = 'queued', error = NULL WHERE adset_id = ?", a.id);
+    generateAds(a);
   }
-  update('adsets', a.id, fields);
-  enqueueAdSet(a.id);
   res.json({ adset: publicAdSet(db.get('SELECT * FROM adsets WHERE id = ?', a.id)) });
 });
 
