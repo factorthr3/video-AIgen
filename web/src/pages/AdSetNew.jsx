@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { Sparkles, Check, Upload, Film } from 'lucide-react';
+import { Sparkles, Check, Upload, Film, Music2 } from 'lucide-react';
 import { PageHeader, Alert, Spinner, EmptyState, AudioPreview } from '../components/ui.jsx';
 import { FormatIcon } from '../components/ads.jsx';
 import { BrandLogo } from './Brands.jsx';
@@ -57,7 +57,7 @@ export default function AdSetNew() {
   const [brandId, setBrandId] = useState(params.get('brand') || draft?.brandId || '');
   const { data: brandData } = useApi(brandId ? `/brands/${brandId}` : null);
   const [brief, setBrief] = useState(draft?.brief || { product: '', description: '', offer: '', cta: '', url: '', audience: '' });
-  const [options, setOptions] = useState(draft?.options || { style: 'clean', formats: ['9:16', '4:5', '1:1', '16:9'], lengths: [15], statics: 2, voiceover: false, voice: 'nova', music: 'bright-pluck', language: 'en' });
+  const [options, setOptions] = useState(draft?.options || { style: 'clean', formats: ['9:16', '4:5', '1:1', '16:9'], lengths: [15], statics: 2, voiceover: false, voice: 'nova', music: 'ai', musicMood: 'auto', language: 'en' });
   const [assetIds, setAssetIds] = useState(null); // null = all
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -67,6 +67,11 @@ export default function AdSetNew() {
   useEffect(() => {
     if (!brandId && brandList?.brands?.length) setBrandId(brandList.brands[0].id);
   }, [brandList]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Composed soundtracks need ElevenLabs on the server; otherwise start on a music bed.
+  const soundtrackReady = Boolean(catalog?.providers?.music?.provider);
+  useEffect(() => {
+    if (catalog && !soundtrackReady && options.music === 'ai') setOptions((o) => ({ ...o, music: 'bright-pluck' }));
+  }, [catalog]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (brandData?.brand?.website && !brief.url) setBrief((b) => ({ ...b, url: brandData.brand.website }));
     setAssetIds(null);
@@ -243,6 +248,20 @@ export default function AdSetNew() {
         <div className="grid gap-6 lg:grid-cols-2">
           <div>
             <p className="label">Music</p>
+            {soundtrackReady && (
+              <div role="button" tabIndex={0} data-selected={options.music === 'ai'} className="option mb-3 p-4" onClick={() => setO('music', 'ai')} onKeyDown={(e) => e.key === 'Enter' && setO('music', 'ai')}>
+                <p className="flex items-center gap-2 font-semibold"><Music2 className="size-4 text-brand-400" /> AI soundtrack <span className="chip py-0 text-[10px] uppercase">Recommended</span></p>
+                <p className="mt-1 text-xs text-ink-400">An original instrumental track composed for each video at its exact length, by ElevenLabs Music. Cleared for use in ads.</p>
+                {options.music === 'ai' && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {(catalog.musicMoods || []).map((m) => (
+                      <button key={m.id} type="button" onClick={(e) => { e.stopPropagation(); setO('musicMood', m.id); }} className={`rounded-full px-3 py-1 text-xs font-medium transition ${options.musicMood === m.id ? 'bg-white text-ink-950' : 'bg-white/5 text-ink-300 hover:bg-white/10'}`}>{m.name}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {soundtrackReady && <p className="mb-2 text-xs text-ink-400">Or a stock track:</p>}
             <div className="grid gap-2 sm:grid-cols-2">
               {catalog.music.map((m) => (
                 <div key={m.id} role="button" tabIndex={0} data-selected={options.music === m.id} className="option flex items-center justify-between gap-2 p-3" onClick={() => setO('music', m.id)} onKeyDown={(e) => e.key === 'Enter' && setO('music', m.id)}>

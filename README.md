@@ -11,7 +11,7 @@ Live at **[blackcell.app](https://blackcell.app)**.
 - **Ad sets:** one brief (product, description, offer, call to action, link, audience) becomes 6, 15 and/or 30-second videos and 0-3 static image ads, each in the chosen formats.
 - **Copy that sells, honestly:** benefits, hooks and offers written from the brief in the brand's voice; no invented stats, reviews or prices; no em dashes.
 - **Four styles:** Clean, Bold, Luxury and Promo (with an offer badge). Restrained motion (slow pushes, soft transitions), platform safe zones respected, logo and call-to-action end card.
-- **Sound:** music beds or your own track; optional voiceover (ElevenLabs) in 12 languages, off by default.
+- **Sound:** an original instrumental soundtrack composed for each video at its exact length (ElevenLabs Music, cleared for ads), with a mood (match the ad, upbeat, chill, cinematic, luxury, energetic); or stock beds or your own track. Optional voiceover (ElevenLabs) in 12 languages, off by default.
 - **Edit and re-render:** change any headline, line, button or badge; or ask for fresh copy.
 - **Client share links:** a private page with every ad, downloads and post copy, no login needed; can be turned off any time.
 - Plans (Tester / Starter / Growth / Agency) with monthly ad-set and brand limits; Paystack or Stripe billing; email/password and Google sign-in.
@@ -31,7 +31,7 @@ Open http://localhost:5173, create an account, set up a brand, upload a few prod
 | Stage | Key | Without it |
 | --- | --- | --- |
 | Asset review, copy and storyboard | `ANTHROPIC_API_KEY` | Copy comes straight from the brief; crops are centred |
-| Voiceover (optional) | `ELEVENLABS_API_KEY` or `OPENAI_API_KEY` | System voice |
+| AI soundtracks, voiceover | `ELEVENLABS_API_KEY` (Music needs a paid plan) | Stock music beds; system voice |
 | Google sign-in | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Email and password only |
 
 ### Payments (Paystack)
@@ -76,7 +76,8 @@ Mount `DATA_DIR` on persistent storage: it holds the SQLite database and rendere
 ```
 brand kit + assets (each reviewed by Claude: subject box, quality)
    ─▶ brief ─▶ Claude: copy, storyboard per video length (which asset per scene), statics, post captions
-   ─▶ per video length: scene timings (from the voiceover when on) + audio (music bed, voice lines)
+   ─▶ per video length: scene timings (from the voiceover when on) + audio (a soundtrack composed
+      to the exact length from Claude's music brief or the chosen mood, voice lines)
    ─▶ per format: frames drawn with Skia (smart crop + slow push on photos, footage streamed from
       ffmpeg, cut-outs on a brand backdrop, styled headline, logo, badge, transitions, end card)
    ─▶ raw frames piped into ffmpeg ─▶ H.264 MP4 (and JPEG image ads)

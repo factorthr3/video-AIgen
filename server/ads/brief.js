@@ -24,6 +24,7 @@ const CopySchema = z.object({
   concept: z.string().describe('The creative idea in one sentence'),
   cta: z.string().describe('Call-to-action button text, 1 to 3 words (e.g. "Shop now")'),
   badge: z.string().describe('Short offer badge such as "20% OFF" or "NEW"; empty string if the brief has no offer or launch'),
+  music: z.string().describe('Brief for the instrumental soundtrack, under 35 words: genre, mood, tempo in BPM and lead instruments, suited to the brand and audience. No artist or song names.'),
   videos: z.array(z.object({
     length: z.number().describe('Video length in seconds'),
     scenes: z.array(Scene),
@@ -138,6 +139,7 @@ function tidy(copy, { assets, lengths, voiceover }) {
     concept: clean(copy.concept),
     cta: clean(copy.cta).slice(0, 24) || 'Learn more',
     badge: clean(copy.badge).slice(0, 14),
+    music: clean(copy.music).replace(/["]/g, '').slice(0, 300),
     videos,
     statics: copy.statics.map((s, i) => ({ headline: clean(s.headline), subline: clean(s.subline), assetId: ids.has(s.assetId) ? s.assetId : fallbackAsset(i) })),
     captions: {
@@ -166,6 +168,7 @@ function templateCopy({ brand, brief, assets, lengths, statics }) {
     concept: `${brief.product} by ${brand.name}`,
     cta: brief.cta || 'Learn more',
     badge: offerBadge(brief.offer),
+    music: '',
     videos: lengths.map((length) => ({
       length,
       scenes: Array.from({ length: SCENES_FOR[length] }, (_, i) => ({

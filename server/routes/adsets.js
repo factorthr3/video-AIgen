@@ -8,6 +8,7 @@ import { PLAN, VOICE, LANGUAGE, MUSIC_TRACK } from '../catalog.js';
 import { STYLE, FORMATS, FORMAT_IDS, LENGTHS } from '../ads/design.js';
 import { HttpError, usage, NEEDS_PLAN_MESSAGE } from '../services.js';
 import { enqueueAdSet, adsetDir, adFile, adThumb } from '../ads/jobs.js';
+import { soundtrackEnabled, MUSIC_MOOD } from '../ads/soundtrack.js';
 import { assetFile } from '../ads/assets.js';
 import { plainDashes } from '../text.js';
 
@@ -102,7 +103,11 @@ function cleanOptions(o = {}, brandId) {
   const assetIds = Array.isArray(o.assetIds)
     ? o.assetIds.filter((id) => db.get("SELECT 1 FROM assets WHERE id = ? AND brand_id = ? AND kind != 'logo'", id, brandId))
     : [];
-  const music = typeof o.music === 'string' && o.music.startsWith('upload:') ? o.music : MUSIC_TRACK[o.music] ? o.music : 'bright-pluck';
+  // 'ai' = a soundtrack composed for each video (ElevenLabs Music), the default when available.
+  const fallbackMusic = soundtrackEnabled() ? 'ai' : 'bright-pluck';
+  const music = typeof o.music === 'string' && o.music.startsWith('upload:') ? o.music
+    : o.music === 'ai' ? fallbackMusic
+      : MUSIC_TRACK[o.music] ? o.music : fallbackMusic;
   return {
     style: STYLE[o.style] ? o.style : 'clean',
     formats: FORMAT_IDS.filter((f) => formats.includes(f)),
@@ -111,6 +116,7 @@ function cleanOptions(o = {}, brandId) {
     voiceover: Boolean(o.voiceover),
     voice: VOICE[o.voice] ? o.voice : 'nova',
     music,
+    musicMood: MUSIC_MOOD[o.musicMood] ? o.musicMood : 'auto',
     language: LANGUAGE[o.language] ? o.language : 'en',
     assetIds,
   };

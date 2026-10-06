@@ -617,7 +617,7 @@ export async function renderVideoAd({ brand, logo, assets, scenes, endCard, copy
 
 // ---------- audio ----------
 /** Music bed (looped, faded) plus optional voice lines at their scene starts. */
-export async function buildAdAudio({ duration, music, voices = [], out }) {
+export async function buildAdAudio({ duration, music, voices = [], fade = 1.2, out }) {
   const args = [];
   const parts = [];
   const mixIn = [];
@@ -629,10 +629,10 @@ export async function buildAdAudio({ duration, music, voices = [], out }) {
   if (music) {
     const m = voices.length;
     args.push('-stream_loop', '-1', '-i', music);
-    const fadeOut = Math.max(0, duration - 1.2).toFixed(2);
+    const fadeOut = Math.max(0, duration - fade).toFixed(2);
     // Quieter under a voiceover.
     const level = voices.length ? 'loudnorm=I=-28:TP=-6' : 'loudnorm=I=-16:TP=-1.5';
-    parts.push(`[${m}:a]atrim=0:${duration.toFixed(3)},asetpts=N/SR/TB,${level},aresample=44100,afade=t=in:d=0.25,afade=t=out:st=${fadeOut}:d=1.2[m]`);
+    parts.push(`[${m}:a]atrim=0:${duration.toFixed(3)},asetpts=N/SR/TB,${level},aresample=44100,afade=t=in:d=0.05,afade=t=out:st=${fadeOut}:d=${fade}[m]`);
     mixIn.push('[m]');
   }
   if (!mixIn.length) {

@@ -10,6 +10,7 @@ import { speak } from '../pipeline/tts.js';
 import { musicTrack } from '../pipeline/music.js';
 import { writeCopy, SCENES_FOR } from './brief.js';
 import { renderVideoAd, renderStaticAd, buildAdAudio, loadLogo, END_CARD } from './render.js';
+import { soundtrack, musicBrief } from './soundtrack.js';
 
 export const ADSETS_DIR = path.join(DATA_DIR, 'adsets');
 export const adsetDir = (id) => path.join(ADSETS_DIR, id);
@@ -107,8 +108,9 @@ async function runAdSet(id) {
   const todo = db.all("SELECT * FROM ads WHERE adset_id = ? AND status != 'ready' ORDER BY kind DESC, length, variant, format", id);
   const total = db.get('SELECT COUNT(*) AS n FROM ads WHERE adset_id = ?', id).n;
   const logo = await loadLogo(logoAsset);
-  const music = await musicTrack(options.music);
+  const bed = options.music === 'ai' ? null : await musicTrack(options.music);
   const audioFor = new Map(); // length -> { file, scenes } shared across formats
+  let musicNote = null;
 
   let done = total - todo.length;
   const progress = (extra = 0) => 0.1 + 0.9 * ((done + extra) / total);
@@ -119,7 +121,12 @@ async function runAdSet(id) {
       if (ad.kind === 'video') {
         const video = copy.videos.find((v) => v.length === ad.length);
         if (!video) throw new Error(`No ${ad.length}s storyboard.`);
-        if (!audioFor.has(ad.length)) audioFor.set(ad.length, await prepareTimeline({ id, copy, video, options, music }));
+        if (!audioFor.has(ad.length)) {
+          setStage(id, options.music === 'ai' ? `Composing the ${ad.length}s soundtrack` : `Preparing the ${ad.length}s video`, progress());
+          const prepared = await prepareTimeline({ id, copy, video, options, bed });
+          if (prepared.musicNote) musicNote = prepared.musicNote;
+          audioFor.set(ad.length, prepared);
+        }
         const { scenes, audio, endCard } = audioFor.get(ad.length);
         await withRender(() => renderVideoAd({
           brand, logo, assets, scenes, endCard, copy, format: ad.format, style: options.style, url: brief.url,
@@ -142,6 +149,11 @@ async function runAdSet(id) {
     done++;
   }
   for (const a of audioFor.values()) fs.rmSync(a.audio, { force: true });
+  // Tell the client if the composed soundtrack couldn't be made this time.
+  if (options.music === 'ai' && audioFor.size) {
+    const latest = parseJson(db.get('SELECT copy FROM adsets WHERE id = ?', id).copy, {});
+    update('adsets', id, { copy: JSON.stringify({ ...latest, musicNote }) });
+  }
   const failed = db.get("SELECT COUNT(*) AS n FROM ads WHERE adset_id = ? AND status = 'failed'", id).n;
   update('adsets', id, {
     status: failed === total ? 'failed' : 'ready', stage: null, progress: 1,
@@ -150,7 +162,7 @@ async function runAdSet(id) {
 }
 
 // Scene timings for one video length (from the voiceover when there is one) and its audio.
-async function prepareTimeline({ id, copy, video, options, music }) {
+async function prepareTimeline({ id, copy, video, options, bed }) {
   const dir = adsetDir(id);
   const endCard = END_CARD[video.length] || 2.4;
   let scenes;
@@ -178,9 +190,25 @@ async function prepareTimeline({ id, copy, video, options, music }) {
     scenes = video.scenes.map((sc) => ({ ...sc, duration: each }));
   }
   const total = scenes.reduce((s, x) => s + x.duration, 0) + endCard;
+  // A soundtrack composed to this exact length, or the chosen music bed.
+  let music = bed;
+  let musicNote = null;
+  let fade = 1.2;
+  if (options.music === 'ai') {
+    try {
+      music = await soundtrack({ brief: musicBrief({ mood: options.musicMood, copyBrief: copy.music, style: options.style }), seconds: total });
+      fade = 0.4; // composed to end on time
+    } catch (err) {
+      console.error('[ads] soundtrack failed:', err.message);
+      musicNote = /paid|subscription|plan|permission|401|403/i.test(err.message)
+        ? 'The AI soundtrack needs a paid ElevenLabs plan with Music access, so a standard music bed was used.'
+        : 'The AI soundtrack could not be composed this time, so a standard music bed was used. Re-render to try again.';
+      music = await musicTrack('bright-pluck');
+    }
+  }
   const audio = path.join(dir, `audio-${video.length}-${crypto.randomBytes(3).toString('hex')}.m4a`);
-  await buildAdAudio({ duration: total, music, voices, out: audio });
-  return { scenes, audio, endCard };
+  await buildAdAudio({ duration: total, music, voices, fade, out: audio });
+  return { scenes, audio, endCard, musicNote };
 }
 
 export { SCENES_FOR };

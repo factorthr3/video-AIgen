@@ -1,6 +1,7 @@
 // Everything a user can pick, shared with the web app via GET /api/catalog
 // so the two never drift.
 import { FORMATS, FORMAT_IDS, LENGTHS, STYLES, BRAND_FONTS } from './ads/design.js';
+import { MUSIC_MOODS } from './ads/soundtrack.js';
 
 // Voices are app-level personas mapped to each TTS provider's native voice.
 // ElevenLabs IDs are its current default ("premade") voices, available to every account.
@@ -57,6 +58,7 @@ export function catalog() {
   return {
     voices: VOICES.map(({ id, name, gender, description }) => ({ id, name, gender, description })),
     music: MUSIC,
+    musicMoods: MUSIC_MOODS.map(({ id, name }) => ({ id, name })),
     languages: LANGUAGES.map(({ id, name }) => ({ id, name })),
     plans: PLANS,
     formats: FORMAT_IDS.map((id) => ({ id, name: FORMATS[id].name, width: FORMATS[id].w, height: FORMATS[id].h, platforms: FORMATS[id].platforms })),

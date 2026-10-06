@@ -59,6 +59,8 @@ export const config = {
   elevenlabs: {
     key: env.ELEVENLABS_API_KEY || '',
     baseUrl: (env.ELEVENLABS_BASE_URL || 'https://api.elevenlabs.io').replace(/\/$/, ''),
+    // Ad soundtracks (Music API, paid ElevenLabs plans). Falls back to older models.
+    musicModel: env.ELEVENLABS_MUSIC_MODEL || 'music_v2_5',
     model: env.ELEVENLABS_MODEL || 'eleven_v3',
   },
   // AI video clips (image-to-video) via fal.ai's queue API.
@@ -132,6 +134,7 @@ export function providerStatus() {
   return {
     copy: config.anthropic.enabled ? { provider: 'claude', model: config.anthropic.model } : { provider: 'template' },
     voice: { provider: resolveTtsProvider() },
+    music: { provider: config.elevenlabs.key ? 'elevenlabs' : null, model: config.elevenlabs.musicModel },
     googleSignIn: Boolean(config.google.clientId),
     demoBilling: config.demoBilling,
     signupMode: config.signupMode,
