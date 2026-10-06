@@ -13,6 +13,7 @@ Live at **[blackcell.app](https://blackcell.app)**.
 - **Four styles:** Clean, Bold, Luxury and Promo (with an offer badge). Restrained motion (slow pushes, soft transitions), platform safe zones respected, logo and call-to-action end card.
 - **Sound:** an original instrumental soundtrack composed for each video at its exact length (ElevenLabs Music, cleared for ads), with a mood (match the ad, upbeat, chill, cinematic, luxury, energetic); or stock beds or your own track. Optional voiceover (ElevenLabs) in 12 languages, off by default.
 - **Edit and re-render:** change any headline, line, button or badge; or ask for fresh copy.
+- **Ask for changes:** type what you'd like different ("punchier headlines", "open on the pouring clip", "add a square version") and Claude edits the copy, storyboard, style, sound or sizes. Only the ads that change are re-made, and each change can be undone (up to 30 changes per ad set).
 - **Client share links:** a private page with every ad, downloads and post copy, no login needed; can be turned off any time.
 - Plans with monthly ad-set and brand limits: Tester ($15.99) and Starter ($29) are sold online through Paystack or Stripe; Growth and Agency are POA (price on application): customers click Contact us, and an admin assigns the plan under Settings (billed by invoice, never charged by card). Email/password and Google sign-in.
 

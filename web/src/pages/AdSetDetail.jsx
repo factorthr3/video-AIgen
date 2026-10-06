@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { Link2, Trash2, Wand2, RefreshCw, ExternalLink, Pencil, X } from 'lucide-react';
+import { Link2, Trash2, Wand2, RefreshCw, ExternalLink, Pencil, X, Sparkles, SendHorizontal, Undo2, LoaderCircle } from 'lucide-react';
 import { PageHeader, Alert, Spinner, EmptyState } from '../components/ui.jsx';
 import { AdGroups, AdSetProgress, AdSetStatus, Captions, CopyButton } from '../components/ads.jsx';
 import { api, useApi, formatDateTime } from '../lib.jsx';
@@ -34,6 +34,115 @@ function SharePanel({ adset, onChange }) {
         ? <button className="btn-ghost text-sm" onClick={() => set(false)} disabled={working}>Turn off link</button>
         : <button className="btn-secondary" onClick={() => set(true)} disabled={working}><Link2 className="size-4" /> Create link</button>}
     </div>
+  );
+}
+
+const SUGGESTIONS = ['Make the headlines punchier', 'Open with the video clip', 'Use a more upbeat soundtrack', 'Add a square version'];
+
+/** Ask for changes in plain words; replies and undo sit in a short conversation. */
+function ChangeRequests({ adset, onChange }) {
+  const { available, left, items } = adset.revisions;
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(null); // the request being worked on
+  const [undoing, setUndoing] = useState(false);
+  const [error, setError] = useState(null);
+  const list = useRef(null);
+  useEffect(() => {
+    list.current?.scrollTo({ top: list.current.scrollHeight, behavior: 'smooth' });
+  }, [items.length, sending]);
+  if (!available && !items.length) return null;
+
+  const rendering = busy(adset);
+  const locked = rendering || Boolean(sending) || undoing || !available || left === 0;
+  const send = async (value) => {
+    const request = value.trim();
+    if (request.length < 3 || locked) return;
+    setSending(request);
+    setError(null);
+    setText('');
+    try {
+      onChange((await api(`/adsets/${adset.id}/revise`, { method: 'POST', body: { request } })).adset);
+    } catch (err) {
+      setError(err.message);
+      setText(request);
+    } finally {
+      setSending(null);
+    }
+  };
+  const undo = async (rev) => {
+    setUndoing(true);
+    setError(null);
+    try {
+      onChange((await api(`/adsets/${adset.id}/revisions/${rev.id}/undo`, { method: 'POST', body: {} })).adset);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUndoing(false);
+    }
+  };
+
+  return (
+    <section className="card mb-8 overflow-hidden">
+      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-white/5 px-5 py-4">
+        <div>
+          <h2 className="flex items-center gap-2 font-display text-lg font-bold"><Sparkles className="size-4 text-brand-400" /> Ask for changes</h2>
+          <p className="mt-0.5 text-sm text-ink-400">Say what you'd like different, in your own words. Only the ads that change are re-made.</p>
+        </div>
+        {items.length > 0 && <span className="text-xs text-ink-400">{left} {left === 1 ? 'change' : 'changes'} left</span>}
+      </div>
+      {(items.length > 0 || sending) && (
+        <ol ref={list} className="max-h-96 space-y-4 overflow-y-auto px-5 py-4">
+          {items.map((r) => (
+            <li key={r.id} className="space-y-2">
+              <p className="ml-auto w-fit max-w-[85%] whitespace-pre-line rounded-2xl rounded-br-md bg-brand-600/25 px-3.5 py-2 text-sm">{r.request}</p>
+              <div className="max-w-[85%]">
+                <p className={`w-fit rounded-2xl rounded-bl-md bg-white/5 px-3.5 py-2 text-sm ${r.undone ? 'text-ink-400' : ''}`}>{r.reply}</p>
+                {r.undone && <p className="mt-1 pl-1 text-xs text-ink-400">Undone</p>}
+                {r.canUndo && (
+                  <button type="button" className="btn-ghost mt-1 px-2 py-1 text-xs text-ink-300" onClick={() => undo(r)} disabled={rendering || undoing || Boolean(sending)}>
+                    <Undo2 className="size-3.5" /> {undoing ? 'Undoing…' : 'Undo this change'}
+                  </button>
+                )}
+              </div>
+            </li>
+          ))}
+          {sending && (
+            <li className="space-y-2">
+              <p className="ml-auto w-fit max-w-[85%] whitespace-pre-line rounded-2xl rounded-br-md bg-brand-600/25 px-3.5 py-2 text-sm">{sending}</p>
+              <p className="flex w-fit items-center gap-2 rounded-2xl rounded-bl-md bg-white/5 px-3.5 py-2 text-sm text-ink-300"><LoaderCircle className="size-4 animate-spin text-brand-400" /> Working on your changes…</p>
+            </li>
+          )}
+        </ol>
+      )}
+      <form className="border-t border-white/5 p-4" onSubmit={(e) => { e.preventDefault(); send(text); }}>
+        {error && <Alert onClose={() => setError(null)}>{error}</Alert>}
+        {!items.length && !sending && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {SUGGESTIONS.map((s) => (
+              <button key={s} type="button" className="chip transition hover:border-white/25 hover:text-white" onClick={() => setText(s)} disabled={locked}>{s}</button>
+            ))}
+          </div>
+        )}
+        <div className="flex items-end gap-2">
+          <label htmlFor="change-request" className="sr-only">What would you like changed?</label>
+          <textarea
+            id="change-request"
+            className="input min-h-12 flex-1 resize-none py-3"
+            rows={2}
+            maxLength={1000}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(text); } }}
+            placeholder={rendering ? 'You can ask for more changes when these ads finish.' : left === 0 ? 'No changes left on this ad set.' : 'e.g. Open with the pouring clip and make the first headline punchier'}
+            disabled={locked}
+          />
+          <button type="submit" className="btn-primary h-12 shrink-0 px-4" disabled={locked || text.trim().length < 3} title="Send">
+            <SendHorizontal className="size-4" /><span className="hidden sm:inline">Send</span>
+          </button>
+        </div>
+        {!available && <p className="mt-2 text-xs text-ink-400">The AI editor isn't available right now. You can still change the words with Edit copy.</p>}
+      </form>
+    </section>
   );
 }
 
@@ -128,7 +237,7 @@ function CopyEditor({ adset, onSaved, onCancel }) {
 export default function AdSetDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { data, error, setData } = useApi(`/adsets/${id}`, { poll: (d) => busy(d.adset) });
+  const { data, error, setData, reload } = useApi(`/adsets/${id}`, { poll: (d) => busy(d.adset) });
   const [editing, setEditing] = useState(false);
   const [notice, setNotice] = useState(null);
   const adset = data?.adset;
@@ -139,7 +248,10 @@ export default function AdSetDetail() {
   if (error?.status === 404) return <EmptyState title="Ad set not found" action={<Link to="/app/adsets" className="btn-secondary">All ad sets</Link>} />;
   if (error) return <Alert>{error.message}</Alert>;
   if (!adset) return <div className="grid h-64 place-items-center"><Spinner /></div>;
-  const update = (a) => setData({ adset: a });
+  const update = (a) => {
+    setData({ adset: a });
+    if (busy(a)) reload(); // keeps polling while the ads re-render
+  };
 
   const newCopy = async () => {
     if (!window.confirm('Write brand-new copy and re-make every ad? Your edits will be replaced.')) return;
@@ -175,6 +287,7 @@ export default function AdSetDetail() {
       {adset.copy?.fallback && <Alert tone="warn">The AI copywriter was unavailable, so this copy was taken straight from your brief. Edit it below, or try <strong>New copy</strong> later.</Alert>}
       <AdSetProgress adset={adset} />
       {editing && adset.copy && <CopyEditor adset={adset} onSaved={(a) => { update(a); setEditing(false); }} onCancel={() => setEditing(false)} />}
+      {adset.copy && adset.items.length > 0 && <ChangeRequests adset={adset} onChange={update} />}
       {adset.items.length > 0 && <SharePanel adset={adset} onChange={update} />}
       <AdGroups items={adset.items} />
       {adset.copy?.captions && (

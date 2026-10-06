@@ -20,7 +20,7 @@ const Scene = z.object({
   voiceover: z.string().describe('What the voiceover says during this scene; empty string when voiceover is off'),
 });
 
-const CopySchema = z.object({
+export const CopySchema = z.object({
   concept: z.string().describe('The creative idea in one sentence'),
   cta: z.string().describe('Call-to-action button text, 1 to 3 words (e.g. "Shop now")'),
   badge: z.string().describe('Short offer badge such as "20% OFF" or "NEW"; empty string if the brief has no offer or launch'),
@@ -45,9 +45,8 @@ const CopySchema = z.object({
   }),
 });
 
-const SYSTEM = `You are the creative director and senior copywriter of a high-end advertising studio. You turn a client's brief and their own photos and footage into scroll-stopping social media ads that look and read like a professional agency made them.
-
-Copy rules:
+// Shared with the change-request editor (revise.js), so revisions follow the same rules.
+export const COPY_RULES = `Copy rules:
 - Lead with the customer's benefit, concretely. Short, confident, specific. Plain words a real person would say.
 - Avoid ad cliches and hype words: elevate, unleash, unlock, revolutionise, game-changer, next level, seamless, "look no further", "say goodbye to".
 - Only claim what the brief supports. Never invent statistics, reviews, awards, prices, discounts or guarantees. Use the offer exactly as the client wrote it.
@@ -59,10 +58,24 @@ Storyboard rules:
 - Each scene uses one asset from the list, chosen to match its line (product shots for features and the offer, lifestyle or people shots for benefits). Prefer high-quality assets. Avoid showing the same asset in consecutive scenes when there are others.
 - The renderer adds the final logo and call-to-action card itself, so don't write a closing "CTA" scene.`;
 
-let client;
-const claude = () => (client ??= new Anthropic());
+const SYSTEM = `You are the creative director and senior copywriter of a high-end advertising studio. You turn a client's brief and their own photos and footage into scroll-stopping social media ads that look and read like a professional agency made them.
 
-const assetLine = (a) => {
+${COPY_RULES}`;
+
+let client;
+export const claude = () => (client ??= new Anthropic());
+
+/** Request params for the configured model (with server-side fallback on Opus/Fable 5). */
+export function modelParams(params) {
+  const out = { model: config.anthropic.model, ...params };
+  if (/^claude-(opus|fable)-5/.test(config.anthropic.model)) {
+    out.betas = ['server-side-fallback-2026-07-01'];
+    out.fallbacks = 'default';
+  }
+  return out;
+}
+
+export const assetLine = (a) => {
   const an = parseJson(a.analysis, null);
   const shape = a.width && a.height ? (a.width > a.height * 1.1 ? 'landscape' : a.height > a.width * 1.1 ? 'portrait' : 'square') : '';
   return `- ${a.id}: ${a.kind}${a.kind === 'video' ? ` (${Math.round(a.duration)}s)` : ''}${shape ? `, ${shape}` : ''}${a.has_alpha ? ', transparent cut-out' : ''}`
@@ -100,18 +113,12 @@ ${lengths.map((l) => `- A ${l}-second video with exactly ${SCENES_FOR[l]} scenes
 ${voiceover ? '- A voiceover line for every scene: natural and conversational, about 2.5 words per second of the scene so it fits (a 15-second video has about 30 words in total).' : '- Voiceover is off: leave every voiceover field empty.'}
 Language for all copy: ${lang.name}.`;
 
-  const params = {
-    model: config.anthropic.model,
+  const response = await claude().beta.messages.parse(modelParams({
     max_tokens: 8000,
     system: SYSTEM,
     messages: [{ role: 'user', content: prompt }],
     output_config: { format: betaZodOutputFormat(CopySchema) },
-  };
-  if (/^claude-(opus|fable)-5/.test(config.anthropic.model)) {
-    params.betas = ['server-side-fallback-2026-07-01'];
-    params.fallbacks = 'default';
-  }
-  const response = await claude().beta.messages.parse(params);
+  }));
   if (response.stop_reason === 'refusal') throw Object.assign(new Error("The copywriter couldn't write ads for this brief. Try rewording the description."), { refusal: true });
   const copy = response.parsed_output;
   if (!copy) throw new Error('The copywriter returned nothing. Please try again.');
@@ -119,7 +126,7 @@ Language for all copy: ${lang.name}.`;
 }
 
 // Make the copy safe to render: valid asset IDs, the requested lengths, plain dashes.
-function tidy(copy, { assets, lengths, voiceover }) {
+export function tidy(copy, { assets, lengths, voiceover }) {
   const ids = new Set(assets.map((a) => a.id));
   const fallbackAsset = (i) => assets[i % assets.length]?.id;
   const clean = (s) => plainDashes(String(s || '')).trim();

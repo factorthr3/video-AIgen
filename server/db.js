@@ -197,6 +197,21 @@ CREATE TABLE IF NOT EXISTS ads (
   updated_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_ads_adset ON ads(adset_id);
+
+-- Change requests on an ad set ("make the headlines punchier"), with what was
+-- there before (to undo) and after (to tell if it was edited since).
+CREATE TABLE IF NOT EXISTS adset_revisions (
+  id TEXT PRIMARY KEY,
+  adset_id TEXT NOT NULL REFERENCES adsets(id) ON DELETE CASCADE,
+  request TEXT NOT NULL,
+  reply TEXT NOT NULL,
+  changed INTEGER NOT NULL DEFAULT 0,
+  before TEXT,
+  after TEXT,
+  undone INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_adset_revisions ON adset_revisions(adset_id, created_at);
 `);
 
 // Additive migrations for databases created by earlier versions.

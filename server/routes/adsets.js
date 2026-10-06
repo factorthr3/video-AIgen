@@ -10,6 +10,7 @@ import { HttpError, usage, NEEDS_PLAN_MESSAGE } from '../services.js';
 import { enqueueAdSet, adsetDir, adFile, adThumb } from '../ads/jobs.js';
 import { soundtrackEnabled, MUSIC_MOOD } from '../ads/soundtrack.js';
 import { assetFile } from '../ads/assets.js';
+import { reviseAdSet, undoRevision, revisionList, reviseEnabled } from '../ads/revise.js';
 import { plainDashes } from '../text.js';
 
 export { adsetDir };
@@ -69,6 +70,7 @@ function publicAdSet(a) {
     copy: parseJson(a.copy, null),
     items: ads.map((ad) => publicAd(ad, '/api/ads')),
     share: a.share_token ? { token: a.share_token, path: `/share/${a.share_token}` } : null,
+    revisions: revisionList(a),
   };
 }
 
@@ -214,6 +216,26 @@ router.post('/:id/rerender', (req, res) => {
   }
   update('adsets', a.id, fields);
   enqueueAdSet(a.id);
+  res.json({ adset: publicAdSet(db.get('SELECT * FROM adsets WHERE id = ?', a.id)) });
+});
+
+// Ask for changes in plain words; Claude edits the copy and settings, then the changed ads re-render.
+router.post('/:id/revise', async (req, res) => {
+  const a = owned(req);
+  if (['queued', 'processing'].includes(a.status)) throw new HttpError(409, 'Wait for these ads to finish, then ask for more changes.');
+  if (!a.copy) throw new HttpError(409, 'These ads have no copy to change yet.');
+  if (!reviseEnabled()) throw new HttpError(503, "The AI editor isn't available right now. You can still change the words with Edit copy.");
+  if (usage(req.user).needsPlan) throw new HttpError(402, NEEDS_PLAN_MESSAGE);
+  const request = plainDashes(String(req.body?.request || '').trim()).slice(0, 1000);
+  if (request.length < 3) throw new HttpError(400, "Say what you'd like changed.");
+  const result = await reviseAdSet(a, request);
+  res.json({ ...result, adset: publicAdSet(db.get('SELECT * FROM adsets WHERE id = ?', a.id)) });
+});
+
+router.post('/:id/revisions/:revisionId/undo', (req, res) => {
+  const a = owned(req);
+  if (['queued', 'processing'].includes(a.status)) throw new HttpError(409, 'Wait for these ads to finish, then undo.');
+  undoRevision(a, req.params.revisionId);
   res.json({ adset: publicAdSet(db.get('SELECT * FROM adsets WHERE id = ?', a.id)) });
 });
 
