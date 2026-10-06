@@ -29,10 +29,17 @@ export function musicBrief({ mood, copyBrief, style }) {
 }
 
 let workingModel = null;
+const inFlight = new Map(); // ad sets rendering the same brief at once share one request
 
 /** Compose (or reuse) an instrumental track of `seconds` for `brief`; returns the file path. */
-export async function soundtrack({ brief, seconds }) {
+export function soundtrack({ brief, seconds }) {
   const ms = Math.min(600_000, Math.max(3000, Math.ceil(seconds * 1000)));
+  const id = JSON.stringify([brief, ms]);
+  if (!inFlight.has(id)) inFlight.set(id, compose(brief, ms).finally(() => inFlight.delete(id)));
+  return inFlight.get(id);
+}
+
+async function compose(brief, ms) {
   const secs = Math.round(ms / 1000);
   // Ad tracks need energy right to the end card, then a clean stop (no long fade).
   const prompt = `${brief}. Instrumental only, no vocals. A ${secs}-second advert soundtrack that starts strong, keeps full energy for the whole ${secs} seconds and stops on a final hit right at the end, with no long fade-out.`;

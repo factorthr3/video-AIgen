@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Volume2, VolumeX, Sparkles } from 'lucide-react';
 
-// Example ads BlackCell made for a demo brand (Northwind) from four photos and a logo.
+// Example ads BlackCell made for a demo brand (Northwind) from two short clips, product photos and a logo.
 export function ShowcaseGlow() {
   return (
     <div className="pointer-events-none absolute inset-0">
@@ -53,7 +53,7 @@ export function AdShowcase({ caption = true }) {
         <VerticalAd />
       </div>
       {caption && (
-        <p className="chip mt-6 text-center"><Sparkles className="size-3.5 text-brand-400" /> Example ads for a demo coffee brand, made from 4 photos and a logo</p>
+        <p className="chip mt-6 text-center"><Sparkles className="size-3.5 text-brand-400" /> Example ads for a demo coffee brand, made from two short clips, product photos and a logo</p>
       )}
     </div>
   );
