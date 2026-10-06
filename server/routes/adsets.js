@@ -9,6 +9,7 @@ import { STYLE, FORMATS, FORMAT_IDS, LENGTHS } from '../ads/design.js';
 import { HttpError, usage, NEEDS_PLAN_MESSAGE } from '../services.js';
 import { enqueueAdSet, adsetDir, adFile, adThumb } from '../ads/jobs.js';
 import { soundtrackEnabled, MUSIC_MOOD } from '../ads/soundtrack.js';
+import { motionEnabled } from '../ads/motion.js';
 import { assetFile } from '../ads/assets.js';
 import { reviseAdSet, undoRevision, revisionList, reviseEnabled, outdatedAds, generateAds } from '../ads/revise.js';
 import { plainDashes } from '../text.js';
@@ -122,6 +123,7 @@ function cleanOptions(o = {}, brandId) {
     voice: VOICE[o.voice] ? o.voice : 'nova',
     music,
     musicMood: MUSIC_MOOD[o.musicMood] ? o.musicMood : 'auto',
+    motion: Boolean(o.motion) && motionEnabled(), // animate photos into clips with AI
     language: LANGUAGE[o.language] ? o.language : 'en',
     assetIds,
   };

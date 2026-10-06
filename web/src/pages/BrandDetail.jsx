@@ -154,7 +154,7 @@ function AssetCard({ asset, onDelete }) {
             ? <div className="grid size-full place-items-center text-xs text-ink-300"><span><LoaderCircle className="mx-auto mb-1 size-5 animate-spin" />Processing…</span></div>
             : <div className="grid size-full place-items-center p-3 text-center text-xs text-red-300"><span><TriangleAlert className="mx-auto mb-1 size-5" />{asset.error || 'Failed'}</span></div>}
         <span className="absolute left-2 top-2 flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[11px] font-semibold backdrop-blur">
-          <Icon className="size-3" />{asset.kind === 'video' ? formatDuration(asset.duration) : asset.transparent ? 'Cut-out' : 'Photo'}
+          <Icon className="size-3" />{asset.ai ? `AI motion · ${formatDuration(asset.duration)}` : asset.kind === 'video' ? formatDuration(asset.duration) : asset.transparent ? 'Cut-out' : 'Photo'}
         </span>
         <button type="button" className="absolute right-2 top-2 rounded-md bg-black/60 p-1 text-ink-300 backdrop-blur hover:text-red-300" onClick={() => onDelete(asset)} title="Delete"><Trash2 className="size-3.5" /></button>
       </div>

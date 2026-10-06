@@ -11,6 +11,7 @@ import { musicTrack } from '../pipeline/music.js';
 import { writeCopy, SCENES_FOR } from './brief.js';
 import { renderVideoAd, renderStaticAd, buildAdAudio, loadLogo, END_CARD } from './render.js';
 import { soundtrack, musicBrief } from './soundtrack.js';
+import { motionEnabled, motionCandidates, motionAspects, animatePhotos } from './motion.js';
 
 export const ADSETS_DIR = path.join(DATA_DIR, 'adsets');
 export const adsetDir = (id) => path.join(ADSETS_DIR, id);
@@ -108,15 +109,46 @@ async function runAdSet(id) {
   const logoAsset = brand.logo_asset_id ? db.get('SELECT * FROM assets WHERE id = ?', brand.logo_asset_id) : null;
   fs.mkdirSync(adsetDir(id), { recursive: true });
 
-  // 1. Copy and storyboard (kept across re-renders until "new copy").
+  // 1. AI motion: no footage? Turn the best photos into short clips first (reused from the library when they exist).
   let copy = parseJson(adset.copy, null);
+  let motionNote = null;
+  if (!copy && options.motion && motionEnabled()) {
+    const photos = motionCandidates(chosen);
+    if (photos.length) {
+      setStage(id, 'Bringing your photos to life', 0.02);
+      const { clips, failed, total } = await animatePhotos({
+        brand, brief, photos, aspects: motionAspects(options.formats),
+        onProgress: (n, t) => setStage(id, `Bringing your photos to life (${n} of ${t} clips)`, 0.02 + 0.06 * (n / t)),
+      });
+      const fresh = clips.filter((c) => !assets.has(c.id));
+      chosen.unshift(...fresh); // footage leads the storyboard
+      for (const c of fresh) assets.set(c.id, c);
+      if (fresh.length && options.assetIds?.length) {
+        options.assetIds = [...fresh.map((c) => c.id), ...options.assetIds];
+        update('adsets', id, { options: JSON.stringify(options) });
+      }
+      if (failed) motionNote = `${failed} of ${total} AI motion clips couldn't be made, so those scenes use your photos instead.`;
+    }
+  }
+  // An AI clip exists in up to two orientations; storyboards use one and each format gets the best fit.
+  const twins = new Map(); // photo id -> { '9:16': clip, '16:9': clip }
+  for (const a of assets.values()) if (a.parent_id) twins.set(a.parent_id, { ...twins.get(a.parent_id), [a.motion_aspect]: a });
+  const forFormat = (scenes, format) => scenes.map((sc) => {
+    const a = assets.get(sc.assetId);
+    const twin = a?.parent_id && twins.get(a.parent_id)?.[format === '16:9' ? '16:9' : '9:16'];
+    return twin && twin.id !== a.id ? { ...sc, assetId: twin.id } : sc;
+  });
+
+  // 2. Copy and storyboard (kept across re-renders until "new copy").
   if (!copy) {
-    setStage(id, 'Writing the copy', 0.03);
-    copy = await writeCopy({ brand, brief, assets: chosen, lengths: options.lengths, statics: options.statics, voiceover: options.voiceover, language: options.language });
+    setStage(id, 'Writing the copy', 0.08);
+    const storyboardAssets = chosen.filter((a) => !a.parent_id || (twins.get(a.parent_id)['9:16'] || a) === a);
+    copy = await writeCopy({ brand, brief, assets: storyboardAssets, lengths: options.lengths, statics: options.statics, voiceover: options.voiceover, language: options.language });
+    if (motionNote) copy.motionNote = motionNote;
     update('adsets', id, { copy: JSON.stringify(copy) });
   }
 
-  // 2. The ads to make.
+  // 3. The ads to make.
   if (!db.get('SELECT 1 FROM ads WHERE adset_id = ? LIMIT 1', id)) {
     for (const p of plannedAds(options)) insert('ads', { id: newId('ad'), adset_id: id, ...p, status: 'queued', created_at: now() });
   }
@@ -144,7 +176,7 @@ async function runAdSet(id) {
         }
         const { scenes, audio, endCard } = audioFor.get(ad.length);
         await withRender(() => renderVideoAd({
-          brand, logo, assets, scenes, endCard, copy, format: ad.format, style: options.style, url: brief.url,
+          brand, logo, assets, scenes: forFormat(scenes, ad.format), endCard, copy, format: ad.format, style: options.style, url: brief.url,
           audioFile: audio, out: adFile(ad), thumbOut: adThumb(ad),
           onProgress: (p) => setStage(id, `Rendering the ${ad.length}s ${ad.format} video`, progress(p)),
         }));

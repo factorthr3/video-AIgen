@@ -323,6 +323,7 @@ export default function AdSetDetail() {
       {adset.status === 'failed' && <Alert>{adset.error || 'These ads could not be made.'} Try <strong>New copy</strong>, or check the brand's assets.</Alert>}
       {adset.status === 'ready' && adset.error && <Alert tone="warn">{adset.error}</Alert>}
       {adset.copy?.musicNote && <Alert tone="warn">{adset.copy.musicNote}</Alert>}
+      {adset.copy?.motionNote && <Alert tone="warn">{adset.copy.motionNote}</Alert>}
       {adset.copy?.fallback && <Alert tone="warn">The AI copywriter was unavailable, so this copy was taken straight from your brief. Edit it below, or try <strong>New copy</strong> later.</Alert>}
       <AdSetProgress adset={adset} />
       {editing && adset.copy && <CopyEditor adset={adset} onSaved={(a) => { update(a); setEditing(false); }} onCancel={() => setEditing(false)} />}

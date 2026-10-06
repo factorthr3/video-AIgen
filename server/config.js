@@ -135,6 +135,7 @@ export function providerStatus() {
     copy: config.anthropic.enabled ? { provider: 'claude', model: config.anthropic.model } : { provider: 'template' },
     voice: { provider: resolveTtsProvider() },
     music: { provider: config.elevenlabs.key ? 'elevenlabs' : null, model: config.elevenlabs.musicModel },
+    motion: config.gemini.key ? { provider: 'veo', model: config.gemini.videoModel } : null,
     googleSignIn: Boolean(config.google.clientId),
     demoBilling: config.demoBilling,
     signupMode: config.signupMode,

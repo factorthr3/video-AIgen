@@ -55,7 +55,7 @@ export const COPY_RULES = `Copy rules:
 
 Storyboard rules:
 - The first scene is the hook: the strongest visual (prefer video footage when there is good footage) with a line that stops the scroll.
-- Each scene uses one asset from the list, chosen to match its line (product shots for features and the offer, lifestyle or people shots for benefits). Prefer high-quality assets. Avoid showing the same asset in consecutive scenes when there are others.
+- Each scene uses one asset from the list, chosen to match its line (product shots for features and the offer, lifestyle or people shots for benefits). Prefer high-quality assets. Avoid showing the same asset in consecutive scenes when there are others; an AI motion clip and the photo it was animated from count as the same shot.
 - The renderer adds the final logo and call-to-action card itself, so don't write a closing "CTA" scene.`;
 
 const SYSTEM = `You are the creative director and senior copywriter of a high-end advertising studio. You turn a client's brief and their own photos and footage into scroll-stopping social media ads that look and read like a professional agency made them.
@@ -78,7 +78,7 @@ export function modelParams(params) {
 export const assetLine = (a) => {
   const an = parseJson(a.analysis, null);
   const shape = a.width && a.height ? (a.width > a.height * 1.1 ? 'landscape' : a.height > a.width * 1.1 ? 'portrait' : 'square') : '';
-  return `- ${a.id}: ${a.kind}${a.kind === 'video' ? ` (${Math.round(a.duration)}s)` : ''}${shape ? `, ${shape}` : ''}${a.has_alpha ? ', transparent cut-out' : ''}`
+  return `- ${a.id}: ${a.kind}${a.kind === 'video' ? ` (${Math.round(a.duration)}s)` : ''}${a.parent_id ? `, AI motion clip animated from photo ${a.parent_id}` : ''}${shape ? `, ${shape}` : ''}${a.has_alpha ? ', transparent cut-out' : ''}`
     + `${an ? `, ${an.category}, quality ${an.quality}/5: ${an.description}` : `: ${a.original_name}`}`;
 };
 

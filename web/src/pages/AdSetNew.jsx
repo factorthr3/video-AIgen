@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { Sparkles, Check, Upload, Film, Music2 } from 'lucide-react';
+import { Sparkles, Check, Upload, Film, Music2, Clapperboard } from 'lucide-react';
 import { PageHeader, Alert, Spinner, EmptyState, AudioPreview } from '../components/ui.jsx';
 import { FormatIcon } from '../components/ads.jsx';
 import { BrandLogo } from './Brands.jsx';
@@ -96,6 +96,12 @@ export default function AdSetNew() {
   const brand = brandData?.brand;
   const assets = (brandData?.assets || []).filter((a) => a.status === 'ready');
   const selected = assetIds || assets.map((a) => a.id);
+  // AI motion: on by default when none of the chosen assets is a video.
+  const motionReady = Boolean(catalog.providers?.motion);
+  const chosenAssets = assets.filter((a) => selected.includes(a.id));
+  const hasFootage = chosenAssets.some((a) => a.kind === 'video');
+  const animatable = chosenAssets.filter((a) => a.kind === 'image' && !a.transparent).length;
+  const motion = motionReady && animatable > 0 && (options.motion ?? !hasFootage);
   // Style previews use the brand's own best photo.
   const previewAsset = [...assets].filter((a) => a.kind === 'image' && !a.transparent).sort((x, y) => (y.quality || 0) - (x.quality || 0))[0];
   const previewPhoto = previewAsset && `/api/assets/${previewAsset.id}/thumb`;
@@ -126,7 +132,7 @@ export default function AdSetNew() {
     try {
       const res = await api('/adsets', {
         method: 'POST',
-        body: { brandId, brief, options: { ...options, assetIds: assetIds || [] } },
+        body: { brandId, brief, options: { ...options, motion, assetIds: assetIds || [] } },
       });
       sessionStorage.removeItem(DRAFT);
       await refresh();
@@ -199,6 +205,20 @@ export default function AdSetNew() {
           </div>
         ) : (
           <p className="text-sm text-ink-300">This brand has no photos or videos yet. <Link to={`/app/brands/${brandId}`} className="font-semibold text-white underline">Upload some</Link> first.</p>
+        )}
+        {motionReady && animatable > 0 && (
+          <label className={`mt-4 flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${motion ? 'border-brand-400/60 bg-brand-500/10' : 'border-white/10 bg-white/[0.03]'}`}>
+            <input type="checkbox" className="mt-0.5 size-4 shrink-0 accent-brand-500" checked={motion} onChange={(e) => setO('motion', e.target.checked)} />
+            <span>
+              <span className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                <Clapperboard className="size-4 text-brand-400" /> No video? Let AI make it from your photos
+                {!hasFootage && <span className="chip py-0 text-[10px] uppercase">Recommended</span>}
+              </span>
+              <span className="mt-1 block text-xs leading-relaxed text-ink-400">
+                AI turns up to {Math.min(3, animatable)} of your best photos into short video clips with a slow camera move and natural movement, and the videos open on them. Your product stays as photographed. Adds a few minutes; the clips are saved to your brand library for next time.
+              </span>
+            </span>
+          </label>
         )}
       </Section>
 
@@ -305,7 +325,7 @@ export default function AdSetNew() {
       {error && <Alert>{error}</Alert>}
       <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-ink-900/90 p-4 backdrop-blur">
         <p className="text-sm text-ink-300">
-          <strong className="text-white">{videos} video{videos === 1 ? '' : 's'}</strong> and <strong className="text-white">{images} image ad{images === 1 ? '' : 's'}</strong>, ready in about {Math.max(2, Math.round(videos * 0.9 + images * 0.1 + 1))} minutes
+          <strong className="text-white">{videos} video{videos === 1 ? '' : 's'}</strong> and <strong className="text-white">{images} image ad{images === 1 ? '' : 's'}</strong>{motion && videos > 0 ? ' with AI motion' : ''}, ready in about {Math.max(2, Math.round(videos * 0.9 + images * 0.1 + 1 + (motion && videos > 0 ? 4 : 0)))} minutes
         </p>
         <button className="btn-primary px-6 py-3" disabled={busy || !assets.length || (!videos && !images) || usage?.needsPlan || atLimit}>
           <Sparkles className="size-4" /> {busy ? 'Starting…' : 'Make the ads'}

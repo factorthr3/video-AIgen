@@ -41,6 +41,8 @@ export function publicAsset(a) {
     description: analysis?.description || null,
     category: analysis?.category || null,
     quality: analysis?.quality || null,
+    ai: Boolean(a.parent_id), // an AI motion clip made from one of the brand's photos
+    madeFrom: a.parent_id || null,
     createdAt: a.created_at,
   };
 }
@@ -62,6 +64,24 @@ export function addAsset(user, brand, file, { logo = false } = {}) {
     original_name: String(file.originalname || 'asset').slice(0, 120),
     source: file.path,
     status: 'processing',
+    created_at: now(),
+  });
+  enqueue(asset.id);
+  return asset;
+}
+
+/** Save an AI motion clip (a video file already on disk) made from `photo`, and process it like an upload. */
+export function addGeneratedClip({ photo, file, aspect }) {
+  const asset = insert('assets', {
+    id: newId('as'),
+    user_id: photo.user_id,
+    brand_id: photo.brand_id,
+    kind: 'video',
+    original_name: `AI motion - ${photo.original_name || 'photo'}`.slice(0, 120),
+    source: file,
+    status: 'processing',
+    parent_id: photo.id,
+    motion_aspect: aspect,
     created_at: now(),
   });
   enqueue(asset.id);
@@ -270,7 +290,7 @@ const AnalysisSchema = z.object({
 let client;
 const claude = () => (client ??= new Anthropic());
 
-async function imageForClaude(file, maxSide = 1024) {
+export async function imageForClaude(file, maxSide = 1024) {
   const img = await loadImage(fs.readFileSync(file));
   const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
   const c = createCanvas(Math.round(img.width * scale), Math.round(img.height * scale));
