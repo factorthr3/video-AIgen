@@ -129,45 +129,13 @@ export const config = {
 };
 
 export function providerStatus() {
-  const img = resolveImageProvider();
-  const tts = resolveTtsProvider();
   return {
-    script: config.anthropic.enabled ? { provider: 'claude', model: config.anthropic.model } : { provider: 'library' },
-    images: { provider: img },
-    voice: { provider: tts },
-    video: videoEngine(),
-    social: {
-      youtube: Boolean(config.google.clientId),
-      tiktok: Boolean(config.tiktok.clientKey),
-      instagram: Boolean(config.instagram.appId),
-    },
+    copy: config.anthropic.enabled ? { provider: 'claude', model: config.anthropic.model } : { provider: 'template' },
+    voice: { provider: resolveTtsProvider() },
     googleSignIn: Boolean(config.google.clientId),
     demoBilling: config.demoBilling,
     signupMode: config.signupMode,
   };
-}
-
-// Which service makes AI video clips: VIDEO_PROVIDER, else Google if its key is set, else fal.
-export function resolveVideoProvider() {
-  const wanted = env.VIDEO_PROVIDER;
-  if (wanted === 'google' || wanted === 'fal') return (wanted === 'google' ? config.gemini.key : config.fal.key) ? wanted : null;
-  if (config.gemini.key) return 'google';
-  if (config.fal.key) return 'fal';
-  return null;
-}
-
-// { provider, model (every scene), hookModel, hookScenes } for the active video provider.
-export function videoEngine() {
-  const provider = resolveVideoProvider();
-  if (!provider) return { provider: null };
-  const hookScenes = Math.max(1, Number(env.HOOK_SCENES || 1));
-  if (provider === 'google') return { provider, model: config.gemini.videoModel, hookModel: config.gemini.videoModel, hookScenes, resolution: config.gemini.resolution };
-  return { provider, model: config.fal.videoModel, hookModel: config.fal.hookModel, hookScenes };
-}
-
-export function resolveImageProvider() {
-  if (config.imageProvider !== 'auto') return config.imageProvider;
-  return config.openai.key ? 'openai' : 'procedural';
 }
 
 export function resolveTtsProvider() {

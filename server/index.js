@@ -8,21 +8,17 @@ import { catalog, PLAN, VOICE, LANGUAGE } from './catalog.js';
 import { db, update } from './db.js';
 import { requireAuth, publicUser, destroySession } from './auth.js';
 import { HttpError, usage } from './services.js';
-import { resumePendingJobs, queueDepth, videoFile, videoDir } from './pipeline/index.js';
 import { musicTrack, MUSIC_IDS } from './pipeline/music.js';
 import { voicePreview } from './pipeline/tts.js';
-import { publicMediaSig } from './social/index.js';
+import { resumeAdSets, adsetDir } from './ads/jobs.js';
+import { resumeAssetProcessing, removeBrandAssetFiles } from './ads/assets.js';
 import {
   provider as billingProvider, testMode, isAdmin, billingInfo, displayPlans, choosePlan, portalUrl, cancelPlan, cancelSubscriptionNow,
   handleStripeWebhook, handlePaystackWebhook, confirmPaystackReturn, paystackEnabled, warmUp as warmUpBilling,
 } from './billing/index.js';
-import { startScheduler } from './scheduler.js';
 import authRoutes from './routes/auth.js';
-import seriesRoutes from './routes/series.js';
-import videoRoutes from './routes/videos.js';
-import accountRoutes from './routes/accounts.js';
-import gameplayRoutes from './routes/gameplay.js';
-import { resumeGameplayProcessing, removeUserClips } from './gameplay.js';
+import brandRoutes, { assetRoutes } from './routes/brands.js';
+import adsetRoutes, { adRoutes, shareRoutes } from './routes/adsets.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -39,16 +35,17 @@ app.post('/api/paystack/webhook', express.raw({ type: () => true }), async (req,
 
 app.use(express.json({ limit: '1mb' }));
 
-app.get('/api/health', (req, res) => res.json({ ok: true, queue: queueDepth() }));
+app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.get('/api/catalog', (req, res) => res.json({ ...catalog(), plans: displayPlans(), providers: { ...providerStatus(), billing: billingInfo() } }));
 
 app.use('/api/auth', authRoutes);
-app.use('/api/series', seriesRoutes);
-app.use('/api/videos', videoRoutes);
-app.use('/api/accounts', accountRoutes);
-app.use('/api/gameplay', gameplayRoutes);
+app.use('/api/brands', brandRoutes);
+app.use('/api/assets', assetRoutes);
+app.use('/api/adsets', adsetRoutes);
+app.use('/api/ads', adRoutes);
+app.use('/api/share', shareRoutes); // public: client review links
 
-// Voice samples for the series wizard (cached per provider/voice/language).
+// Voiceover samples (cached per provider/voice/language).
 app.get('/api/voices/:id/preview', requireAuth, async (req, res) => {
   if (!VOICE[req.params.id]) throw new HttpError(404, 'Unknown voice.');
   const language = LANGUAGE[req.query.language] ? req.query.language : 'en';
@@ -126,21 +123,13 @@ app.get('/api/paystack/return', async (req, res) => {
 app.delete('/api/account', requireAuth, async (req, res) => {
   if (req.body?.confirm !== 'DELETE') throw new HttpError(400, 'Type DELETE to confirm.');
   await cancelSubscriptionNow(req.user);
-  const videoIds = db.all('SELECT id FROM videos WHERE user_id = ?', req.user.id).map((v) => v.id);
-  removeUserClips(req.user.id);
-  db.run('DELETE FROM users WHERE id = ?', req.user.id); // cascades to sessions, series, videos, accounts, posts
-  for (const id of videoIds) fs.rmSync(videoDir(id), { recursive: true, force: true });
+  const brandIds = db.all('SELECT id FROM brands WHERE user_id = ?', req.user.id).map((b) => b.id);
+  const adsetIds = db.all('SELECT id FROM adsets WHERE user_id = ?', req.user.id).map((a) => a.id);
+  for (const id of brandIds) removeBrandAssetFiles(id);
+  db.run('DELETE FROM users WHERE id = ?', req.user.id); // cascades to sessions, brands, assets, ad sets, ads
+  for (const id of adsetIds) fs.rmSync(adsetDir(id), { recursive: true, force: true });
   destroySession(req, res);
   res.json({ ok: true });
-});
-
-// Public, signed video URL used by Instagram to fetch Reels.
-app.get('/api/public-media/:id/:sig.mp4', (req, res) => {
-  const expected = publicMediaSig(req.params.id);
-  const ok = req.params.sig.length === expected.length && crypto.timingSafeEqual(Buffer.from(req.params.sig), Buffer.from(expected));
-  const file = videoFile(req.params.id);
-  if (!ok || !fs.existsSync(file)) return res.status(404).end();
-  res.type('video/mp4').sendFile(file);
 });
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
@@ -164,12 +153,11 @@ app.use((err, req, res, next) => {
 app.listen(config.port, () => {
   const p = providerStatus();
   console.log(`BlackCell API on http://localhost:${config.port}  (app: ${config.appUrl})`);
-  console.log(`  scripts: ${p.script.provider}${p.script.model ? ` (${p.script.model})` : ''} · images: ${p.images.provider} · voice: ${p.voice.provider}`);
+  console.log(`  copy: ${p.copy.provider}${p.copy.model ? ` (${p.copy.model})` : ''} · voiceover: ${p.voice.provider}`);
   console.log(`  payments: ${billingProvider() ? `${billingProvider()}${testMode() ? ' (test mode)' : ''}` : 'off'}`);
   warmUpBilling();
-  resumePendingJobs();
-  resumeGameplayProcessing();
-  if (config.schedulerEnabled) startScheduler();
+  resumeAssetProcessing();
+  resumeAdSets();
   // Warm the synthesised music beds in the background.
   (async () => {
     for (const id of MUSIC_IDS) await musicTrack(id).catch((e) => console.error('[music]', e.message));

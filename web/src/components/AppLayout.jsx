@@ -1,15 +1,13 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router';
-import { LayoutDashboard, Layers, Film, Gamepad2, Link2, CreditCard, Settings, LogOut, Plus, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Store, Megaphone, CreditCard, Settings, LogOut, Plus, Menu, X } from 'lucide-react';
 import { Logo, ProgressBar } from './ui.jsx';
 import { useSession, useCatalog, byId } from '../lib.jsx';
 
 const NAV = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/app/series', label: 'Series', icon: Layers },
-  { to: '/app/videos', label: 'Videos', icon: Film },
-  { to: '/app/gameplay', label: 'Gameplay library', icon: Gamepad2 },
-  { to: '/app/accounts', label: 'Accounts', icon: Link2 },
+  { to: '/app/brands', label: 'Brands', icon: Store },
+  { to: '/app/adsets', label: 'Ad sets', icon: Megaphone },
   { to: '/app/billing', label: 'Plan & billing', icon: CreditCard },
   { to: '/app/settings', label: 'Settings', icon: Settings },
 ];
@@ -22,7 +20,7 @@ function Sidebar({ onNavigate }) {
   return (
     <div className="flex h-full flex-col gap-6 p-5">
       <Logo to="/app" />
-      <Link to="/app/series/new" onClick={onNavigate} className="btn-primary w-full"><Plus className="size-4" /> New series</Link>
+      <Link to="/app/adsets/new" onClick={onNavigate} className="btn-primary w-full"><Plus className="size-4" /> New ads</Link>
       <nav className="flex flex-col gap-1">
         {NAV.map(({ to, label, icon: Icon, end }) => (
           <NavLink
@@ -40,16 +38,16 @@ function Sidebar({ onNavigate }) {
         {usage?.needsPlan && (
           <Link to="/app/billing" onClick={onNavigate} className="card block border-amber-500/30 bg-amber-500/10 p-4 transition hover:border-amber-500/50">
             <p className="text-xs font-semibold text-amber-100">No active plan</p>
-            <p className="mt-1 text-xs text-amber-100/80">Choose a plan to start creating videos →</p>
+            <p className="mt-1 text-xs text-amber-100/80">Choose a plan to start making ads →</p>
           </Link>
         )}
         {usage && !usage.needsPlan && (
           <Link to="/app/billing" onClick={onNavigate} className="card block p-4 transition hover:border-white/15">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-white">{plan?.name || 'Tester'} plan</span>
-              <span className="text-ink-400">{usage.videosUsed}/{usage.videosLimit} videos</span>
+              <span className="text-ink-400">{usage.adsetsUsed}/{usage.adsetsLimit} ad sets</span>
             </div>
-            <ProgressBar value={usage.videosUsed / usage.videosLimit} className="mt-3" />
+            <ProgressBar value={usage.adsetsLimit ? usage.adsetsUsed / usage.adsetsLimit : 0} className="mt-3" />
             <p className="mt-2 text-xs text-ink-400">Resets on the 1st of each month</p>
           </Link>
         )}

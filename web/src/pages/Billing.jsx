@@ -135,9 +135,9 @@ export default function Billing() {
             : <>Pay with card <span className="font-mono">4242 4242 4242 4242</span>, any future expiry and CVC.</>}
         </Alert>
       )}
-      {paid && !activePlan && !notice && <Alert tone="warn">Choose a plan below to start creating videos. You can change or cancel any time.</Alert>}
+      {paid && !activePlan && !notice && <Alert tone="warn">Choose a plan below to start making ads. You can change or cancel any time.</Alert>}
       {paid && billing.status === 'past_due' && (
-        <Alert tone="warn">Your last payment failed. {paystack ? 'Update your card' : <>Update your card in <strong>Manage billing</strong></>} to keep your series running.</Alert>
+        <Alert tone="warn">Your last payment failed. {paystack ? 'Update your card' : <>Update your card in <strong>Manage billing</strong></>} to keep making ads.</Alert>
       )}
       {!paid && (catalog?.providers?.demoBilling
         ? <Alert tone="info">Demo billing: payments aren't connected, so plan changes apply instantly and nothing is charged.</Alert>
@@ -157,14 +157,14 @@ export default function Billing() {
             )}
           </div>
           <div>
-            <p className="label">Videos this month</p>
-            <p className="font-display text-2xl font-extrabold">{usage.videosUsed} <span className="text-base text-ink-400">/ {usage.videosLimit}</span></p>
-            <ProgressBar value={usage.videosLimit ? usage.videosUsed / usage.videosLimit : 0} className="mt-3" />
+            <p className="label">Ad sets this month</p>
+            <p className="font-display text-2xl font-extrabold">{usage.adsetsUsed} <span className="text-base text-ink-400">/ {usage.adsetsLimit}</span></p>
+            <ProgressBar value={usage.adsetsLimit ? usage.adsetsUsed / usage.adsetsLimit : 0} className="mt-3" />
           </div>
           <div>
-            <p className="label">Series</p>
-            <p className="font-display text-2xl font-extrabold">{usage.seriesUsed} <span className="text-base text-ink-400">/ {usage.seriesLimit}</span></p>
-            <ProgressBar value={usage.seriesLimit ? usage.seriesUsed / usage.seriesLimit : 0} className="mt-3" />
+            <p className="label">Brands</p>
+            <p className="font-display text-2xl font-extrabold">{usage.brandsUsed} <span className="text-base text-ink-400">/ {usage.brandsLimit}</span></p>
+            <ProgressBar value={usage.brandsLimit ? usage.brandsUsed / usage.brandsLimit : 0} className="mt-3" />
           </div>
         </div>
       )}

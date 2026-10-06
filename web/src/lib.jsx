@@ -62,6 +62,7 @@ export const byId = (list = []) => Object.fromEntries(list.map((x) => [x.id, x])
  * Fetch JSON and keep polling every 2s while `poll(data)` is true. Calling
  * `reload()` also resumes polling (e.g. after starting a render or a post).
  */
+/** Loads `path` (skipped while it's null), optionally polling while `poll(data)` is true. */
 export function useApi(path, { poll } = {}) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -71,6 +72,7 @@ export function useApi(path, { poll } = {}) {
   const alive = useRef(true);
 
   const load = useCallback(async () => {
+    if (!path) return null; // nothing to load yet
     try {
       const d = await api(path);
       if (!alive.current) return d;

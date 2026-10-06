@@ -135,6 +135,68 @@ CREATE TABLE IF NOT EXISTS gameplay_clips (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_gameplay_game ON gameplay_clips(game, status);
+
+-- Ads: a brand's kit and assets, ad sets (one brief), and the ads made for each.
+CREATE TABLE IF NOT EXISTS brands (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  website TEXT,
+  about TEXT,
+  tone TEXT,
+  colors TEXT NOT NULL DEFAULT '[]',
+  font TEXT NOT NULL DEFAULT 'montserrat',
+  logo_asset_id TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS assets (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  original_name TEXT,
+  source TEXT,
+  status TEXT NOT NULL DEFAULT 'processing',
+  error TEXT,
+  width INTEGER,
+  height INTEGER,
+  duration REAL,
+  has_alpha INTEGER NOT NULL DEFAULT 0,
+  analysis TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_assets_brand ON assets(brand_id, created_at);
+CREATE TABLE IF NOT EXISTS adsets (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  brief TEXT NOT NULL,
+  options TEXT NOT NULL,
+  copy TEXT,
+  status TEXT NOT NULL DEFAULT 'queued',
+  stage TEXT,
+  progress REAL NOT NULL DEFAULT 0,
+  error TEXT,
+  share_token TEXT UNIQUE,
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_adsets_user ON adsets(user_id, created_at);
+CREATE TABLE IF NOT EXISTS ads (
+  id TEXT PRIMARY KEY,
+  adset_id TEXT NOT NULL REFERENCES adsets(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  format TEXT NOT NULL,
+  length INTEGER,
+  variant INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'queued',
+  error TEXT,
+  duration REAL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ads_adset ON ads(adset_id);
 `);
 
 // Additive migrations for databases created by earlier versions.

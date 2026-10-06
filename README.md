@@ -1,27 +1,20 @@
-# BlackCell: AI faceless video generator
+# BlackCell: social media ads from your brand assets
 
-Live at **[blackcell.ai](https://blackcell.ai)** (once deployed).
+Live at **[blackcell.app](https://blackcell.app)**.
 
-**Pick a niche, and BlackCell handles the rest.** It writes the script, generates the visuals, records the voiceover, adds animated captions and music, renders a vertical video, then posts it to TikTok, Instagram Reels and YouTube Shorts on your schedule.
-
-It's inspired by products like FacelessReels: set up a *series* once (niche, look, voice, schedule, accounts) and it keeps the channel running on autopilot.
+**Upload your logo, product photos and footage, describe what you sell, and BlackCell makes professional video and image ads for every platform.** Claude reviews each asset and writes the copy and storyboard; the renderer builds every ad from the brand's own material (never AI-generated imagery) with its logo, colours and font, in every format: 9:16 (TikTok, Reels, Shorts, Stories), 4:5 and 1:1 (feeds) and 16:9 (YouTube, LinkedIn, X). Each ad set gets ready-to-paste post copy and an optional private link for the client.
 
 ## Features
 
-- **Series on autopilot:** choose posting days, time and timezone. Videos render ahead of each slot and publish on time. Restarts are safe: nothing is lost or double-posted.
-- **21 built-in niches plus custom topics**, grouped into Gaming (Game Secrets, Gaming Lore, Gaming Hot Takes, Gamer Storytime), Animals (animated Animal Tales, Wild Animal Facts, Funny Pet POV), Stories, Kids (Bedtime Stories, Fables), Facts & History and Mindset & Faith.
-- **Gameplay videos:** narration and captions over real game footage from the **Gameplay library**, with a meme-style headline on top. Admins' uploads are shared with every user; users can add private clips. See *Gameplay videos* below.
-- **19 art styles** in three groups: Animation (3D Animation, Claymation, 2D Cartoon, Anime, Felt Puppets, Paper Cutout, Low Poly, Kawaii, Pixel Art), Realistic (Cinematic, Nature Documentary, Tiny World, Dark Fantasy, Vintage Film) and Illustrated. **Mix styles** makes a series rotate through several looks, one per video.
-- **Hook-first AI scripts** from Claude, with structured scene-by-scene output. Each series remembers its past titles so it never repeats a story.
-- **Visuals per scene:** OpenAI image generation in any art style, or procedural illustrated art when no key is set. Claude writes visuals to suit the chosen style, keeping animated characters identical from scene to scene.
-- **Voiceover:** 8 narrator personas across 12 languages via ElevenLabs, OpenAI TTS or the system voice.
-- **Animated captions:** word-by-word karaoke captions in 4 styles (Bold Pop, Highlight Box, Neon Glow, Minimal).
-- **Music:** four synthesised royalty-free mood beds, or upload your own.
-- **Editor:** edit title, caption, hashtags, the gameplay headline and every scene's narration and visual prompt, then re-render. Unchanged images and voice lines are reused.
-- **Posting:** real OAuth and upload integrations for YouTube (Data API v3), TikTok (Content Posting API) and Instagram (Instagram API with Instagram Login). **Demo accounts** simulate posting so you can try the full flow without developer apps.
-- **Review mode:** turn off auto-post and videos wait in the library for approval.
-- **Plans & quotas:** Tester ($5.99) / Starter / Daily / Pro with monthly video and series limits.
-- Landing page, email/password auth, optional Google sign-in, dashboard, series manager and video library.
+- **Brands:** logo (colours are picked up from it automatically), colour palette, headline font, description and brand voice. An account can hold several brands (agencies).
+- **Assets:** photos, transparent cut-outs and video clips. Each upload is normalised and reviewed by Claude: what it shows, a 1-5 quality score and the subject's position, so the strongest shots lead and every crop keeps the product in frame.
+- **Ad sets:** one brief (product, description, offer, call to action, link, audience) becomes 6, 15 and/or 30-second videos and 0-3 static image ads, each in the chosen formats.
+- **Copy that sells, honestly:** benefits, hooks and offers written from the brief in the brand's voice; no invented stats, reviews or prices; no em dashes.
+- **Four styles:** Clean, Bold, Luxury and Promo (with an offer badge). Restrained motion (slow pushes, soft transitions), platform safe zones respected, logo and call-to-action end card.
+- **Sound:** music beds or your own track; optional voiceover (ElevenLabs) in 12 languages, off by default.
+- **Edit and re-render:** change any headline, line, button or badge; or ask for fresh copy.
+- **Client share links:** a private page with every ad, downloads and post copy, no login needed; can be turned off any time.
+- Plans (Tester / Starter / Growth / Agency) with monthly ad-set and brand limits; Paystack or Stripe billing; email/password and Google sign-in.
 
 ## Quick start
 
@@ -29,43 +22,17 @@ Requirements: **Node 22.13+** and **ffmpeg** (with libx264, e.g. `brew install f
 
 ```bash
 npm install
-cp .env.example .env    # optional: add API keys
+cp .env.example .env    # add ANTHROPIC_API_KEY for the copywriter
 npm run dev             # web on http://localhost:5173, API on :4100
 ```
 
-Open http://localhost:5173 and create an account, or run `npm run seed` for a local demo login (`demo@nrrtv.local`, password in `server/seed.js`).
-
-With **no API keys at all**, everything still works end to end. Scripts come from a sample library, visuals are procedurally drawn, and narration uses the macOS system voice (or espeak-ng on Linux). Add keys to upgrade each stage:
+Open http://localhost:5173, create an account, set up a brand, upload a few product photos and make an ad set.
 
 | Stage | Key | Without it |
 | --- | --- | --- |
-| Script | `ANTHROPIC_API_KEY` | Sample script library (English, built-in niches) |
-| Images | `OPENAI_API_KEY` (or `IMAGE_PROVIDER=pollinations`) | Procedural art |
-| Voice | `ELEVENLABS_API_KEY` or `OPENAI_API_KEY` | System voice → silent narration |
-| Posting | Platform client IDs/secrets | Demo accounts only |
-
-### Getting top-quality output
-
-The offline fallbacks are fine for trying the app but not for publishing. For production-quality videos, add three keys to `.env` and restart:
-
-1. **`ANTHROPIC_API_KEY`** for scripts. Claude writes a fresh, hook-first story on any topic, with detailed visual prompts per scene. This matters more than you'd expect: better prompts produce better images.
-2. **`OPENAI_API_KEY`** for visuals. Uses `gpt-image-2.5-sunburst` at `high` quality, generated at native 1088×1920. Set `OPENAI_IMAGE_MODEL=gpt-image-2.5-flare` for faster, cheaper images.
-3. **`ELEVENLABS_API_KEY`** for voiceover. Uses `eleven_v3`, the most expressive ElevenLabs model, with word-level timestamps so captions sync exactly to the speech. Each narrator persona maps to a voice in your ElevenLabs account; pin one with e.g. `ELEVENLABS_VOICE_ONYX=<voice id>`.
-
-4. **Real AI video** from `GEMINI_API_KEY` (Google Veo, preferred) or `FAL_KEY` (fal.ai). Each series picks its *Visuals*:
-   - **AI video hook** (default): only the opening scene, the one that stops the scroll, becomes a real AI clip, and the rest use pan & zoom. With Veo 3.1 Lite at 720p that's one 4-second clip, **about $0.20 per video**. On fal it uses LTX-2.3 Fast, about $0.36.
-   - **AI video, every scene**: about $1.60 per 30s with Veo 3.1 Lite, or about $3.50 with Kling v3 Pro on fal.
-   - **Animated images**: no video cost.
-
-   The scene image is the clip's first frame, so the style stays consistent, and clips are timed to the narration. Any clip that fails falls back to the animated still, and the video page says why. Get a Gemini key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) on a Google Cloud project with billing enabled (Veo has no free tier).
-
-The video card shows which engines produced each video (e.g. `voice: elevenlabs · eleven_v3`), so you can confirm the upgrade took effect. Re-render older videos to apply the new engines. Check each provider's pricing page for per-video costs.
-
-### Gameplay videos
-
-Choose **Gameplay footage** under Visuals (the Gaming niches pick it automatically) and a game from the library. A series works through the game's footage in order (clips in upload order, each from the start), so every video gets a fresh stretch: upload a 2-hour video in parts and each new video continues where the last stopped, cutting to the next clip when one ends. When the footage is used up the series starts over. Each video has narration, word-by-word captions and a headline Claude writes like a gaming meme caption (editable before re-rendering). Two layouts: **Framed** (landscape gameplay in the middle, headline above, captions below) and **Full screen** (cropped to fill the frame).
-
-Upload footage on **Gameplay library** (sidebar): name the game and add MP4/MOV/MKV/WebM files up to 1 GB each. Set a **Credit** (e.g. the channel that made it) and it's added to the caption of every video that uses the footage, which Creative Commons (CC BY) gameplay requires. Uploads are normalised once (max 1080p, 30 fps, H.264, game audio removed, since it often contains licensed music) and stored under `DATA_DIR/gameplay`. Use footage you're allowed to use: your own recordings or packs whose creators permit reuse. Clips ripped from other creators' videos get flagged by TikTok, YouTube and Instagram. Storage adds up (roughly 30 to 60 MB per minute of footage after normalising, depending on how busy the game is), and it shares the Railway volume with rendered videos, so keep an eye on the volume size (5 GB at the moment).
+| Asset review, copy and storyboard | `ANTHROPIC_API_KEY` | Copy comes straight from the brief; crops are centred |
+| Voiceover (optional) | `ELEVENLABS_API_KEY` or `OPENAI_API_KEY` | System voice |
+| Google sign-in | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Email and password only |
 
 ### Payments (Paystack)
 
@@ -85,15 +52,15 @@ If only `STRIPE_SECRET_KEY` is set, Stripe sells the plans instead (`BILLING_PRO
 2. In Stripe's Customer portal settings, allow customers to update payment methods, switch plans and cancel. The in-app **Manage billing** button opens it.
 3. Put your own email in `ADMIN_EMAILS` so you keep full access without subscribing.
 
-With Stripe on, creating series and videos requires an active subscription (`past_due` keeps access while Stripe retries the payment). Switching plans updates the existing subscription with proration.
+With Stripe on, making ads requires an active subscription (`past_due` keeps access while Stripe retries the payment). Switching plans updates the existing subscription with proration.
 
 ### Production
 
-The included `Dockerfile` builds everything the server needs (Node 24, ffmpeg, caption fonts), and `railway.json` configures Railway (health check, restarts). On any host:
+The included `Dockerfile` builds everything the server needs (Node 24, ffmpeg, fonts), and `railway.json` configures Railway (health check, restarts). On any host:
 
 - mount a persistent volume at `/data`
-- set `APP_URL` to the public URL (e.g. `https://blackcell.ai`) and add your API keys as environment variables
-- run a single instance (the job queue and scheduler are in-process)
+- set `APP_URL` to the public URL (e.g. `https://blackcell.app`) and add your API keys as environment variables
+- run a single instance (the render queue is in-process)
 
 Without Docker:
 
@@ -102,53 +69,32 @@ npm run build
 APP_URL=https://your-domain.com npm start   # serves the web app + API on $PORT
 ```
 
-Mount `DATA_DIR` on persistent storage: it holds the SQLite database and rendered videos. Run a single instance (the job queue and scheduler are in-process).
+Mount `DATA_DIR` on persistent storage: it holds the SQLite database and rendered videos. Run a single instance (the render queue is in-process).
 
-## Connecting platforms
-
-Register these redirect URIs (replace `APP_URL`):
-
-- **YouTube:** create an OAuth client in Google Cloud, enable *YouTube Data API v3*, and add `APP_URL/api/accounts/youtube/callback`. Also add `APP_URL/api/auth/google/callback` to enable "Continue with Google". Until Google verifies your app, uploads are private.
-- **TikTok:** create an app with *Login Kit* and the *Content Posting API* (`video.publish`) and add `APP_URL/api/accounts/tiktok/callback`. Unaudited apps can only post as private (`SELF_ONLY`).
-- **Instagram:** create a Meta app using *Instagram API with Instagram Login* (`instagram_business_basic`, `instagram_business_content_publish`) and add `APP_URL/api/accounts/instagram/callback`. Only Business/Creator accounts can publish, and the server must be reachable publicly (`PUBLIC_MEDIA_URL`) because Instagram fetches the video by URL.
-
-OAuth tokens are encrypted at rest (AES-256-GCM) and refreshed automatically.
-
-## How a video is made
+## How an ad set is made
 
 ```
-series settings ─▶ script (Claude / library)
-               ─▶ one image per scene (OpenAI / Pollinations / procedural), or gameplay footage from the library
-               ─▶ one voice clip per scene (ElevenLabs / OpenAI / system)
-               ─▶ timeline: each scene lasts exactly as long as its narration
-               ─▶ AI video clips (hook or every scene), image-to-video, timed to the narration (Veo / fal.ai)
-               ─▶ audio mix: voice + quiet music bed, loudness-normalised
-               ─▶ gameplay videos: one continuous track cut from the game's clips
-               ─▶ frames drawn with Skia (Ken Burns, crossfades or gameplay layout, headline, captions, watermark)
-               ─▶ raw frames piped into ffmpeg → H.264 1080×1920 MP4
+brand kit + assets (each reviewed by Claude: subject box, quality)
+   ─▶ brief ─▶ Claude: copy, storyboard per video length (which asset per scene), statics, post captions
+   ─▶ per video length: scene timings (from the voiceover when on) + audio (music bed, voice lines)
+   ─▶ per format: frames drawn with Skia (smart crop + slow push on photos, footage streamed from
+      ffmpeg, cut-outs on a brand backdrop, styled headline, logo, badge, transitions, end card)
+   ─▶ raw frames piped into ffmpeg ─▶ H.264 MP4 (and JPEG image ads)
 ```
 
-Rendering composites frames in-process with `@napi-rs/canvas`, so any stock ffmpeg with libx264 works (no libass/freetype build needed). A 60-second video takes about 1.5 minutes end to end on an Apple Silicon laptop with the offline fallbacks.
+Rendering composites frames in-process with `@napi-rs/canvas`, so any stock ffmpeg with libx264 works. Fonts are open-licence (Montserrat, Inter, Playfair Display, Bebas Neue via `@fontsource`). A 15-second ad set in all four formats plus 8 image ads takes about 3 minutes on a laptop.
 
 ## Project layout
 
 ```
 server/
-  index.js          Express app, media + upload + billing routes
-  config.js         env + provider selection
-  catalog.js        niches, voices, art/caption styles, music, plans
-  db.js             SQLite (node:sqlite) schema + helpers
-  auth.js           sessions, password hashing, OAuth state, token encryption
-  services.js       quotas, settings validation, timezone-aware scheduling
-  scheduler.js      autopilot: create due videos, publish when their slot arrives
-  pipeline/         script, images, art, tts, music, captions, render, job queue
-  social/           youtube, tiktok, instagram, publishing orchestration
-  routes/           auth, series, videos, accounts
-web/src/            React + Tailwind app (landing, auth, dashboard, wizard, editor)
-assets/fonts/       Anton + Poppins (SIL Open Font License)
+  index.js          Express app: auth, billing, brands, ad sets, share links
+  ads/              design (formats, styles, fonts), assets (ingest, review, crops),
+                    brief (Claude copy), render (video/image ads, audio), jobs (queue)
+  routes/           auth, brands + assets, ad sets + downloads + public share
+  billing/          Paystack and Stripe subscriptions
+  pipeline/         voiceover (tts), music beds, ffmpeg helpers
+web/src/
+  pages/            landing, brands, brand kit, new ad set, ad set, share page, billing, legal
+  components/       app layout, ad previews, showcase
 ```
-
-## Not included yet
-
-- **Payments** use Paystack (or Stripe) and are off until `PAYSTACK_SECRET_KEY` (or `STRIPE_SECRET_KEY`) is set.
-- **Horizontal scaling:** the render queue is in-process. Move it to a real queue (e.g. BullMQ) to run multiple workers.

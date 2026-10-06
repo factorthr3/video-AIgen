@@ -8,15 +8,14 @@ import { Privacy, Terms } from './pages/Legal.jsx';
 import { Login, Signup } from './pages/Auth.jsx';
 import AppLayout from './components/AppLayout.jsx';
 import Dashboard from './pages/Dashboard.jsx';
-import SeriesList from './pages/SeriesList.jsx';
-import SeriesNew from './pages/SeriesNew.jsx';
-import SeriesDetail from './pages/SeriesDetail.jsx';
-import Videos from './pages/Videos.jsx';
-import VideoDetail from './pages/VideoDetail.jsx';
-import Accounts from './pages/Accounts.jsx';
+import Brands from './pages/Brands.jsx';
+import BrandDetail from './pages/BrandDetail.jsx';
+import AdSets from './pages/AdSets.jsx';
+import AdSetNew from './pages/AdSetNew.jsx';
+import AdSetDetail from './pages/AdSetDetail.jsx';
+import Share from './pages/Share.jsx';
 import Billing from './pages/Billing.jsx';
 import Settings from './pages/Settings.jsx';
-import Gameplay from './pages/Gameplay.jsx';
 
 function RequireAuth({ children }) {
   const { loading, user } = useSession();
@@ -47,15 +46,14 @@ createRoot(document.getElementById('root')).render(
             <Route path="/terms" element={<Terms />} />
             <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
             <Route path="/signup" element={<GuestOnly><Signup /></GuestOnly>} />
+            <Route path="/share/:token" element={<Share />} />
             <Route path="/app" element={<RequireAuth><AppLayout /></RequireAuth>}>
               <Route index element={<Dashboard />} />
-              <Route path="series" element={<SeriesList />} />
-              <Route path="series/new" element={<SeriesNew />} />
-              <Route path="series/:id" element={<SeriesDetail />} />
-              <Route path="videos" element={<Videos />} />
-              <Route path="videos/:id" element={<VideoDetail />} />
-              <Route path="gameplay" element={<Gameplay />} />
-              <Route path="accounts" element={<Accounts />} />
+              <Route path="brands" element={<Brands />} />
+              <Route path="brands/:id" element={<BrandDetail />} />
+              <Route path="adsets" element={<AdSets />} />
+              <Route path="adsets/new" element={<AdSetNew />} />
+              <Route path="adsets/:id" element={<AdSetDetail />} />
               <Route path="billing" element={<Billing />} />
               <Route path="settings" element={<Settings />} />
             </Route>

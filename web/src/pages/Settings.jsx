@@ -25,7 +25,7 @@ function DeleteAccount() {
   return (
     <div className="card mt-8 border-red-500/20 p-6">
       <p className="label text-red-300">Delete account</p>
-      <p className="text-sm text-ink-300">This permanently deletes your account, series, videos and connected accounts, and cancels any subscription immediately. It can't be undone.</p>
+      <p className="text-sm text-ink-300">This permanently deletes your account, brands, assets and ads, and cancels any subscription immediately. It can't be undone.</p>
       {error && <div className="mt-4"><Alert>{error}</Alert></div>}
       <div className="mt-4 flex flex-wrap gap-3">
         <input className="input max-w-xs" placeholder="Type DELETE to confirm" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
@@ -64,16 +64,11 @@ export default function Settings() {
 
       {p && (
         <div className="card p-6">
-          <p className="label">Generation engines</p>
+          <p className="label">Engines</p>
           <p className="mb-2 text-sm text-ink-400">Set these in the server’s <code>.env</code> file (see <code>.env.example</code>) and restart the server.</p>
           <div className="divide-y divide-white/5">
-            <Row label="Scriptwriter" ok={p.script.provider === 'claude'} value={p.script.provider === 'claude' ? p.script.model : 'sample library'} hint="ANTHROPIC_API_KEY: Claude writes a fresh, hook-first script for every video on any topic." />
-            <Row label="Visuals" ok={p.images.provider !== 'procedural'} value={p.images.provider} hint="OPENAI_API_KEY for AI images per scene (gpt-image-2.5-sunburst, high quality, native 9:16). IMAGE_PROVIDER=pollinations is a free option. Otherwise stylised procedural art is drawn." />
-            <Row label="AI video clips" ok={Boolean(p.video?.provider)} value={p.video?.provider === 'google' ? 'Google Veo' : p.video?.provider === 'fal' ? 'fal.ai' : 'off'} hint={p.video?.provider ? `Hook: ${p.video.hookModel.replace(/^fal-ai\//, '')} · Every scene: ${p.video.model.replace(/^fal-ai\//, '')}. Choose per series under Visuals.` : 'GEMINI_API_KEY (Google Veo 3.1 Lite, about $0.20 per video for the hook) or FAL_KEY (fal.ai) makes real AI video clips. Without one, scenes are animated stills.'} />
-            <Row label="Voiceover" ok={['elevenlabs', 'openai'].includes(p.voice.provider)} value={p.voice.provider} hint="ELEVENLABS_API_KEY for the best narration (eleven_v3 with word-perfect caption timing), or OPENAI_API_KEY. Otherwise the system voice is used (macOS `say` / espeak-ng)." />
-            <Row label="YouTube posting" ok={p.social.youtube} value={p.social.youtube ? 'enabled' : 'demo only'} hint="GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET with the YouTube Data API v3 enabled. Also enables Google sign-in." />
-            <Row label="TikTok posting" ok={p.social.tiktok} value={p.social.tiktok ? 'enabled' : 'demo only'} hint="TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET for an app with the Content Posting API." />
-            <Row label="Instagram posting" ok={p.social.instagram} value={p.social.instagram ? 'enabled' : 'demo only'} hint="INSTAGRAM_APP_ID / INSTAGRAM_APP_SECRET plus a public PUBLIC_MEDIA_URL." />
+            <Row label="Copywriter and art director" ok={p.copy.provider === 'claude'} value={p.copy.provider === 'claude' ? p.copy.model : 'basic template'} hint="ANTHROPIC_API_KEY: Claude reviews every uploaded asset (subject, quality, framing) and writes the ad copy and storyboard. Without it, copy comes straight from the brief." />
+            <Row label="Voiceover" ok={['elevenlabs', 'openai'].includes(p.voice.provider)} value={p.voice.provider} hint="ELEVENLABS_API_KEY for natural, human-sounding narration, or OPENAI_API_KEY. Otherwise the system voice is used." />
           </div>
         </div>
       )}

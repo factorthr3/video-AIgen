@@ -6,7 +6,7 @@ import { useCatalog } from '../lib.jsx';
 // Before a full public launch, have an attorney review these, and fill in
 // COMPANY: section 43 of the ECTA requires these details on the website.
 // Blank fields are left out of the page.
-const UPDATED = '30 September 2026';
+const UPDATED = '6 October 2026';
 const CONTACT = 'support@blackcell.app';
 const COMPANY = {
   name: 'BlackCell', // registered name, e.g. 'BlackCell (Pty) Ltd'
@@ -78,8 +78,8 @@ export function Privacy() {
         <h2>1. What we collect</h2>
         <ul>
           <li><strong>Account details:</strong> your name, email address and a securely hashed password. If you sign in with Google, we receive your name, email address and profile picture from Google.</li>
-          <li><strong>Content you create:</strong> series settings, topics, scripts, generated images, voiceovers, videos, captions, and any music or gameplay footage you upload.</li>
-          <li><strong>Connected social accounts:</strong> when you connect TikTok, YouTube or Instagram, we store the account's ID, username, profile picture and the access tokens needed to post on your behalf. Tokens are encrypted at rest.</li>
+          <li><strong>Brand material and content:</strong> brand details (name, website, description, voice and colours), the logos, photos and videos you upload, your briefs, and the ads, copy and voiceovers made from them.</li>
+          <li><strong>Share links:</strong> when you create a client link for an ad set, anyone who has the link can view and download those ads and their post copy until you turn the link off.</li>
           <li><strong>Billing:</strong> payments are processed by {processor}. We never see or store your full card details; we keep your {processor} customer and subscription references, your plan and its status.</li>
           <li><strong>Technical data:</strong> a session cookie that keeps you signed in, and server logs (including IP address, browser type and request times) used for security and debugging.</li>
           <li><strong>Usage data:</strong> how you use the site (pages viewed, approximate location, device and browser), collected with Google Analytics cookies. See section 5.</li>
@@ -89,7 +89,7 @@ export function Privacy() {
       <section>
         <h2>2. How we use it</h2>
         <ul>
-          <li>To provide the Service: writing scripts, generating visuals, voiceovers and videos, and publishing them to the accounts you connect, on the schedule you set.</li>
+          <li>To provide the Service: reviewing your assets, writing ad copy, producing your ads and voiceovers, and hosting the share links you create.</li>
           <li>To manage your account, subscription and payments.</li>
           <li>To keep the Service secure, prevent abuse and fix problems.</li>
           <li>To contact you about your account, billing or important changes to the Service.</li>
@@ -100,40 +100,38 @@ export function Privacy() {
 
       <section>
         <h2>3. Service providers we share data with</h2>
-        <p>To generate and publish your videos, we send the minimum data needed to these providers, who process it on our behalf or under their own terms:</p>
+        <p>To make your ads, we send the minimum data needed to these providers, who process it on our behalf or under their own terms:</p>
         <ul>
-          <li><strong>Anthropic</strong> (script writing): your topic, niche and settings.</li>
-          <li><strong>OpenAI</strong> (image generation): scene descriptions.</li>
-          <li><strong>ElevenLabs</strong> (voiceover): narration text.</li>
-          <li><strong>Google</strong> (Veo video generation, Google sign-in, YouTube publishing and Google Analytics): scene images and prompts; your Google account details if you sign in with Google; site usage data collected by Google Analytics.</li>
-          <li><strong>fal.ai</strong> (optional AI video clips): scene images and prompts.</li>
+          <li><strong>Anthropic</strong> (asset review and copywriting): your briefs, brand details, and copies of the images and video frames you upload.</li>
+          <li><strong>ElevenLabs</strong> or <strong>OpenAI</strong> (voiceover, only when you turn it on): the voiceover text.</li>
+          <li><strong>Google</strong> (Google sign-in and Google Analytics): your Google account details if you sign in with Google; site usage data collected by Google Analytics.</li>
           <li><strong>{processor}</strong> (payments): billing details you enter at checkout.</li>
           <li><strong>Railway</strong> (hosting): all Service data is stored on its servers.</li>
-          <li><strong>TikTok, YouTube and Instagram</strong>: the videos, titles and captions you choose to publish to your connected accounts.</li>
+          
         </ul>
         <p className="mt-3">Most of these providers are based outside South Africa, mainly in the United States, so your personal information is transferred across borders. We only do this as section 72 of POPIA allows: where the transfer is necessary to provide the Service you signed up for, or where the recipient is bound by law, binding rules or an agreement that gives protection substantially similar to POPIA. For users in the UK or EEA, transfers are also protected by appropriate safeguards such as the UK International Data Transfer Addendum or EU Standard Contractual Clauses. We may also disclose personal information if required by law or to protect our rights and users.</p>
       </section>
 
       <section>
         <h2>4. Google user data</h2>
-        <p>If you connect a YouTube channel, BlackCell requests permission to upload videos to that channel and to read its basic details (name and ID) so you can choose where to post. We use this access only to publish the videos you create in BlackCell, when you post them or when your series schedule posts them.</p>
-        <p className="mt-3">BlackCell's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer">Google API Services User Data Policy</a>, including the Limited Use requirements. We do not use Google user data for advertising, do not sell it, and do not allow humans to read it except with your consent, for security purposes or where required by law. You can revoke access at any time by disconnecting the account in BlackCell or in your Google Account's security settings.</p>
+        <p>If you sign in with Google, BlackCell receives your name, email address and profile picture from your Google Account, and uses them only to create and identify your BlackCell account.</p>
+        <p className="mt-3">BlackCell's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer">Google API Services User Data Policy</a>, including the Limited Use requirements. We do not use Google user data for advertising, do not sell it, and do not allow humans to read it except with your consent, for security purposes or where required by law. You can revoke access at any time in your Google Account's security settings.</p>
       </section>
 
       <section>
         <h2>5. Cookies and local storage</h2>
-        <p>We use one essential cookie to keep you signed in. We also store small pieces of data in your browser, such as an unfinished series draft, so you don't lose your work.</p>
+        <p>We use one essential cookie to keep you signed in. We also store small pieces of data in your browser, such as an unfinished brief, so you don't lose your work.</p>
         <p className="mt-3">We use Google Analytics to understand how visitors use the site, such as which pages are visited and how people find us. It sets its own cookies (named <code>_ga</code>) and collects information like pages viewed, approximate location, device and browser type; Google processes this on our behalf. We do not use advertising cookies, and we do not send Google your name, email address or the content you create. You can block these cookies in your browser settings or install Google's <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noreferrer">opt-out add-on</a>.</p>
       </section>
 
       <section>
         <h2>6. How long we keep data</h2>
-        <p>We keep your account data and videos for as long as your account is open, or until you delete them. Access tokens are deleted when you disconnect an account. When you close your account, we delete your personal data and content within 30 days, except where we must keep limited records (for example, billing records) to meet legal obligations. Server logs are kept for a limited period for security and debugging.</p>
+        <p>We keep your account data, brands, assets and ads for as long as your account is open, or until you delete them. Share links stop working as soon as you turn them off or delete the ad set. When you close your account, we delete your personal data and content within 30 days, except where we must keep limited records (for example, billing records) to meet legal obligations. Server logs are kept for a limited period for security and debugging.</p>
       </section>
 
       <section>
         <h2>7. Security</h2>
-        <p>All traffic is encrypted with HTTPS, passwords are hashed, and social account tokens are encrypted at rest. No system is perfectly secure, so please use a strong, unique password. If a security breach compromises your personal information, we will notify you and the Information Regulator as POPIA requires.</p>
+        <p>All traffic is encrypted with HTTPS and passwords are hashed. Your uploads and ads are stored privately and can only be reached through your account or the share links you create. No system is perfectly secure, so please use a strong, unique password. If a security breach compromises your personal information, we will notify you and the Information Regulator as POPIA requires.</p>
       </section>
 
       <section>
@@ -166,7 +164,7 @@ export function Terms() {
 
       <section>
         <h2>1. The Service</h2>
-        <p>BlackCell uses artificial intelligence to write scripts and generate images, voiceovers, captions and videos, and can publish them to social media accounts you connect. AI output can be inaccurate, incomplete or unexpected. You are responsible for reviewing content before it is published, especially factual claims. Turn off auto-post on a series if you want to approve each video first.</p>
+        <p>BlackCell turns the brand assets you upload (logos, photos and videos) and a short brief into video and image ads for social media platforms. It uses artificial intelligence to review your assets, write ad copy and plan each ad, and for optional voiceovers. AI output can be inaccurate or unexpected. You are responsible for reviewing every ad before you publish it, especially claims about your products, prices and offers.</p>
       </section>
 
       <section>
@@ -179,43 +177,44 @@ export function Terms() {
         <ul>
           <li>Paid plans are billed monthly in advance through {processor} and renew automatically until cancelled.</li>
           {chargedIn && <li>Prices are shown in US dollars, but {processor} charges in {chargedIn}. You pay the {chargedIn.split(' (')[0]} amount shown on each plan and at checkout, converted from the dollar price at the exchange rate when you subscribe, and each renewal is charged the same amount. If your card is in another currency, your bank may add its own conversion fees.</li>}
-          <li>Each plan includes a monthly number of videos and series. Unused videos do not roll over.</li>
+          <li>Each plan includes a monthly number of ad sets and a number of brands. Unused ad sets do not roll over.</li>
           <li>You can change or cancel your plan at any time from <strong>Plan &amp; billing</strong>. Cancellation takes effect at the end of the current billing period, and you keep access until then.</li>
           <li>Except where required by law, payments are non-refundable and we do not provide refunds or credits for partial months.</li>
           <li>We may change prices with at least 30 days' notice. Changes apply from your next billing period, and you may cancel before they take effect.</li>
-          <li>If a payment fails, we may pause video creation until it is resolved.</li>
+          <li>If a payment fails, we may pause ad creation until it is resolved.</li>
         </ul>
         <p className="mt-3">Nothing in these terms affects your statutory rights as a consumer, including under the Consumer Protection Act, 2008 and the Electronic Communications and Transactions Act, 2002 (such as any right to cancel during a cooling-off period).</p>
       </section>
 
       <section>
         <h2>4. Your content</h2>
-        <p>As between you and us, you own the inputs you provide and, to the extent permitted by law, the videos and other output the Service generates for you. You grant us a limited licence to host, process, reproduce and publish your content solely to operate the Service for you, including posting it to accounts you connect. Because AI output is not always unique, similar content may be generated for other users.</p>
-        <p className="mt-3">You are responsible for the content you create and publish, and for making sure you have the rights to anything you upload, such as music or gameplay footage. Only upload gameplay you recorded yourself or that its creator allows you to reuse.</p>
+        <p>As between you and us, you own the assets and briefs you provide and, to the extent permitted by law, the ads the Service makes for you. You grant us a limited licence to host, process and reproduce your content solely to operate the Service for you, including showing it on share links you create.</p>
+        <p className="mt-3">You are responsible for the ads you publish and for having the rights to everything you upload, including permission from people who appear in your photos and videos, and licences for any music, footage or other third-party material.</p>
       </section>
 
       <section>
         <h2>5. Acceptable use</h2>
-        <p>You must not use the Service to create or publish content that:</p>
+        <p>You must not use the Service to create ads or other content that:</p>
         <ul>
           <li>is illegal, or promotes violence, terrorism, self-harm or illegal activity;</li>
           <li>is hateful, harassing, threatening or discriminatory;</li>
           <li>is sexually explicit, or sexualises or endangers minors in any way;</li>
           <li>impersonates real people or organisations, or is designed to deceive (for example, fake news or fraudulent endorsements);</li>
-          <li>infringes anyone's copyright, trademark, privacy or other rights; or</li>
-          <li>breaks the rules of the platforms you post to, including their rules on spam and on labelling AI-generated content.</li>
+          <li>infringes anyone's copyright, trademark, privacy or other rights;</li>
+          <li>makes false, misleading or unsubstantiated claims, or otherwise breaks advertising law and codes (such as the ARB Code in South Africa or the CAP Code in the UK); or</li>
+          <li>breaks the advertising policies of the platforms where you run it, including any rules on prohibited products and on disclosing AI-generated content.</li>
         </ul>
-        <p className="mt-3">You must not attempt to disrupt, overload, reverse engineer or gain unauthorised access to the Service. We may remove content, pause series or suspend accounts that break these rules.</p>
+        <p className="mt-3">You must not attempt to disrupt, overload, reverse engineer or gain unauthorised access to the Service. We may remove content, turn off share links or suspend accounts that break these rules.</p>
       </section>
 
       <section>
         <h2>6. Third-party services</h2>
-        <p>The Service relies on third parties, including AI providers, {processor} and the social platforms you connect. Their own terms apply to your use of them. We are not responsible for their actions, such as a platform removing a video, limiting its reach or suspending an account.</p>
+        <p>The Service relies on third parties, including AI providers, {processor} and the platforms where you run your ads. Their own terms apply to your use of them. We are not responsible for their actions, such as a platform rejecting an ad, limiting its reach or suspending an account.</p>
       </section>
 
       <section>
         <h2>7. Availability and changes</h2>
-        <p>We work to keep the Service running reliably but cannot guarantee it will always be available, error-free, or that scheduled posts will always publish on time. We may change, add or remove features. Where a change significantly reduces what your paid plan includes, we will tell you in advance.</p>
+        <p>We work to keep the Service running reliably but cannot guarantee it will always be available or error-free, or that every ad will render successfully. We may change, add or remove features. Where a change significantly reduces what your paid plan includes, we will tell you in advance.</p>
       </section>
 
       <section>

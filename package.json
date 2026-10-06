@@ -2,7 +2,7 @@
   "name": "blackcell",
   "version": "0.1.0",
   "private": true,
-  "description": "BlackCell - AI faceless video generator that writes, renders and auto-posts Reels, Shorts and TikToks.",
+  "description": "BlackCell - professional social media ads (video and image, every format) made from a brand's own assets.",
   "type": "module",
   "engines": {
     "node": ">=22.13"
@@ -17,6 +17,10 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
+    "@fontsource/bebas-neue": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/montserrat": "^5.3.0",
+    "@fontsource/playfair-display": "^5.3.0",
     "@napi-rs/canvas": "^1.0.9",
     "express": "^5.2.1",
     "multer": "^2.4.0",

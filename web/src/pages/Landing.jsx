@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import {
-  ArrowRight, Check, ChevronDown, Menu, X, Sparkles, Palette, Mic, Captions, Music, CalendarClock, Eye, Pencil,
-  Wand2, Link2, Rocket, Minus,
+  ArrowRight, Check, ChevronDown, Menu, X, Sparkles, Upload, FileText, Share2, Palette, Crop, Type, Link2,
+  Mic, Images, ShieldCheck, Rocket, Minus, Store,
 } from 'lucide-react';
-import { Logo, PlatformIcon } from '../components/ui.jsx';
-import { ShowcasePair, ShowcaseGlow } from '../components/ShowcasePhone.jsx';
+import { Logo } from '../components/ui.jsx';
+import { AdShowcase, ShowcaseGlow, LandscapeAd } from '../components/AdShowcase.jsx';
 import { useCatalog, useSession, usePrice, formatPrice } from '../lib.jsx';
 
 const NAV = [
   ['#how', 'How it works'],
-  ['#niches', 'Niches'],
+  ['#formats', 'Formats'],
   ['#features', 'Features'],
   ['#pricing', 'Pricing'],
   ['#faq', 'FAQ'],
@@ -53,113 +53,52 @@ function Hero() {
   return (
     <section className="relative overflow-hidden">
       <ShowcaseGlow />
-      <div className="relative mx-auto grid max-w-7xl items-center gap-14 px-4 pb-20 pt-14 sm:px-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:pb-28 lg:pt-20">
+      <div className="relative mx-auto grid max-w-7xl items-center gap-14 px-4 pb-20 pt-14 sm:px-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:pb-28 lg:pt-20">
         <div className="min-w-0">
           <span className="chip border-brand-500/30 bg-brand-500/10 text-brand-400">
-            <Sparkles className="size-3.5" /> AI faceless video generator
+            <Sparkles className="size-3.5" /> Social ads from your own brand assets
           </span>
           <h1 className="mt-6 font-display text-5xl font-extrabold leading-[1.02] tracking-tight sm:text-6xl xl:text-7xl">
-            Faceless videos that <span className="text-gradient">make - and post -</span> themselves.
+            Professional ads for <span className="text-gradient">every platform</span>, in minutes.
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-300">
-            Pick a niche. BlackCell writes the script, generates the visuals, records the voiceover, adds captions and music,
-            then posts to TikTok, Instagram and YouTube on your schedule. <span className="text-white">Everything handled.</span>
+            Upload your logo, product photos and footage, describe what you sell, and BlackCell writes the copy, picks your best shots
+            and edits video and image ads in every size: TikTok, Reels, Shorts, Stories, feeds and YouTube. <span className="text-white">Real assets, not AI imagery.</span>
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link to="/signup" className="btn-primary px-6 py-3.5 text-base">Create your first video <ArrowRight className="size-4" /></Link>
+            <Link to="/signup" className="btn-primary px-6 py-3.5 text-base">Make your first ads <ArrowRight className="size-4" /></Link>
             <a href="#how" className="btn-secondary px-6 py-3.5 text-base">See how it works</a>
           </div>
-          <p className="mt-4 text-sm text-ink-400">Plans from {price.from} · No editing skills · No camera · No face on screen</p>
-          <div className="mt-10 flex items-center gap-3 text-sm text-ink-400">
-            <span>Auto-posts to</span>
-            {['tiktok', 'instagram', 'youtube'].map((p) => <PlatformIcon key={p} platform={p} size="sm" />)}
-          </div>
+          <p className="mt-4 text-sm text-ink-400">Plans from {price.from} · No design skills · Share a review link with your client</p>
         </div>
-        <ShowcasePair />
-      </div>
-      <div className="relative border-y border-white/5 bg-ink-900/60">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 py-8 text-center sm:px-6 md:grid-cols-4">
-          {[
-            ['< 5 min', 'from idea to finished video'],
-            ['3 platforms', 'TikTok, Reels & Shorts'],
-            ['12 languages', 'with native-sounding voices'],
-            ['24/7', 'autopilot posting'],
-          ].map(([big, small]) => (
-            <div key={big}>
-              <p className="font-display text-3xl font-extrabold">{big}</p>
-              <p className="mt-1 text-sm text-ink-400">{small}</p>
-            </div>
-          ))}
-        </div>
+        <AdShowcase />
       </div>
     </section>
   );
 }
 
-function Niches() {
-  const catalog = useCatalog();
-  const niches = catalog?.niches || [];
-  const row = [...niches, ...niches];
-  return (
-    <section id="niches" className="py-24">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <p className="text-sm font-semibold uppercase tracking-widest text-brand-400">Niches</p>
-        <h2 className="mt-3 max-w-2xl font-display text-4xl font-extrabold tracking-tight sm:text-5xl">A channel for every niche. Or invent your own.</h2>
-        <p className="mt-4 max-w-2xl text-ink-300">Start from a proven faceless format, or describe any topic and BlackCell builds a series around it.</p>
-      </div>
-      {/* Phones (and reduced motion): a swipeable row. Desktop: an auto-scrolling
-          marquee of two copies. No mask-image: on a very wide animated strip it
-          makes mobile browsers drop the layer, so the cards vanish. */}
-      <div className="relative mt-12">
-        <div className="overflow-x-auto overscroll-x-contain scroll-px-4 px-4 [scrollbar-width:none] snap-x snap-mandatory md:motion-safe:overflow-hidden md:motion-safe:px-0 [&::-webkit-scrollbar]:hidden">
-          <div className="flex w-max gap-4 md:motion-safe:animate-marquee md:motion-safe:hover:[animation-play-state:paused]">
-            {row.map((n, i) => {
-              const copy = i >= niches.length;
-              return (
-                <div
-                  key={`${n.id}-${i}`}
-                  aria-hidden={copy || undefined}
-                  className={`relative flex h-80 w-56 shrink-0 snap-start flex-col justify-between overflow-hidden rounded-3xl p-5 ${copy ? 'max-md:hidden motion-reduce:hidden' : ''}`}
-                  style={{ background: `linear-gradient(160deg, ${n.colors[0]}, ${n.colors[1]})` }}
-                >
-                  <img src={`/niches/${n.id}.jpg`} alt="" loading={i < 6 ? 'eager' : 'lazy'} decoding="async" className="absolute inset-0 size-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/10" />
-                  <span className="relative text-3xl">{n.emoji}</span>
-                  <div className="relative">
-                    <p className="font-display text-xl font-extrabold">{n.name}</p>
-                    <p className="mt-2 text-sm leading-snug text-white/80">“{n.hook}”</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 hidden w-24 bg-gradient-to-r from-ink-950 to-transparent md:motion-safe:block" />
-        <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-ink-950 to-transparent md:w-24" />
-      </div>
-      <p className="mt-4 px-4 text-center text-xs text-ink-400 md:motion-safe:hidden">Swipe to see all {niches.length} niches →</p>
-    </section>
-  );
-}
+const STEPS = [
+  { icon: Store, title: 'Set up the brand', body: 'Add the logo. Colours are picked up automatically; choose a headline font and describe the brand voice.' },
+  { icon: Upload, title: 'Upload assets', body: 'Product photos, lifestyle shots, cut-outs and video clips. Each one is reviewed so ads use the best shots, framed around the product.' },
+  { icon: FileText, title: 'Write a short brief', body: 'What you sell, why it’s great, any offer. The copy is written from your brief, with no invented claims.' },
+  { icon: Share2, title: 'Get every format', body: 'Video ads (6, 15 or 30 seconds) and image ads in 9:16, 4:5, 1:1 and 16:9, with post copy and a client link.' },
+];
 
 function HowItWorks() {
-  const steps = [
-    { icon: Wand2, title: 'Pick a niche', body: 'Choose a proven format like scary stories or untold history, or type any topic you like.' },
-    { icon: Palette, title: 'Choose the look & voice', body: 'Art style, narrator, captions, music, language and length. Preview voices before you commit.' },
-    { icon: Link2, title: 'Connect & go autopilot', body: 'Link TikTok, Instagram and YouTube, set your posting days and time. New videos go out on their own.' },
-  ];
   return (
     <section id="how" className="border-y border-white/5 bg-ink-900/40 py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <p className="text-sm font-semibold uppercase tracking-widest text-brand-400">How it works</p>
-        <h2 className="mt-3 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Three steps. Then never touch it again.</h2>
-        <div className="mt-12 grid gap-5 md:grid-cols-3">
-          {steps.map((s, i) => (
-            <div key={s.title} className="card relative overflow-hidden p-7">
-              <span className="absolute -right-3 -top-6 font-display text-[120px] font-extrabold leading-none text-white/[0.04]">{i + 1}</span>
-              <span className="grid size-12 place-items-center rounded-2xl bg-gradient-brand"><s.icon className="size-5" /></span>
-              <h3 className="mt-6 font-display text-xl font-bold">{s.title}</h3>
-              <p className="mt-2 text-ink-300">{s.body}</p>
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-sm font-semibold uppercase tracking-widest text-brand-400">How it works</p>
+          <h2 className="mt-3 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">From brief to a full ad set.</h2>
+        </div>
+        <div className="mt-14 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          {STEPS.map(({ icon: Icon, title, body }, i) => (
+            <div key={title} className="card relative overflow-hidden p-7">
+              <span className="absolute -right-3 -top-6 font-display text-8xl font-extrabold text-white/[0.04]">{i + 1}</span>
+              <span className="grid size-11 place-items-center rounded-xl bg-brand-500/15 text-brand-300"><Icon className="size-5" /></span>
+              <h3 className="mt-5 font-display text-xl font-bold">{title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-400">{body}</p>
             </div>
           ))}
         </div>
@@ -168,28 +107,59 @@ function HowItWorks() {
   );
 }
 
-function Features() {
-  const features = [
-    { icon: Sparkles, title: 'Hook-first AI scripts', body: 'Written for retention: a hook in the first two seconds and a payoff at the end. A series never repeats a story.' },
-    { icon: Palette, title: '10 art styles', body: 'Cinematic, anime, dark fantasy, comic book, watercolor, pixel art and more, generated fresh for every scene.' },
-    { icon: Mic, title: 'Natural voiceovers', body: '8 narrator voices across 12 languages, from deep and dramatic to warm and upbeat.' },
-    { icon: Captions, title: 'Animated captions', body: 'Word-by-word captions in four styles, because most people scroll with the sound off.' },
-    { icon: Music, title: 'Background music', body: 'Mood-matched beds for suspense, epic or calm, or upload your own track.' },
-    { icon: CalendarClock, title: 'Scheduled autopilot', body: 'Pick days, time and timezone. Videos render ahead of time and post right on schedule.' },
-    { icon: Eye, title: 'Review mode', body: 'Prefer to approve first? Turn off auto-post and new videos wait in your library.' },
-    { icon: Pencil, title: 'Edit anything', body: 'Rewrite a line, change a visual or swap the voice, then re-render in about a minute.' },
-  ];
+const FORMATS = [
+  ['9:16', 'Vertical', 'TikTok, Instagram Reels, YouTube Shorts, Stories', 'aspect-[9/16] w-16'],
+  ['4:5', 'Portrait', 'Instagram and Facebook feeds', 'aspect-[4/5] w-20'],
+  ['1:1', 'Square', 'Instagram, Facebook, LinkedIn, X', 'aspect-square w-20'],
+  ['16:9', 'Landscape', 'YouTube, LinkedIn, X, Facebook', 'aspect-video w-28'],
+];
+
+function Formats() {
   return (
-    <section id="features" className="py-24">
+    <section id="formats" className="py-24">
+      <div className="mx-auto grid max-w-7xl items-center gap-14 px-4 sm:px-6 lg:grid-cols-2">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-widest text-brand-400">Formats</p>
+          <h2 className="mt-3 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">One brief. Every placement.</h2>
+          <p className="mt-4 text-ink-300">Each ad is laid out for its format, not just cropped: text stays inside each platform’s safe zone, clear of buttons and captions, and every crop is framed around your product.</p>
+          <div className="mt-8 grid grid-cols-2 gap-4">
+            {FORMATS.map(([id, name, where, shape]) => (
+              <div key={id} className="card flex items-center gap-4 p-4">
+                <span className="grid h-24 w-28 shrink-0 place-items-center"><span className={`${shape} rounded-md border-2 border-brand-400/70 bg-brand-500/10`} /></span>
+                <div><p className="font-semibold">{name} <span className="text-ink-400">{id}</span></p><p className="mt-1 text-xs text-ink-400">{where}</p></div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <LandscapeAd />
+      </div>
+    </section>
+  );
+}
+
+const FEATURES = [
+  { icon: Images, title: 'Your real photos and footage', body: 'Ads are built only from the assets you upload. No AI-generated imagery, so what customers see is what you sell.' },
+  { icon: Type, title: 'Copy that sells', body: 'Hooks, benefits and offers written from your brief by an AI copywriter, in your brand voice. It never invents stats, reviews or prices.' },
+  { icon: Crop, title: 'Smart framing', body: 'Each asset is reviewed for its subject and quality, so crops keep the product in shot and the strongest visuals lead.' },
+  { icon: Palette, title: 'On-brand, automatically', body: 'Your logo, colours and headline font on every ad, in one of four styles: Clean, Bold, Luxury or Promo.' },
+  { icon: Mic, title: 'Optional voiceover', body: 'Text and music by default, or add a natural, human-sounding voiceover in 12 languages.' },
+  { icon: Link2, title: 'Client review links', body: 'Share a private page where your client can watch, download and copy the post text. No login needed.' },
+];
+
+function Features() {
+  return (
+    <section id="features" className="border-t border-white/5 bg-ink-900/40 py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <p className="text-sm font-semibold uppercase tracking-widest text-brand-400">Features</p>
-        <h2 className="mt-3 max-w-3xl font-display text-4xl font-extrabold tracking-tight sm:text-5xl">A whole content team, in one tab.</h2>
-        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {features.map((f) => (
-            <div key={f.title} className="card p-6 transition hover:border-white/15">
-              <f.icon className="size-6 text-brand-400" />
-              <h3 className="mt-5 font-semibold">{f.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-ink-400">{f.body}</p>
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-sm font-semibold uppercase tracking-widest text-brand-400">Features</p>
+          <h2 className="mt-3 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Agency-quality ads, without the agency.</h2>
+        </div>
+        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {FEATURES.map(({ icon: Icon, title, body }) => (
+            <div key={title} className="card p-7">
+              <span className="grid size-11 place-items-center rounded-xl bg-white/5 text-brand-300"><Icon className="size-5" /></span>
+              <h3 className="mt-5 font-display text-lg font-bold">{title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-400">{body}</p>
             </div>
           ))}
         </div>
@@ -200,28 +170,27 @@ function Features() {
 
 function Comparison() {
   const rows = [
-    ['Research & scriptwriting', '1-2 hours', 'Seconds'],
-    ['Finding or making visuals', 'An hour or more', 'Generated per scene'],
-    ['Voiceover', 'Record, retake, clean up', '8 AI narrators'],
-    ['Editing & captions', '1-2 hours', 'Automatic'],
-    ['Posting to 3 platforms', 'Every day, by hand', 'On autopilot'],
-    ['Consistency', 'Whenever you find time', 'Every scheduled slot'],
+    ['Time to a full set of ads', 'Days to weeks', 'Minutes'],
+    ['Every format and length', 'Billed per size', 'Included'],
+    ['Copy written from your brief', 'Extra', 'Included'],
+    ['Revisions', 'Rounds and invoices', 'Edit and re-render'],
+    ['Client review link', 'Email attachments', 'Included'],
   ];
   return (
-    <section className="border-y border-white/5 bg-ink-900/40 py-24">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6">
-        <h2 className="text-center font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Stop editing. Start posting.</h2>
+    <section className="py-24">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6">
+        <h2 className="text-center font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Why brands switch.</h2>
         <div className="card mt-12 overflow-hidden">
-          <div className="grid grid-cols-[1.3fr_1fr_1fr] border-b border-white/8 bg-white/[0.02] text-sm font-semibold">
-            <div className="p-4" />
-            <div className="p-4 text-ink-400">Doing it yourself</div>
-            <div className="p-4 text-gradient">With BlackCell</div>
+          <div className="grid grid-cols-3 border-b border-white/5 bg-white/[0.02] px-5 py-4 text-sm font-semibold">
+            <span />
+            <span className="text-center text-ink-400">Agency or freelancer</span>
+            <span className="text-center text-brand-300">BlackCell</span>
           </div>
-          {rows.map(([label, diy, us]) => (
-            <div key={label} className="grid grid-cols-[1.3fr_1fr_1fr] border-b border-white/5 text-sm last:border-0">
-              <div className="p-4 font-medium">{label}</div>
-              <div className="flex items-center gap-2 p-4 text-ink-400"><Minus className="size-4 shrink-0 text-red-400/70" />{diy}</div>
-              <div className="flex items-center gap-2 p-4"><Check className="size-4 shrink-0 text-emerald-400" />{us}</div>
+          {rows.map(([label, them, us]) => (
+            <div key={label} className="grid grid-cols-3 items-center border-b border-white/5 px-5 py-4 text-sm last:border-0">
+              <span className="font-medium">{label}</span>
+              <span className="flex items-center justify-center gap-1.5 text-center text-ink-400"><Minus className="size-4 shrink-0" />{them}</span>
+              <span className="flex items-center justify-center gap-1.5 text-center text-white"><Check className="size-4 shrink-0 text-emerald-400" />{us}</span>
             </div>
           ))}
         </div>
@@ -264,12 +233,12 @@ export function PricingCards({ onSelect, currentPlan, busyPlan, verb = 'Switch t
 function Pricing() {
   const price = usePrice();
   return (
-    <section id="pricing" className="py-24">
+    <section id="pricing" className="border-t border-white/5 bg-ink-900/40 py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-widest text-brand-400">Pricing</p>
-          <h2 className="mt-3 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Grow on autopilot, from {price.from}.</h2>
-          <p className="mt-4 text-ink-300">Every plan includes every niche, art style, voice and platform. Upgrade when you're ready to post more.</p>
+          <h2 className="mt-3 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Every format in every plan, from {price.from}.</h2>
+          <p className="mt-4 text-ink-300">An ad set is one brief made into video and image ads in every size you choose. Upgrade for more ad sets and brands.</p>
         </div>
         <div className="mt-14"><PricingCards /></div>
       </div>
@@ -278,20 +247,19 @@ function Pricing() {
 }
 
 const FAQS = [
-  ['What is a faceless video?', "A short video where you never appear on camera: narration over visuals, with captions. It's one of the fastest ways to grow on TikTok, Reels and Shorts without showing your face."],
-  ['Do I need any editing skills?', 'None. BlackCell writes, voices, illustrates, captions and edits every video. You can tweak the script if you want to, but you never have to.'],
-  ['Which platforms can it post to?', 'TikTok, Instagram Reels and YouTube Shorts, through their official APIs. You connect each account once and pick which ones each series posts to.'],
-  ['Can I review videos before they go live?', 'Yes. Turn off auto-post on a series and new videos wait in your library until you post them.'],
-  ['Will my videos be unique?', 'Every script is written fresh, and each series remembers what it has already posted so it never repeats a story.'],
-  ['Which languages are supported?', 'Twelve, including English, Spanish, French, German, Portuguese, Hindi, Japanese and Chinese. Scripts, voiceover and captions all switch together.'],
-  ['Can I use my own music?', 'Yes. Upload a track when you set up a series, or pick one of the built-in mood beds.'],
-  ['Do I own the videos?', 'Yes. Download any video as an MP4 whenever you like and use it anywhere.'],
+  ['Do the ads use AI-generated images?', 'No. Ads are built only from the photos, cut-outs and footage you upload. AI is used to review your assets, write the copy and plan the edit, and the renderer lays out each ad with your logo, colours and font.'],
+  ['What should I upload?', 'Your best product photos (a transparent cut-out PNG works beautifully), lifestyle shots of the product in use, and short video clips if you have them, plus your logo. Five to ten good assets make great ads.'],
+  ['Which platforms are covered?', 'Vertical 9:16 for TikTok, Instagram Reels, YouTube Shorts and Stories; 4:5 and 1:1 for Instagram, Facebook, LinkedIn and X feeds; and 16:9 for YouTube, LinkedIn, X and Facebook. You also get ready-to-paste post copy for each.'],
+  ['Can I change the copy?', 'Yes. Edit any headline, line, button or offer badge and re-render, or ask for fresh copy. Nothing claims more than your brief says.'],
+  ['How do my clients see the ads?', 'Turn on a client link for any ad set. It opens a private page with every ad, downloads and the post copy, and works without an account. You can switch it off at any time.'],
+  ['Do you publish the ads for me?', 'You download the files and upload them to Ads Manager, TikTok Ads or each platform, where you control targeting and budget.'],
+  ['Who owns the ads?', 'You do. You keep the rights to your assets and to the ads made from them.'],
 ];
 
 function Faq() {
   const [open, setOpen] = useState(0);
   return (
-    <section id="faq" className="border-t border-white/5 bg-ink-900/40 py-24">
+    <section id="faq" className="py-24">
       <div className="mx-auto max-w-3xl px-4 sm:px-6">
         <h2 className="text-center font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Questions, answered.</h2>
         <div className="mt-12 space-y-3">
@@ -313,14 +281,14 @@ function Faq() {
 function FinalCta() {
   const price = usePrice();
   return (
-    <section className="py-24">
+    <section className="pb-24">
       <div className="mx-auto max-w-5xl px-4 sm:px-6">
         <div className="relative overflow-hidden rounded-[2rem] bg-gradient-brand p-10 text-center sm:p-16">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,.25),transparent_40%)]" />
           <Rocket className="relative mx-auto size-10" />
-          <h2 className="relative mt-5 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Your first video is five minutes away.</h2>
-          <p className="relative mx-auto mt-4 max-w-xl text-white/85">Pick a niche, hit create, and watch BlackCell do the rest. Plans from {price.from}.</p>
-          <Link to="/signup" className="btn relative mt-8 bg-white px-7 py-3.5 text-base text-ink-950 hover:bg-white/90">Create your first video <ArrowRight className="size-4" /></Link>
+          <h2 className="relative mt-5 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Your next ad set is minutes away.</h2>
+          <p className="relative mx-auto mt-4 max-w-xl text-white/85">Upload your assets, write a brief, and get every format. Plans from {price.from}.</p>
+          <Link to="/signup" className="btn relative mt-8 bg-white px-7 py-3.5 text-base text-ink-950 hover:bg-white/90">Make your first ads <ArrowRight className="size-4" /></Link>
         </div>
       </div>
     </section>
@@ -332,7 +300,7 @@ function Footer() {
     <footer className="border-t border-white/5 py-10">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 text-sm text-ink-400 sm:px-6">
         <Logo />
-        <p>AI faceless video generator for TikTok, Reels & Shorts.</p>
+        <p className="flex items-center gap-1.5"><ShieldCheck className="size-4" /> Social ads from your own brand assets.</p>
         <nav className="flex gap-4">
           <Link to="/privacy" className="hover:text-white">Privacy</Link>
           <Link to="/terms" className="hover:text-white">Terms</Link>
@@ -349,8 +317,8 @@ export default function Landing() {
     <div className="min-h-screen">
       <Nav />
       <Hero />
-      <Niches />
       <HowItWorks />
+      <Formats />
       <Features />
       <Comparison />
       <Pricing />

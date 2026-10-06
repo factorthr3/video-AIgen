@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { ArrowRight } from 'lucide-react';
 import { Logo, Alert } from '../components/ui.jsx';
-import { ShowcasePair, ShowcaseGlow } from '../components/ShowcasePhone.jsx';
+import { AdShowcase, ShowcaseGlow } from '../components/AdShowcase.jsx';
 import { api, useCatalog, useSession } from '../lib.jsx';
 
 function GoogleButton() {
@@ -37,7 +37,7 @@ function AuthShell({ title, subtitle, children, footer }) {
       </div>
       <div className="relative flex items-center justify-center overflow-hidden border-t border-white/5 px-6 py-16 lg:border-l lg:border-t-0">
         <ShowcaseGlow />
-        <ShowcasePair />
+        <AdShowcase />
       </div>
     </div>
   );
@@ -53,7 +53,7 @@ function useAuthSubmit(path) {
     setError(null);
     try {
       setSession(await api(path, { method: 'POST', body }));
-      navigate(path === '/auth/signup' ? '/app/series/new' : '/app');
+      navigate(path === '/auth/signup' ? '/app/brands' : '/app');
     } catch (err) {
       setError(err.message);
       setBusy(false);
@@ -91,7 +91,7 @@ export function Signup() {
   const catalog = useCatalog();
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   return (
-    <AuthShell title="Create your account" subtitle="Your first video can be ready in minutes." footer={<>Already have an account? <Link to="/login" className="font-semibold text-white hover:underline">Sign in</Link></>}>
+    <AuthShell title="Create your account" subtitle="Your first ads can be ready in minutes." footer={<>Already have an account? <Link to="/login" className="font-semibold text-white hover:underline">Sign in</Link></>}>
       {catalog?.providers?.signupMode === 'invite' && !error && <Alert tone="info">BlackCell is in private beta. Sign up with the email address your invite was sent to.</Alert>}
       {error && <Alert>{error}</Alert>}
       <GoogleButton />
