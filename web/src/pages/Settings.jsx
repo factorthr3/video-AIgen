@@ -1,8 +1,47 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { CircleCheck, CircleDashed, Trash2 } from 'lucide-react';
+import { CircleCheck, CircleDashed, Trash2, UserCog } from 'lucide-react';
 import { PageHeader, Alert } from '../components/ui.jsx';
 import { api, useSession, useCatalog } from '../lib.jsx';
+
+// Admins: put a customer on a plan agreed offline (e.g. a POA plan), billed by invoice.
+function AssignPlan() {
+  const catalog = useCatalog();
+  const [email, setEmail] = useState('');
+  const [plan, setPlan] = useState('daily');
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(null);
+  const submit = async (planId) => {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const res = await api('/admin/plan', { method: 'POST', body: { email, plan: planId } });
+      const name = catalog?.plans.find((p) => p.id === res.user.plan)?.name;
+      setNotice({ tone: 'success', text: planId === null ? `${res.user.email} no longer has a plan.` : `${res.user.email} is now on the ${name} plan (billed by invoice, never charged by card).` });
+    } catch (err) {
+      setNotice({ tone: 'error', text: err.message });
+    }
+    setBusy(false);
+  };
+  return (
+    <form className="card mb-8 p-6" onSubmit={(e) => { e.preventDefault(); submit(plan); }}>
+      <p className="label flex items-center gap-2"><UserCog className="size-4" /> Assign a plan (admin)</p>
+      <p className="mb-4 text-sm text-ink-400">For customers on a plan you've agreed with them directly, such as Growth or Agency (POA). They need an account first. They're billed outside the app and never charged by card.</p>
+      {notice && <Alert tone={notice.tone} onClose={() => setNotice(null)}>{notice.text}</Alert>}
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
+        <div>
+          <label className="label" htmlFor="cust">Customer email</label>
+          <input id="cust" type="email" required className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="client@company.com" />
+        </div>
+        <select className="input sm:w-40" value={plan} onChange={(e) => setPlan(e.target.value)} aria-label="Plan">
+          {(catalog?.plans || []).map((p) => <option key={p.id} value={p.id}>{p.name}{p.poa ? ' (POA)' : ''}</option>)}
+        </select>
+        <button className="btn-primary" disabled={busy}>Assign</button>
+        <button type="button" className="btn-ghost text-ink-400" disabled={busy || !email} onClick={() => submit(null)}>Remove plan</button>
+      </div>
+    </form>
+  );
+}
 
 function DeleteAccount() {
   const { logout } = useSession();
@@ -72,6 +111,7 @@ export default function Settings() {
           </div>
         </div>
       )}
+      {user?.admin && <AssignPlan />}
       <DeleteAccount />
     </>
   );

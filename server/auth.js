@@ -72,7 +72,10 @@ export function requireAuth(req, res, next) {
 }
 
 export function publicUser(u) {
-  return { id: u.id, email: u.email, name: u.name, avatarUrl: u.avatar_url, plan: u.plan, createdAt: u.created_at };
+  return {
+    id: u.id, email: u.email, name: u.name, avatarUrl: u.avatar_url, plan: u.plan, createdAt: u.created_at,
+    admin: config.adminEmails.includes(String(u.email).toLowerCase()),
+  };
 }
 
 export function createUser({ email, name, passwordHash = null, googleId = null, avatarUrl = null }) {

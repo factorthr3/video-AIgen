@@ -178,6 +178,7 @@ export function Terms() {
           <li>Paid plans are billed monthly in advance through {processor} and renew automatically until cancelled.</li>
           {chargedIn && <li>Prices are shown in US dollars, but {processor} charges in {chargedIn}. You pay the {chargedIn.split(' (')[0]} amount shown on each plan and at checkout, converted from the dollar price at the exchange rate when you subscribe, and each renewal is charged the same amount. If your card is in another currency, your bank may add its own conversion fees.</li>}
           <li>Each plan includes a monthly number of ad sets and a number of brands. Unused ad sets do not roll over.</li>
+          <li>Plans marked POA (price on application) are priced and billed by agreement with you, by invoice; the agreed terms apply alongside these.</li>
           <li>You can change or cancel your plan at any time from <strong>Plan &amp; billing</strong>. Cancellation takes effect at the end of the current billing period, and you keep access until then.</li>
           <li>Except where required by law, payments are non-refundable and we do not provide refunds or credits for partial months.</li>
           <li>We may change prices with at least 30 days' notice. Changes apply from your next billing period, and you may cancel before they take effect.</li>

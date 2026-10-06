@@ -114,7 +114,9 @@ export function formatPrice(amount, currency = 'usd') {
 export function usePrice() {
   const catalog = useCatalog();
   const currency = catalog?.providers?.billing?.currency || 'usd';
-  const cheapest = Math.min(...(catalog?.plans || [{ price: 5.99 }]).map((p) => p.price));
+  // Plans priced on application (POA) have no price.
+  const priced = (catalog?.plans || []).filter((p) => p.price != null);
+  const cheapest = priced.length ? Math.min(...priced.map((p) => p.price)) : 15.99;
   return { format: (amount) => formatPrice(amount, currency), from: formatPrice(cheapest, currency) };
 }
 

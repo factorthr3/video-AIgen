@@ -15,13 +15,14 @@ function StatusChip({ billing }) {
     active: ['Active', 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'],
     trialing: ['Trial', 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'],
     past_due: ['Payment failed', 'border-amber-500/30 bg-amber-500/10 text-amber-200'],
+    manual: ['Active (invoiced)', 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'],
   };
   const [label, cls] = map[billing.status] || ['No active plan', 'border-white/10 bg-white/5 text-ink-300'];
   return <span className={`chip ${cls}`}>{billing.cancelAtPeriodEnd && billing.status === 'active' ? 'Cancelling' : label}</span>;
 }
 
 export default function Billing() {
-  const { usage, setSession, refresh } = useSession();
+  const { user, usage, setSession, refresh } = useSession();
   const catalog = useCatalog();
   const price = usePrice();
   const [params, setParams] = useSearchParams();
@@ -151,7 +152,7 @@ export default function Billing() {
               <p className="font-display text-2xl font-extrabold">{activePlan ? plan?.name : 'None'}</p>
               <StatusChip billing={billing} />
             </div>
-            {activePlan && plan && <p className="text-sm text-ink-400">{price.format(plan.price)}/month</p>}
+            {activePlan && plan && <p className="text-sm text-ink-400">{plan.poa || billing.status === 'manual' ? 'Price agreed with you, billed by invoice' : `${price.format(plan.price)}/month`}</p>}
             {billing.enabled && billing.currentPeriodEnd && !billing.comped && (
               <p className="mt-1 text-xs text-ink-400">{billing.cancelAtPeriodEnd ? 'Ends' : 'Renews'} on {dateLabel(billing.currentPeriodEnd)}</p>
             )}
@@ -173,6 +174,7 @@ export default function Billing() {
         currentPlan={activePlan && !tryingCheckout ? usage?.plan : null}
         busyPlan={busy === 'portal' || busy === 'cancel' ? null : busy}
         verb={paid && (!activePlan || tryingCheckout) ? 'Subscribe to' : 'Switch to'}
+        canSelectPoa={Boolean(user?.admin) || !paid}
       />
       {paid && (
         <p className="mt-6 text-center text-xs text-ink-400">

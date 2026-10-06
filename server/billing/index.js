@@ -27,7 +27,8 @@ export function testMode() {
 export const isAdmin = (user) => config.adminEmails.includes(String(user.email).toLowerCase());
 
 // ---------- access ----------
-const ACTIVE = new Set(['active', 'trialing', 'past_due']);
+// 'manual' = a plan an admin assigned (POA plans, billed outside the app).
+const ACTIVE = new Set(['active', 'trialing', 'past_due', 'manual']);
 const PAST_DUE_GRACE_MS = 7 * 86400_000;
 
 export function billingState(user) {

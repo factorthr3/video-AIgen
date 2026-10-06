@@ -199,7 +199,9 @@ function Comparison() {
   );
 }
 
-export function PricingCards({ onSelect, currentPlan, busyPlan, verb = 'Switch to' }) {
+const contactHref = (plan) => `mailto:support@blackcell.app?subject=${encodeURIComponent(`BlackCell ${plan.name} plan`)}`;
+
+export function PricingCards({ onSelect, currentPlan, busyPlan, verb = 'Switch to', canSelectPoa = false }) {
   const catalog = useCatalog();
   const price = usePrice();
   const plans = catalog?.plans || [];
@@ -209,17 +211,28 @@ export function PricingCards({ onSelect, currentPlan, busyPlan, verb = 'Switch t
         <div key={p.id} className={`relative flex flex-col rounded-3xl border p-6 ${p.popular ? 'glow border-brand-500/50 bg-gradient-to-b from-brand-600/15 to-ink-900' : 'border-white/8 bg-ink-900/80'}`}>
           {p.popular && <span className="absolute -top-3 left-6 rounded-full bg-gradient-brand px-3 py-1 text-xs font-bold">Most popular</span>}
           <p className="font-display text-lg font-bold">{p.name}</p>
-          <p className="mt-4 flex items-baseline gap-1">
-            <span className="font-display text-5xl font-extrabold">{price.format(p.price)}</span>
-            <span className="text-sm text-ink-400">/month</span>
-          </p>
+          {p.poa ? (
+            <p className="mt-4 flex items-baseline gap-2">
+              <span className="font-display text-5xl font-extrabold">POA</span>
+              <span className="text-sm text-ink-400">Price on application</span>
+            </p>
+          ) : (
+            <p className="mt-4 flex items-baseline gap-1">
+              <span className="font-display text-5xl font-extrabold">{price.format(p.price)}</span>
+              <span className="text-sm text-ink-400">/month</span>
+            </p>
+          )}
           {p.charge && <p className="mt-1 text-xs text-ink-400">Charged in {p.charge.currency.toUpperCase()}: {formatPrice(p.charge.amount, p.charge.currency)}/month</p>}
           <ul className="mt-6 flex-1 space-y-3 text-sm">
             {p.features.map((f) => <li key={f} className="flex gap-2.5 text-ink-300"><Check className="mt-0.5 size-4 shrink-0 text-emerald-400" />{f}</li>)}
           </ul>
-          {onSelect ? (
-            <button className={`${p.popular ? 'btn-primary' : 'btn-secondary'} mt-8 w-full`} disabled={currentPlan === p.id || busyPlan} onClick={() => onSelect(p.id)}>
-              {currentPlan === p.id ? 'Current plan' : busyPlan === p.id ? 'Just a moment…' : `${verb} ${p.name}`}
+          {onSelect && currentPlan === p.id ? (
+            <button className={`${p.popular ? 'btn-primary' : 'btn-secondary'} mt-8 w-full`} disabled>Current plan</button>
+          ) : p.poa && !(onSelect && canSelectPoa) ? (
+            <a href={contactHref(p)} className={`${p.popular ? 'btn-primary' : 'btn-secondary'} mt-8 w-full`}>Contact us</a>
+          ) : onSelect ? (
+            <button className={`${p.popular ? 'btn-primary' : 'btn-secondary'} mt-8 w-full`} disabled={busyPlan} onClick={() => onSelect(p.id)}>
+              {busyPlan === p.id ? 'Just a moment…' : `${verb} ${p.name}`}
             </button>
           ) : (
             <Link to="/signup" className={`${p.popular ? 'btn-primary' : 'btn-secondary'} mt-8 w-full`}>Get started</Link>
@@ -238,7 +251,7 @@ function Pricing() {
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-widest text-brand-400">Pricing</p>
           <h2 className="mt-3 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Every format in every plan, from {price.from}.</h2>
-          <p className="mt-4 text-ink-300">An ad set is one brief made into video and image ads in every size you choose. Upgrade for more ad sets and brands.</p>
+          <p className="mt-4 text-ink-300">An ad set is one brief made into video and image ads in every size you choose. Growth and Agency are priced to your volume: get in touch for a quote.</p>
         </div>
         <div className="mt-14"><PricingCards /></div>
       </div>

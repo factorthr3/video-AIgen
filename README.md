@@ -14,7 +14,7 @@ Live at **[blackcell.app](https://blackcell.app)**.
 - **Sound:** an original instrumental soundtrack composed for each video at its exact length (ElevenLabs Music, cleared for ads), with a mood (match the ad, upbeat, chill, cinematic, luxury, energetic); or stock beds or your own track. Optional voiceover (ElevenLabs) in 12 languages, off by default.
 - **Edit and re-render:** change any headline, line, button or badge; or ask for fresh copy.
 - **Client share links:** a private page with every ad, downloads and post copy, no login needed; can be turned off any time.
-- Plans (Tester / Starter / Growth / Agency) with monthly ad-set and brand limits; Paystack or Stripe billing; email/password and Google sign-in.
+- Plans with monthly ad-set and brand limits: Tester ($15.99) and Starter ($29) are sold online through Paystack or Stripe; Growth and Agency are POA (price on application): customers click Contact us, and an admin assigns the plan under Settings (billed by invoice, never charged by card). Email/password and Google sign-in.
 
 ## Quick start
 
@@ -38,7 +38,7 @@ Open http://localhost:5173, create an account, set up a brand, upload a few prod
 
 Plans are sold as monthly subscriptions through Paystack's hosted checkout. Set `PAYSTACK_SECRET_KEY` and the four plans are created in your Paystack account at startup (named `BlackCell <Plan>`). Then:
 
-1. Prices are shown in US dollars (the catalog). Paystack only charges in USD for Kenyan and Nigerian businesses, so other accounts (e.g. South Africa, in rand) are charged the dollar price converted at the day's exchange rate ([Frankfurter](https://frankfurter.dev), ECB rates), rounded up to a whole unit. Each plan card shows the amount charged, e.g. "Charged in ZAR: R310/month". A Paystack plan is reused until the rate moves more than 3%; then new subscribers get a new plan at the new amount, and existing subscribers keep theirs. `PAYSTACK_EXCHANGE_RATE` fixes the rate and `PAYSTACK_PRICES=free=…,starter=…,daily=…,pro=…` fixes exact amounts.
+1. Prices are shown in US dollars (the catalog). Paystack only charges in USD for Kenyan and Nigerian businesses, so other accounts (e.g. South Africa, in rand) are charged the dollar price converted at the day's exchange rate ([Frankfurter](https://frankfurter.dev), ECB rates), rounded up to a whole unit. Each plan card shows the amount charged, e.g. "Charged in ZAR: R310/month". A Paystack plan is reused until the rate moves more than 3%; then new subscribers get a new plan at the new amount, and existing subscribers keep theirs. `PAYSTACK_EXCHANGE_RATE` fixes the rate and `PAYSTACK_PRICES=free=…,starter=…` fixes exact amounts. POA plans (Growth, Agency) have no Paystack plan.
 2. In Paystack (Settings → API Keys & Webhooks), set the webhook URL to `https://your-domain/api/paystack/webhook`. It keeps renewals, failed payments and cancellations in sync. Checkout itself is confirmed when the customer returns, so a missing webhook doesn't block sign-ups.
 3. Put your own email in `ADMIN_EMAILS` so you keep full access without subscribing. With a test key (`sk_test_…`), admins go through checkout like everyone else so you can try it; use Paystack's test card `4084 0840 8408 4081`, any future expiry, CVV `408`.
 

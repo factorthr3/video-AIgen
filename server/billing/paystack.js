@@ -5,7 +5,7 @@
 // Paystack on first use. Inactive until PAYSTACK_SECRET_KEY is set.
 import crypto from 'node:crypto';
 import { config } from '../config.js';
-import { PLAN, PLANS } from '../catalog.js';
+import { PLAN, PLANS, SELF_SERVE_PLANS } from '../catalog.js';
 import { db, update } from '../db.js';
 
 const httpError = (status, message) => Object.assign(new Error(message), { status, expose: true });
@@ -96,6 +96,7 @@ async function ensureRate() {
 
 /** What a plan costs in the Paystack currency (major units), or null until the rate is known. */
 function chargeFor(planId) {
+  if (PLAN[planId]?.poa) return null; // priced on application
   if (config.paystack.prices[planId]) return config.paystack.prices[planId];
   const rate = currentRate();
   if (!rate) return null;
@@ -144,8 +145,8 @@ export async function warmUp() {
   const refresh = async () => {
     try {
       await ensureCurrency();
-      for (const p of PLANS) await planFor(p.id);
-      const plans = PLANS.map((p) => `${p.id} $${p.price}${currency() === 'USD' ? '' : ` = ${planCache.get(p.id).amount} ${currency()}`}`);
+      for (const p of SELF_SERVE_PLANS) await planFor(p.id);
+      const plans = SELF_SERVE_PLANS.map((p) => `${p.id} $${p.price}${currency() === 'USD' ? '' : ` = ${planCache.get(p.id).amount} ${currency()}`}`);
       console.log(`[paystack] ${currency()}${currency() === 'USD' ? '' : ` at ${currentRate()}/USD`}: ${plans.join(', ')}`);
     } catch (err) {
       console.error('[paystack] price setup failed:', err.message);

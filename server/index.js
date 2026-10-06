@@ -78,7 +78,11 @@ app.post('/api/uploads/music', requireAuth, upload.single('file'), (req, res) =>
 app.post('/api/billing/plan', requireAuth, async (req, res) => {
   const plan = PLAN[req.body?.plan];
   if (!plan) throw new HttpError(400, 'Unknown plan.');
-  const instant = billingProvider() ? isAdmin(req.user) && !testMode() : config.demoBilling;
+  // Plans priced on application are set up by us, not bought online.
+  if (plan.poa && !isAdmin(req.user) && billingProvider()) {
+    throw new HttpError(400, `The ${plan.name} plan is priced on application. Email support@blackcell.app and we'll set it up for you.`);
+  }
+  const instant = billingProvider() ? isAdmin(req.user) && (!testMode() || plan.poa) : config.demoBilling;
   if (!instant) {
     if (!billingProvider()) throw new HttpError(501, 'Paid plans are not available yet: payments have not been set up on this server.');
     const result = await choosePlan(req.user, plan.id);
@@ -88,6 +92,24 @@ app.post('/api/billing/plan', requireAuth, async (req, res) => {
   }
   const user = db.get('SELECT * FROM users WHERE id = ?', req.user.id);
   res.json({ user: publicUser(user), usage: usage(user) });
+});
+
+// Admins: put a customer on a plan agreed offline (POA plans), or take it away.
+// These customers are billed outside the app, so they're never charged by card.
+app.post('/api/admin/plan', requireAuth, (req, res) => {
+  if (!isAdmin(req.user)) throw new HttpError(403, 'Admins only.');
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const customer = db.get('SELECT * FROM users WHERE email = ?', email);
+  if (!customer) throw new HttpError(404, `No account uses ${email || 'that email'}. Ask them to sign up first.`);
+  if (req.body?.plan === null) {
+    update('users', customer.id, { subscription_status: 'canceled', cancel_at_period_end: 0 });
+  } else {
+    const plan = PLAN[req.body?.plan];
+    if (!plan) throw new HttpError(400, 'Unknown plan.');
+    update('users', customer.id, { plan: plan.id, subscription_status: 'manual', cancel_at_period_end: 0, current_period_end: null });
+  }
+  const updated = db.get('SELECT * FROM users WHERE id = ?', customer.id);
+  res.json({ user: publicUser(updated), usage: usage(updated) });
 });
 
 // The processor's hosted page to update the card (Stripe: also invoices and cancelling).

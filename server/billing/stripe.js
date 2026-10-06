@@ -41,6 +41,7 @@ const priceCache = new Map();
 async function priceIdFor(planId) {
   if (priceCache.has(planId)) return priceCache.get(planId);
   const plan = PLAN[planId];
+  if (plan.poa) throw httpError(400, `The ${plan.name} plan is priced on application. Contact us to set it up.`);
   const unitAmount = Math.round(plan.price * 100);
   const key = lookupKey(planId);
   let price = (await stripe().prices.list({ lookup_keys: [key], active: true, limit: 1 })).data[0];
