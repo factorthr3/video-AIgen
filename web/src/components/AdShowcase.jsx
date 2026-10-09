@@ -59,7 +59,7 @@ export function AdShowcase({ caption = true }) {
   );
 }
 
-/** Landscape example, for wider layouts. */
+/** Landscape example, for wider layouts: a 30-second 16:9 ad BlackCell made for Caprivi (car seat covers) from their footage. */
 export function LandscapeAd() {
   return (
     <figure className="w-full">
