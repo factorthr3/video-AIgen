@@ -63,14 +63,13 @@ export const config = {
     musicModel: env.ELEVENLABS_MUSIC_MODEL || 'music_v2_5',
     model: env.ELEVENLABS_MODEL || 'eleven_v3',
   },
-  // AI video clips (image-to-video) via fal.ai's queue API.
+  // AI motion clips (image-to-video) via fal.ai's queue API: Seedance 1.5 Pro at 720p
+  // by default (about $0.13 a 5-second clip). Veo (gemini, below) is the backup.
   fal: {
     key: env.FAL_KEY || '',
     baseUrl: (env.FAL_QUEUE_URL || 'https://queue.fal.run').replace(/\/$/, ''),
-    videoModel: env.FAL_VIDEO_MODEL || 'fal-ai/kling-video/v3/pro/image-to-video', // "AI video": every scene
-    hookModel: env.FAL_HOOK_MODEL || 'fal-ai/ltx-2.3/image-to-video/fast', // "AI video hook": opening scene(s)
-    // Clip lengths the model accepts, e.g. "5,10". Default: any whole second from 3 to 15 (Kling v3).
-    durations: (env.FAL_VIDEO_DURATIONS || '').split(',').map(Number).filter(Boolean),
+    motionModel: env.FAL_MOTION_MODEL || 'fal-ai/bytedance/seedance/v1.5/pro/image-to-video',
+    motionResolution: env.FAL_MOTION_RESOLUTION || '720p',
   },
   // AI video clips via Google's Gemini API (Veo). Paid only: Veo has no free tier.
   gemini: {
@@ -135,7 +134,8 @@ export function providerStatus() {
     copy: config.anthropic.enabled ? { provider: 'claude', model: config.anthropic.model } : { provider: 'template' },
     voice: { provider: resolveTtsProvider() },
     music: { provider: config.elevenlabs.key ? 'elevenlabs' : null, model: config.elevenlabs.musicModel },
-    motion: config.gemini.key ? { provider: 'veo', model: config.gemini.videoModel } : null,
+    motion: config.fal.key ? { provider: 'seedance', model: config.fal.motionModel, backup: config.gemini.key ? 'veo' : null }
+      : config.gemini.key ? { provider: 'veo', model: config.gemini.videoModel } : null,
     googleSignIn: Boolean(config.google.clientId),
     demoBilling: config.demoBilling,
     signupMode: config.signupMode,

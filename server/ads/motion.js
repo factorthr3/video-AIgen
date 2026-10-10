@@ -1,7 +1,9 @@
-// AI motion: for brands without footage, Google Veo turns their product photos
-// into short, subtle video clips (a slow camera move, light, steam, a little
-// life) that the ads then use like uploaded footage. Clips are saved to the
-// brand's library, so later ad sets reuse them instead of making new ones.
+// AI motion: for brands without footage, an image-to-video model turns their
+// product photos into short, subtle video clips (a slow camera move, light,
+// steam, a little life) that the ads then use like uploaded footage. Seedance
+// 1.5 Pro via fal.ai makes them (best value in our side-by-side tests), with
+// Google Veo as the backup. Clips are saved to the brand's library, so later
+// ad sets reuse them instead of making new ones.
 import fs from 'node:fs';
 import path from 'node:path';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
@@ -10,11 +12,22 @@ import { z } from 'zod';
 import { config } from '../config.js';
 import { db, newId, parseJson } from '../db.js';
 import { ASSETS_INCOMING, assetFile, cropFor, addGeneratedClip, imageForClaude } from './assets.js';
-import { claude, modelParams } from './brief.js';
+import { claude, modelParams, SCENES_FOR } from './brief.js';
+import { END_CARD } from './render.js';
 
-export const motionEnabled = () => Boolean(config.gemini.key);
+export const motionEnabled = () => Boolean(config.fal.key || config.gemini.key);
 export const MOTION_PHOTOS = 3; // photos animated per ad set, at most
-const CLIP_SECONDS = 6;
+const VEO_SECONDS = [4, 6, 8]; // the clip lengths Veo makes at 720p
+
+/**
+ * Clip length for social ads: just longer than the longest scene the videos
+ * cut to (a cut every 2 to 4 seconds), so no unused footage is paid for.
+ * 6s and 15s sets get 4-second clips; 30s sets get 5.
+ */
+export function clipSeconds(lengths) {
+  const longest = Math.max(0, ...lengths.map((l) => (l - (END_CARD[l] || 2.4)) / (SCENES_FOR[l] || 4)));
+  return Math.min(12, Math.max(4, Math.ceil(longest + 0.8)));
+}
 const FRAME = { '9:16': [720, 1280], '16:9': [1280, 720] };
 const NEGATIVE = 'text, captions, subtitles, watermark, changed or warped label, distorted logo, morphing, melting, objects appearing or disappearing, deformed hands, extra fingers, cartoon, CGI look, low quality, blur, flicker, cuts';
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -45,10 +58,12 @@ const ShotSchema = z.object({
   })),
 });
 
-const DIRECTOR = `You are the director of photography on a premium product commercial. Each photo will become a ${CLIP_SECONDS}-second video shot made by an image-to-video model that starts from the photo exactly. Write one shot description per photo.
+const DIRECTOR = `You are the director of photography on a premium product commercial for social media. Each photo will become one short shot (about 4 seconds) in a fast-paced ad on TikTok, Reels or Shorts, made by an image-to-video model that starts from the photo exactly. Write one shot description per photo.
+
+Social feeds are scrolled fast, so the movement must be visible from the very first frame: no slow fade-in or still start, and the most striking moment comes early.
 
 The shot must look like real footage filmed on set, not AI:
-- One continuous shot. A single slow, smooth camera move (a gentle push-in, a slow lateral slide with parallax, a small arc or a slow tilt) or a locked-off frame.
+- One continuous shot. A single smooth, confident camera move (a push-in, a lateral slide with parallax, a small arc or a tilt), already moving as the shot begins.
 - Small, natural movement that belongs in the scene: steam, condensation running, liquid settling, bubbles, light and shadows shifting, leaves or fabric moving, a person's natural small movements (a breath, a smile, a glance, a sip) when people are in the photo.
 - The product never changes: its shape, label, logo and any text stay exactly as photographed. Nothing new appears (no text, no new products, no new people) and nothing transforms or morphs.
 - Match the photo's light and mood, and say so (e.g. soft window light, warm golden hour, clean studio light).
@@ -57,10 +72,10 @@ Write it as a cinematographer's shot description in plain words, 2 to 3 sentence
 // When Claude isn't available: a safe, subtle move for the kind of photo.
 function templatePrompt(photo) {
   const category = parseJson(photo.analysis, null)?.category;
-  const keep = 'The product, its label and logo stay exactly as in the photo. Photorealistic commercial footage, shallow depth of field.';
-  if (category === 'people') return `A gentle, slow handheld drift. The person makes small natural movements, a breath and a slight smile, in the same light as the photo. ${keep}`;
-  if (category === 'lifestyle') return `A slow, smooth lateral camera slide with subtle parallax. Light shifts softly across the scene and small things move naturally. ${keep}`;
-  return `A slow, smooth push-in on the product. Soft light glides across its surface with gentle reflections while the background stays softly out of focus. ${keep}`;
+  const keep = 'Movement is visible from the first frame. The product, its label and logo stay exactly as in the photo. Photorealistic commercial footage, shallow depth of field.';
+  if (category === 'people') return `A smooth handheld drift. The person moves naturally straight away, a breath and a smile, in the same light as the photo. ${keep}`;
+  if (category === 'lifestyle') return `A smooth lateral camera slide with parallax, already moving. Light shifts across the scene and small things move naturally. ${keep}`;
+  return `A smooth, confident push-in on the product, already moving. Light glides across its surface with gentle reflections while the background stays softly out of focus. ${keep}`;
 }
 
 async function shotPrompts({ brand, brief, photos }) {
@@ -85,7 +100,7 @@ async function shotPrompts({ brand, brief, photos }) {
   }
 }
 
-// ---------- Veo ----------
+// ---------- the models ----------
 /** The photo cropped around its subject to the clip's shape, as the first frame. */
 async function startFrame(photo, aspect) {
   const [w, h] = FRAME[aspect];
@@ -98,10 +113,48 @@ async function startFrame(photo, aspect) {
   return canvas.encode('jpeg', 92);
 }
 
-async function veo({ image, aspect, prompt }) {
+/** Seedance 1.5 Pro (or another fal image-to-video model) via fal.ai's queue API. */
+async function seedance({ image, aspect, prompt, seconds }) {
+  const headers = { Authorization: `Key ${config.fal.key}`, 'Content-Type': 'application/json' };
+  const submit = await fetch(`${config.fal.baseUrl}/${config.fal.motionModel}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      prompt,
+      image_url: `data:image/jpeg;base64,${image.toString('base64')}`,
+      duration: String(seconds),
+      resolution: config.fal.motionResolution,
+      aspect_ratio: aspect,
+      generate_audio: false, // the ads have their own soundtrack
+    }),
+    signal: AbortSignal.timeout(60_000),
+  });
+  const job = await submit.json().catch(() => ({}));
+  if (!submit.ok) throw new Error(`fal ${submit.status}: ${JSON.stringify(job.detail ?? job).slice(0, 200)}`);
+  const started = Date.now();
+  for (;;) {
+    if (Date.now() - started > 10 * 60_000) throw new Error('Seedance took too long.');
+    await sleep(5000);
+    const res = await fetch(job.status_url, { headers, signal: AbortSignal.timeout(30_000) }).catch(() => null);
+    if (!res?.ok) {
+      if (res && res.status < 500 && res.status !== 429) throw new Error(`fal status ${res.status}`);
+      continue;
+    }
+    if ((await res.json()).status === 'COMPLETED') break;
+  }
+  const res = await fetch(job.response_url, { headers, signal: AbortSignal.timeout(30_000) });
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok || !out.video?.url) throw new Error(`fal ${res.status}: ${JSON.stringify(out.detail ?? out).slice(0, 200)}`);
+  const video = await fetch(out.video.url, { signal: AbortSignal.timeout(180_000) });
+  if (!video.ok) throw new Error(`fal download ${video.status}`);
+  return Buffer.from(await video.arrayBuffer());
+}
+
+let veoNegative = true; // Veo 3.1 Lite rejects negative prompts; remember once it says so
+async function veo({ image, aspect, prompt, seconds }) {
   const base = config.gemini.baseUrl;
   const headers = { 'x-goog-api-key': config.gemini.key, 'Content-Type': 'application/json' };
-  const parameters = { aspectRatio: aspect, durationSeconds: CLIP_SECONDS, resolution: config.gemini.resolution, negativePrompt: NEGATIVE };
+  const parameters = { aspectRatio: aspect, durationSeconds: VEO_SECONDS.find((s) => s >= seconds) || 8, resolution: config.gemini.resolution, ...(veoNegative ? { negativePrompt: NEGATIVE } : {}) };
   let op;
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(`${base}/models/${config.gemini.videoModel}:predictLongRunning`, {
@@ -121,6 +174,7 @@ async function veo({ image, aspect, prompt }) {
     }
     if (res.status === 400 && parameters.negativePrompt && /negative/i.test(detail)) {
       delete parameters.negativePrompt; // not every model takes one
+      veoNegative = false;
       continue;
     }
     throw new Error(`Veo ${res.status}: ${detail}`);
@@ -142,6 +196,19 @@ async function veo({ image, aspect, prompt }) {
   return Buffer.from(await video.arrayBuffer());
 }
 
+/** Seedance first; Veo if fal isn't set up or the clip can't be made there. */
+async function makeClip(shot) {
+  if (config.fal.key) {
+    try {
+      return await seedance(shot);
+    } catch (err) {
+      if (!config.gemini.key) throw err;
+      console.error('[motion] Seedance failed, trying Veo:', err.message);
+    }
+  }
+  return veo(shot);
+}
+
 // ---------- making clips ----------
 const clipOf = (photoId, aspect) => db.get("SELECT * FROM assets WHERE parent_id = ? AND motion_aspect = ? AND status != 'failed' ORDER BY created_at DESC LIMIT 1", photoId, aspect);
 
@@ -157,7 +224,7 @@ async function inPool(items, size, fn) {
  * when they exist, otherwise made with Veo. Returns the ready clips and how
  * many couldn't be made.
  */
-export async function animatePhotos({ brand, brief, photos, aspects, onProgress }) {
+export async function animatePhotos({ brand, brief, photos, aspects, seconds = 4, onProgress }) {
   const jobs = photos.flatMap((photo) => aspects.map((aspect) => ({ photo, aspect })));
   const todo = jobs.filter((j) => !clipOf(j.photo.id, j.aspect));
   const prompts = await shotPrompts({ brand, brief, photos: [...new Set(todo.map((j) => j.photo))] });
@@ -165,7 +232,7 @@ export async function animatePhotos({ brand, brief, photos, aspects, onProgress 
   onProgress?.(done, jobs.length);
   await inPool(todo, 2, async (j) => {
     try {
-      const video = await veo({ image: await startFrame(j.photo, j.aspect), aspect: j.aspect, prompt: prompts[j.photo.id] || templatePrompt(j.photo) });
+      const video = await makeClip({ image: await startFrame(j.photo, j.aspect), aspect: j.aspect, prompt: prompts[j.photo.id] || templatePrompt(j.photo), seconds });
       const file = path.join(ASSETS_INCOMING, `${newId('veo')}.mp4`);
       fs.writeFileSync(file, video);
       addGeneratedClip({ photo: j.photo, file, aspect: j.aspect });

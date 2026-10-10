@@ -11,7 +11,7 @@ import { musicTrack } from '../pipeline/music.js';
 import { writeCopy, SCENES_FOR } from './brief.js';
 import { renderVideoAd, renderStaticAd, buildAdAudio, loadLogo, END_CARD } from './render.js';
 import { soundtrack, musicBrief } from './soundtrack.js';
-import { motionEnabled, motionCandidates, motionAspects, animatePhotos } from './motion.js';
+import { motionEnabled, motionCandidates, motionAspects, animatePhotos, clipSeconds } from './motion.js';
 
 export const ADSETS_DIR = path.join(DATA_DIR, 'adsets');
 export const adsetDir = (id) => path.join(ADSETS_DIR, id);
@@ -112,12 +112,12 @@ async function runAdSet(id) {
   // 1. AI motion: no footage? Turn the best photos into short clips first (reused from the library when they exist).
   let copy = parseJson(adset.copy, null);
   let motionNote = null;
-  if (!copy && options.motion && motionEnabled()) {
+  if (!copy && options.motion && options.lengths.length && motionEnabled()) {
     const photos = motionCandidates(chosen);
     if (photos.length) {
       setStage(id, 'Bringing your photos to life', 0.02);
       const { clips, failed, total } = await animatePhotos({
-        brand, brief, photos, aspects: motionAspects(options.formats),
+        brand, brief, photos, aspects: motionAspects(options.formats), seconds: clipSeconds(options.lengths),
         onProgress: (n, t) => setStage(id, `Bringing your photos to life (${n} of ${t} clips)`, 0.02 + 0.06 * (n / t)),
       });
       const fresh = clips.filter((c) => !assets.has(c.id));

@@ -101,7 +101,7 @@ export default function AdSetNew() {
   const chosenAssets = assets.filter((a) => selected.includes(a.id));
   const hasFootage = chosenAssets.some((a) => a.kind === 'video');
   const animatable = chosenAssets.filter((a) => a.kind === 'image' && !a.transparent).length;
-  const motion = motionReady && animatable > 0 && (options.motion ?? !hasFootage);
+  const motion = motionReady && animatable > 0 && options.lengths.length > 0 && (options.motion ?? !hasFootage);
   // Style previews use the brand's own best photo.
   const previewAsset = [...assets].filter((a) => a.kind === 'image' && !a.transparent).sort((x, y) => (y.quality || 0) - (x.quality || 0))[0];
   const previewPhoto = previewAsset && `/api/assets/${previewAsset.id}/thumb`;
@@ -206,7 +206,7 @@ export default function AdSetNew() {
         ) : (
           <p className="text-sm text-ink-300">This brand has no photos or videos yet. <Link to={`/app/brands/${brandId}`} className="font-semibold text-white underline">Upload some</Link> first.</p>
         )}
-        {motionReady && animatable > 0 && (
+        {motionReady && animatable > 0 && options.lengths.length > 0 && (
           <label className={`mt-4 flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${motion ? 'border-brand-400/60 bg-brand-500/10' : 'border-white/10 bg-white/[0.03]'}`}>
             <input type="checkbox" className="mt-0.5 size-4 shrink-0 accent-brand-500" checked={motion} onChange={(e) => setO('motion', e.target.checked)} />
             <span>
