@@ -9,7 +9,7 @@ import { STYLE, FORMATS, FORMAT_IDS, LENGTHS } from '../ads/design.js';
 import { HttpError, usage, NEEDS_PLAN_MESSAGE } from '../services.js';
 import { enqueueAdSet, adsetDir, adFile, adThumb } from '../ads/jobs.js';
 import { soundtrackEnabled, MUSIC_MOOD } from '../ads/soundtrack.js';
-import { motionEnabled } from '../ads/motion.js';
+import { motionEnabled, filmedScenes } from '../ads/motion.js';
 import { assetFile } from '../ads/assets.js';
 import { reviseAdSet, undoRevision, revisionList, reviseEnabled, outdatedAds, generateAds } from '../ads/revise.js';
 import { plainDashes } from '../text.js';
@@ -75,6 +75,7 @@ function publicAdSet(a) {
     pending: ['queued', 'processing'].includes(a.status) ? 0 : outdated.size, // ads Generate would make
     share: a.share_token ? { token: a.share_token, path: `/share/${a.share_token}` } : null,
     revisions: revisionList(a),
+    filmed: filmedScenes(a), // AI-directed: each scene's filmed clip (asset id), by video length
   };
 }
 
@@ -123,7 +124,8 @@ function cleanOptions(o = {}, brandId) {
     voice: VOICE[o.voice] ? o.voice : 'nova',
     music,
     musicMood: MUSIC_MOOD[o.musicMood] ? o.musicMood : 'auto',
-    motion: Boolean(o.motion) && motionEnabled(), // animate photos into clips with AI
+    motion: Boolean(o.motion) && motionEnabled(), // animate photos into clips with AI (older ad sets)
+    aiScenes: Boolean(o.aiScenes) && lengths.length > 0 && motionEnabled(), // AI-directed scenes: a storyboard to review, then filmed
     language: LANGUAGE[o.language] ? o.language : 'en',
     assetIds,
   };
@@ -177,6 +179,7 @@ router.patch('/:id/copy', (req, res) => {
   if (!copy) throw new HttpError(409, 'There is no copy to edit yet.');
   const edit = req.body?.copy || {};
   const t = (v, fallback, max) => (typeof v === 'string' ? plainDashes(v.trim()).slice(0, max) : fallback);
+  const newAssets = new Set(); // photos newly picked for scenes
   copy.cta = t(edit.cta, copy.cta, 24) || copy.cta;
   copy.badge = t(edit.badge, copy.badge, 14);
   copy.music = t(edit.music, copy.music || '', 300);
@@ -184,12 +187,22 @@ router.patch('/:id/copy', (req, res) => {
     for (const v of copy.videos) {
       const ev = edit.videos.find((x) => Number(x.length) === v.length);
       if (!ev?.scenes) continue;
-      v.scenes = v.scenes.map((sc, i) => ({
-        ...sc,
-        headline: t(ev.scenes[i]?.headline, sc.headline, 80) || sc.headline,
-        subline: t(ev.scenes[i]?.subline, sc.subline, 120),
-        voiceover: t(ev.scenes[i]?.voiceover, sc.voiceover, 300),
-      }));
+      v.scenes = v.scenes.map((sc, i) => {
+        const e = ev.scenes[i] || {};
+        const next = {
+          ...sc,
+          headline: t(e.headline, sc.headline, 80) || sc.headline,
+          subline: t(e.subline, sc.subline, 120),
+          voiceover: t(e.voiceover, sc.voiceover, 300),
+        };
+        // AI-directed scenes: the shot to film and the photo the product must match.
+        if (sc.shot && e.shot) next.shot = { frame: t(e.shot.frame, sc.shot.frame, 600) || sc.shot.frame, action: t(e.shot.action, sc.shot.action, 400) || sc.shot.action };
+        if (e.assetId && e.assetId !== sc.assetId && db.get("SELECT 1 FROM assets WHERE id = ? AND brand_id = ? AND kind != 'logo' AND status = 'ready' AND shot_key IS NULL", e.assetId, a.brand_id)) {
+          next.assetId = e.assetId;
+          newAssets.add(e.assetId);
+        }
+        return next;
+      });
     }
   }
   if (Array.isArray(edit.statics)) {
@@ -203,7 +216,10 @@ router.patch('/:id/copy', (req, res) => {
     }
   }
   copy.edited = true;
-  update('adsets', a.id, { copy: JSON.stringify(copy), updated_at: now() });
+  // Ad sets made from picked assets render only those, so add newly picked ones.
+  const options = parseJson(a.options, {});
+  if (newAssets.size && options.assetIds?.length) options.assetIds = [...new Set([...options.assetIds, ...newAssets])];
+  update('adsets', a.id, { copy: JSON.stringify(copy), options: JSON.stringify(options), updated_at: now() });
   res.json({ adset: publicAdSet(db.get('SELECT * FROM adsets WHERE id = ?', a.id)) });
 });
 

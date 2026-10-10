@@ -13,7 +13,7 @@ import { HttpError } from '../services.js';
 import { plainDashes } from '../text.js';
 import { STYLES, STYLE, FORMAT_IDS, LENGTHS } from './design.js';
 import { MUSIC_MOODS, MUSIC_MOOD, soundtrackEnabled } from './soundtrack.js';
-import { CopySchema, COPY_RULES, SCENES_FOR, assetLine, claude, modelParams, tidy } from './brief.js';
+import { copySchema, COPY_RULES, DIRECTING_RULES, SCENES_FOR, assetLine, claude, modelParams, tidy } from './brief.js';
 import { plannedAds, enqueueAdSet, adFile, adThumb, adSignature } from './jobs.js';
 
 export const REVISIONS_PER_SET = 30;
@@ -26,13 +26,14 @@ Your changes are saved as a draft. The client presses Generate when they're read
 What you can change:
 - Words: on-screen headlines and sublines, the button text (cta), the offer badge, voiceover lines and the post captions.
 - Storyboard: which photo or clip each video scene shows, and the order of scenes. Each video keeps its number of scenes (${Object.entries(SCENES_FOR).map(([l, n]) => `${n} for ${l}s`).join(', ')}).
+- AI-directed scenes (when scenes have a shot): what each shot shows (frame) and what happens in it (action). An edited scene is filmed again when the client presses Generate.
 - Image ads: their headline, subline and photo, and how many there are (0 to 3).
 - Look: the style.
 - Sound: the soundtrack (composed to fit, a stock track or none), its mood, the soundtrack brief in the copy, voiceover on or off, and the voice.
 - Sizes: which formats and video lengths the set includes.
 
 What you can't change here. Say so kindly, leave it as it is and point to the fix:
-- What's inside a photo or clip (recolouring, removing things, new shots): they can upload new photos or clips to the brand library, then ask for them to be used.
+- What's inside an uploaded photo or clip (recolouring, removing things): they can upload new photos or clips to the brand library, then ask for them to be used. (AI-directed scenes are different: rewrite the scene's shot.)
 - The logo, brand colours and font: these are set on the brand's page.
 
 How to answer:
@@ -50,7 +51,7 @@ ${COPY_RULES}`;
 const musicChoice = (music) => (music === 'ai' ? 'composed' : String(music || '').startsWith('upload:') ? 'current' : music);
 const musicChoices = () => ['current', 'none', ...MUSIC.filter((m) => m.id !== 'none').map((m) => m.id), ...(soundtrackEnabled() ? ['composed'] : [])];
 
-function revisionSchema() {
+function revisionSchema(directed) {
   return z.object({
     reply: z.string().describe("Your reply to the client: one or two short sentences saying what you changed, or why you couldn't and what they can do instead"),
     changed: z.boolean().describe('True if you changed anything; false if the request was unclear, not possible here, or asked for no changes'),
@@ -65,11 +66,11 @@ function revisionSchema() {
       music: z.enum(musicChoices()).describe('"composed" = an original track composed for each video, "none", a stock track ID, or "current" to keep the client\'s own uploaded track'),
       musicMood: z.enum(MUSIC_MOODS.map((m) => m.id)).describe('Mood of the composed soundtrack; "auto" follows the soundtrack brief in the copy'),
     }),
-    copy: CopySchema,
+    copy: copySchema(directed),
   });
 }
 
-const library = (brandId) => db.all("SELECT * FROM assets WHERE brand_id = ? AND status = 'ready' AND kind != 'logo' ORDER BY created_at", brandId);
+const library = (brandId) => db.all("SELECT * FROM assets WHERE brand_id = ? AND status = 'ready' AND kind != 'logo' AND shot_key IS NULL ORDER BY created_at", brandId);
 
 function buildPrompt({ brand, brief, options, copy, assets, history, request }) {
   const { concept, cta, badge, music, videos, statics, captions } = copy;
@@ -111,9 +112,9 @@ async function askClaude({ adset, brand, request }) {
   const history = db.all('SELECT request, reply, undone FROM adset_revisions WHERE adset_id = ? ORDER BY created_at DESC LIMIT 6', adset.id).reverse();
   const response = await claude().beta.messages.parse(modelParams({
     max_tokens: 12000,
-    system: SYSTEM,
+    system: options.aiScenes ? `${SYSTEM}\n\n${DIRECTING_RULES}` : SYSTEM,
     messages: [{ role: 'user', content: buildPrompt({ brand, brief, options, copy, assets, history, request }) }],
-    output_config: { format: betaZodOutputFormat(revisionSchema()) },
+    output_config: { format: betaZodOutputFormat(revisionSchema(Boolean(options.aiScenes))) },
   }));
   if (response.stop_reason === 'refusal') return { reply: "Sorry, I can't make that change to these ads.", changed: false };
   const out = response.parsed_output;
@@ -216,7 +217,7 @@ export function generateAds(adset) {
 
 // ---------- requests and undo ----------
 // The state an undo would replace, without notes the renderer adds along the way.
-const snapshot = (copy, options) => JSON.stringify({ copy: { ...copy, musicNote: undefined }, options });
+const snapshot = (copy, options) => JSON.stringify({ copy: { ...copy, musicNote: undefined, motionNote: undefined }, options });
 const working = new Set(); // ad sets with a request in progress
 
 export async function reviseAdSet(adset, request) {

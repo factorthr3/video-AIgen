@@ -16,6 +16,7 @@ export function FormatIcon({ format, className = '' }) {
 export function AdSetStatus({ adset }) {
   if (adset.status === 'ready') return <span className="chip border-emerald-500/30 bg-emerald-500/10 text-emerald-300">Ready{adset.error ? ' (some failed)' : ''}</span>;
   if (adset.status === 'failed') return <span className="chip border-red-500/30 bg-red-500/10 text-red-300">Failed</span>;
+  if (adset.status === 'draft') return <span className="chip border-amber-400/30 bg-amber-400/10 text-amber-200">Storyboard</span>;
   return <span className="chip border-brand-500/30 bg-brand-500/10 text-brand-300"><LoaderCircle className="size-3 animate-spin" /> Making ads</span>;
 }
 

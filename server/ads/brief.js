@@ -20,6 +20,16 @@ const Scene = z.object({
   voiceover: z.string().describe('What the voiceover says during this scene; empty string when voiceover is off'),
 });
 
+// AI-directed scenes: each video scene is filmed by AI as one short shot.
+const Shot = z.object({
+  frame: z.string().describe("The shot's opening image, set up like a photographer would: subject, setting, composition and lighting. The product appears exactly as in its reference photo."),
+  action: z.string().describe('What happens during the shot (about 4 seconds): one clear movement or event, and the camera move.'),
+});
+const DirectedScene = Scene.extend({
+  assetId: z.string().describe('ID of the brand photo the product in this shot must match (its reference), from the asset list'),
+  shot: Shot,
+});
+
 export const CopySchema = z.object({
   concept: z.string().describe('The creative idea in one sentence'),
   cta: z.string().describe('Call-to-action button text, 1 to 3 words (e.g. "Shop now")'),
@@ -44,6 +54,19 @@ export const CopySchema = z.object({
     hashtags: z.array(z.string()).describe('4 to 6 relevant hashtags without #'),
   }),
 });
+
+/** The copy schema; with AI-directed scenes every video scene also has a shot to film. */
+export const copySchema = (directed) => (directed
+  ? CopySchema.extend({ videos: z.array(z.object({ length: z.number().describe('Video length in seconds'), scenes: z.array(DirectedScene) })) })
+  : CopySchema);
+
+// How to direct AI-filmed scenes (used by the copywriter and the change-request editor).
+export const DIRECTING_RULES = `AI-directed scenes: every video scene is filmed by AI as one short shot (about 4 seconds), so direct each one:
+- frame: the opening image (subject, setting, composition, lighting). It is built from the brand photo given as the scene's assetId, so the product looks exactly like that photo; put it in a new setting, angle or situation.
+- action: one clear, visual thing that happens in about 4 seconds, plus the camera move. Show the product being used, a reveal, a transformation or a satisfying moment, e.g. for a padlock: hands turn the lock, the shackle springs open and glowing code streams out; for a drink: it pours into a glass over ice and splashes.
+- Be creative and cinematic, like a top agency's commercial, but physically believable and photorealistic. Vary the shots (a detail close-up, hands or a person using it, a wider scene, a hero shot) and end on a clean hero shot of the product.
+- Nothing readable in the shot apart from the product's own label or logo: no captions, signs or screens with text. The headline is laid on top, so keep the subject central with calm space above and below.
+- People are described generically ("a woman in her thirties"), never a real or famous person.`;
 
 // Shared with the change-request editor (revise.js), so revisions follow the same rules.
 export const COPY_RULES = `Copy rules:
@@ -95,7 +118,7 @@ export async function writeCopy(input) {
   }
 }
 
-async function claudeCopy({ brand, brief, assets, lengths, statics, voiceover, language = 'en' }) {
+async function claudeCopy({ brand, brief, assets, lengths, statics, voiceover, directed, language = 'en' }) {
   const lang = LANGUAGE[language] || LANGUAGE.en;
   const prompt = `Brand: ${brand.name}${brand.website ? ` (${brand.website})` : ''}
 ${brand.about ? `About the brand: ${brand.about}\n` : ''}${brand.tone ? `Brand voice: ${brand.tone}\n` : ''}
@@ -111,13 +134,15 @@ ${lengths.map((l) => `- A ${l}-second video with exactly ${SCENES_FOR[l]} scenes
 - ${statics} static image ad variant${statics === 1 ? '' : 's'}, each a different angle.
 - Captions for each platform.
 ${voiceover ? '- A voiceover line for every scene: natural and conversational, about 2.5 words per second of the scene so it fits (a 15-second video has about 30 words in total).' : '- Voiceover is off: leave every voiceover field empty.'}
-Language for all copy: ${lang.name}.`;
+${directed ? '- For every video scene, a shot to film (frame and action), with its assetId set to the brand photo the product must match. Think of the most striking, scroll-stopping way to show this product in action.\n' : ''}Language for all copy: ${lang.name}.`;
 
   const response = await claude().beta.messages.parse(modelParams({
-    max_tokens: 8000,
-    system: SYSTEM,
+    max_tokens: directed ? 12000 : 8000,
+    system: directed ? `${SYSTEM}
+
+${DIRECTING_RULES}` : SYSTEM,
     messages: [{ role: 'user', content: prompt }],
-    output_config: { format: betaZodOutputFormat(CopySchema) },
+    output_config: { format: betaZodOutputFormat(copySchema(directed)) },
   }));
   if (response.stop_reason === 'refusal') throw Object.assign(new Error("The copywriter couldn't write ads for this brief. Try rewording the description."), { refusal: true });
   const copy = response.parsed_output;
@@ -136,6 +161,7 @@ export function tidy(copy, { assets, lengths, voiceover }) {
     subline: clean(sc.subline),
     assetId: ids.has(sc.assetId) ? sc.assetId : fallbackAsset(i),
     voiceover: voiceover ? clean(sc.voiceover) : '',
+    ...(sc.shot ? { shot: { frame: clean(sc.shot.frame).slice(0, 600), action: clean(sc.shot.action).slice(0, 400) } } : {}),
   });
   const videos = lengths.map((length) => {
     const found = copy.videos.find((v) => Number(v.length) === length) || copy.videos[0];
@@ -157,6 +183,14 @@ export function tidy(copy, { assets, lengths, voiceover }) {
   };
 }
 
+// Without Claude: simple shots a client can rewrite in the storyboard.
+function templateShot(brief, i, count) {
+  const product = brief.product || 'The product';
+  if (i === count - 1) return { frame: `${product}, exactly as in the reference photo, as a clean hero shot on a simple surface with soft studio light.`, action: 'A slow, confident push-in on the product as light glides across it.' };
+  if (i === 0) return { frame: `A striking close-up of ${product}, exactly as in the reference photo, in a setting that suits it.`, action: 'The camera sweeps in as the product catches the light, already moving from the first frame.' };
+  return { frame: `A person's hands using ${product}, exactly as in the reference photo, in a real, everyday setting.`, action: 'The hands use the product naturally while the camera drifts closer.' };
+}
+
 // "20% off your first order" -> "20% OFF"; "Free delivery this week" -> "FREE DELIVERY".
 function offerBadge(offer) {
   if (!offer) return '';
@@ -166,7 +200,7 @@ function offerBadge(offer) {
 }
 
 // No API key: simple, honest copy straight from the brief.
-function templateCopy({ brand, brief, assets, lengths, statics }) {
+function templateCopy({ brand, brief, assets, lengths, statics, directed }) {
   const sentences = String(brief.description || '').split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
   const short = (s, words) => s.split(/\s+/).slice(0, words).join(' ').replace(/[.,;:!?]+$/, '');
   const lines = [brief.product, ...sentences.map((s) => short(s, 6)), brief.offer].filter(Boolean);
@@ -180,6 +214,7 @@ function templateCopy({ brand, brief, assets, lengths, statics }) {
       length,
       scenes: Array.from({ length: SCENES_FOR[length] }, (_, i) => ({
         role: i === 0 ? 'hook' : 'benefit', headline: lines[i % lines.length], subline: '', assetId: pick(i), voiceover: '',
+        ...(directed ? { shot: templateShot(brief, i, SCENES_FOR[length]) } : {}),
       })),
     })),
     statics: Array.from({ length: statics }, (_, i) => ({ headline: lines[i % lines.length], subline: brief.offer || '', assetId: pick(i) })),

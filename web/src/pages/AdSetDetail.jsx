@@ -38,9 +38,143 @@ function SharePanel({ adset, onChange }) {
 }
 
 const SUGGESTIONS = ['Make the headlines punchier', 'Open with the video clip', 'Use a more upbeat soundtrack', 'Add a square version'];
+const DIRECTED_SUGGESTIONS = ['Make the opening scene more dramatic', 'Show the product being used', 'End on a close-up of the product', 'Make the headlines punchier'];
+const END_CARD = { 6: 1.6, 15: 2.4, 30: 3 };
+
+/** The photo the product must match in a scene: the current pick and the brand's other photos. */
+function PhotoPicker({ value, photos, onPick, disabled }) {
+  return (
+    <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+      {photos.map((p) => (
+        <button key={p.id} type="button" disabled={disabled} onClick={() => onPick(p.id)} title={p.description || p.name}
+          className={`size-11 shrink-0 overflow-hidden rounded-lg border-2 transition ${p.id === value ? 'border-brand-400' : 'border-transparent opacity-50 hover:opacity-100'}`}>
+          <img src={`/api/assets/${p.id}/thumb`} alt="" className={`size-full ${p.transparent ? 'bg-ink-700 object-contain' : 'object-cover'}`} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** One scene: its picture (filmed clip, or the photo it's based on), the shot to film and the words on screen. */
+function SceneCard({ scene, index, seconds, clipId, photos, voice, disabled, onChange }) {
+  const [playing, setPlaying] = useState(false);
+  const set = (k, v) => onChange({ ...scene, [k]: v });
+  const setShot = (k, v) => onChange({ ...scene, shot: { ...scene.shot, [k]: v } });
+  return (
+    <li className="overflow-hidden rounded-xl border border-white/10 bg-ink-850">
+      <div className="relative aspect-[4/5] bg-black">
+        {clipId && playing
+          ? <video src={`/api/assets/${clipId}/file`} autoPlay muted loop playsInline className="size-full object-cover" />
+          : <button type="button" className="size-full" onClick={() => clipId && setPlaying(true)} title={clipId ? 'Play this scene' : undefined}>
+              <img src={`/api/assets/${clipId || scene.assetId}/thumb`} alt="" className="size-full object-cover" />
+            </button>}
+        <span className="absolute left-2 top-2 rounded-md bg-black/70 px-2 py-0.5 text-xs font-bold">Scene {index + 1} · {seconds}s</span>
+        <span className={`absolute right-2 top-2 rounded-md px-2 py-0.5 text-[11px] font-semibold ${clipId ? 'bg-emerald-500/90 text-black' : 'bg-black/70 text-ink-300'}`}>{clipId ? 'Filmed' : 'Not filmed yet'}</span>
+      </div>
+      <div className="space-y-2.5 p-3">
+        <div>
+          <label className="label">Opening shot</label>
+          <textarea className="input min-h-28 py-2 text-sm" maxLength={600} value={scene.shot.frame} onChange={(e) => setShot('frame', e.target.value)} disabled={disabled} />
+        </div>
+        <div>
+          <label className="label">What happens</label>
+          <textarea className="input min-h-28 py-2 text-sm" maxLength={400} value={scene.shot.action} onChange={(e) => setShot('action', e.target.value)} disabled={disabled} />
+        </div>
+        <div>
+          <label className="label">On screen</label>
+          <input className="input mb-1.5 py-2 text-sm font-semibold" maxLength={80} value={scene.headline} onChange={(e) => set('headline', e.target.value)} placeholder="Headline" disabled={disabled} />
+          <input className="input py-2 text-sm" maxLength={120} value={scene.subline} onChange={(e) => set('subline', e.target.value)} placeholder="Subline (optional)" disabled={disabled} />
+        </div>
+        {voice && (
+          <div>
+            <label className="label">Voiceover</label>
+            <textarea className="input min-h-14 py-2 text-sm" maxLength={300} value={scene.voiceover} onChange={(e) => set('voiceover', e.target.value)} disabled={disabled} />
+          </div>
+        )}
+        {photos.length > 1 && (
+          <div>
+            <label className="label">Product photo to match</label>
+            <PhotoPicker value={scene.assetId} photos={photos} onPick={(id) => set('assetId', id)} disabled={disabled} />
+          </div>
+        )}
+      </div>
+    </li>
+  );
+}
+
+/** AI-directed ad sets: every scene of every video, to read, edit and (re)film with Generate. */
+function Storyboard({ adset, onSaved }) {
+  const [videos, setVideos] = useState(() => structuredClone(adset.copy.videos));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const { data: brandData } = useApi(adset.brand ? `/brands/${adset.brand.id}` : null);
+  const original = JSON.stringify(adset.copy.videos);
+  // Pick up edits made elsewhere (Ask for changes, Edit copy) when there are none here.
+  const [base, setBase] = useState(original);
+  if (base !== original) {
+    setBase(original);
+    setVideos(structuredClone(adset.copy.videos));
+  }
+  const dirty = JSON.stringify(videos) !== original;
+  const photos = (brandData?.assets || []).filter((a) => a.status === 'ready' && !a.ai);
+  const rendering = busy(adset);
+  const setScene = (vi, si, scene) => setVideos((v) => {
+    const next = structuredClone(v);
+    next[vi].scenes[si] = scene;
+    return next;
+  });
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      onSaved((await api(`/adsets/${adset.id}/copy`, { method: 'PATCH', body: { copy: { videos } } })).adset);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <section className="card mb-8 p-5 sm:p-6">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 font-display text-lg font-bold"><Clapperboard className="size-4 text-brand-400" /> Storyboard</h2>
+          <p className="mt-0.5 max-w-2xl text-sm text-ink-400">
+            {adset.status === 'draft'
+              ? 'Your storyboard is ready. Each scene is filmed by AI with your product as the star. Change what happens, the words on screen or the photo it matches, then press Generate. Nothing is filmed until then.'
+              : 'Edit any scene and press Generate: only the scenes you change are filmed again.'}
+          </p>
+        </div>
+        {dirty && (
+          <div className="flex gap-2">
+            <button type="button" className="btn-ghost" onClick={() => setVideos(structuredClone(adset.copy.videos))} disabled={saving}>Discard</button>
+            <button type="button" className="btn-primary" onClick={save} disabled={saving || rendering}>{saving ? 'Saving…' : 'Save storyboard'}</button>
+          </div>
+        )}
+      </div>
+      {error && <Alert onClose={() => setError(null)}>{error}</Alert>}
+      {videos.map((v, vi) => {
+        const seconds = Math.round(((v.length - (END_CARD[v.length] || 2.4)) / v.scenes.length) * 10) / 10;
+        return (
+          <div key={v.length} className="mb-6 last:mb-0">
+            {videos.length > 1 && <p className="mb-3 text-sm font-semibold">{v.length}-second video</p>}
+            <ol className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {v.scenes.map((sc, si) => sc.shot && (
+                <SceneCard key={si} scene={sc} index={si} seconds={seconds} clipId={adset.filmed?.[v.length]?.[si]} photos={photos}
+                  voice={adset.options.voiceover} disabled={rendering || saving} onChange={(next) => setScene(vi, si, next)} />
+              ))}
+            </ol>
+          </div>
+        );
+      })}
+      {dirty && <p className="mt-4 text-xs text-amber-200">You have unsaved changes to the storyboard.</p>}
+    </section>
+  );
+}
 
 /** Renders the changes: only the ads they touch, or every ad when all are current. */
 function GenerateBar({ adset, onChange, disabled }) {
+  const draft = adset.status === 'draft';
   const [working, setWorking] = useState(false);
   const [error, setError] = useState(null);
   const { pending } = adset;
@@ -63,12 +197,14 @@ function GenerateBar({ adset, onChange, disabled }) {
       {error && <Alert onClose={() => setError(null)}>{error}</Alert>}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-ink-300">
-          {pending
-            ? <><strong className="text-white">{pending} {pending === 1 ? 'ad needs' : 'ads need'} generating</strong> with your changes. The soundtrack stays the same unless you asked to change it.</>
-            : 'All ads are up to date with your changes.'}
+          {draft
+            ? <><strong className="text-white">Ready to film.</strong> Generate films each scene and makes {pending} {pending === 1 ? 'ad' : 'ads'} (a few minutes).</>
+            : pending
+              ? <><strong className="text-white">{pending} {pending === 1 ? 'ad needs' : 'ads need'} generating</strong> with your changes. The soundtrack stays the same unless you asked to change it.</>
+              : 'All ads are up to date with your changes.'}
         </p>
         <button type="button" className={pending ? 'btn-primary' : 'btn-secondary'} onClick={generate} disabled={disabled || working}>
-          <Clapperboard className="size-4" /> {working ? 'Starting…' : pending ? `Generate ${pending} ${pending === 1 ? 'ad' : 'ads'}` : 'Generate again'}
+          <Clapperboard className="size-4" /> {working ? 'Starting…' : draft ? 'Generate video' : pending ? `Generate ${pending} ${pending === 1 ? 'ad' : 'ads'}` : 'Generate again'}
         </button>
       </div>
     </div>
@@ -155,7 +291,7 @@ function ChangeRequests({ adset, onChange }) {
         {error && <Alert onClose={() => setError(null)}>{error}</Alert>}
         {!items.length && !sending && (
           <div className="mb-3 flex flex-wrap gap-2">
-            {SUGGESTIONS.map((s) => (
+            {(adset.options.aiScenes ? DIRECTED_SUGGESTIONS : SUGGESTIONS).map((s) => (
               <button key={s} type="button" className="chip transition hover:border-white/25 hover:text-white" onClick={() => setText(s)} disabled={locked}>{s}</button>
             ))}
           </div>
@@ -291,6 +427,8 @@ export default function AdSetDetail() {
     setData({ adset: a });
     if (busy(a)) reload(); // keeps polling while the ads re-render
   };
+  const draft = adset.status === 'draft';
+  const directed = Boolean(adset.options.aiScenes && adset.copy?.videos?.some((v) => v.scenes.some((sc) => sc.shot)));
 
   const newCopy = async () => {
     if (!window.confirm('Write brand-new copy and re-make every ad? Your edits will be replaced.')) return;
@@ -327,9 +465,11 @@ export default function AdSetDetail() {
       {adset.copy?.fallback && <Alert tone="warn">The AI copywriter was unavailable, so this copy was taken straight from your brief. Edit it below, or try <strong>New copy</strong> later.</Alert>}
       <AdSetProgress adset={adset} />
       {editing && adset.copy && <CopyEditor adset={adset} onSaved={(a) => { update(a); setEditing(false); }} onCancel={() => setEditing(false)} />}
+      {draft && <Storyboard adset={adset} onSaved={update} />}
       {adset.copy && adset.items.length > 0 && <ChangeRequests adset={adset} onChange={update} />}
-      {adset.items.length > 0 && <SharePanel adset={adset} onChange={update} />}
-      <AdGroups items={adset.items} />
+      {!draft && adset.items.length > 0 && <SharePanel adset={adset} onChange={update} />}
+      {!draft && <AdGroups items={adset.items} />}
+      {!draft && directed && <Storyboard adset={adset} onSaved={update} />}
       {adset.copy?.captions && (
         <section className="mb-10">
           <h2 className="mb-1 font-display text-lg font-bold">Post copy</h2>

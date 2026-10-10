@@ -243,6 +243,8 @@ ensureColumn('ads', 'rendered_sig', 'TEXT');
 // AI motion clips: the photo a clip was animated from, and its orientation (9:16 or 16:9).
 ensureColumn('assets', 'parent_id', 'TEXT');
 ensureColumn('assets', 'motion_aspect', 'TEXT');
+// AI-directed scenes: a filmed shot's key (its storyboard text, reference and shape), so unchanged scenes are reused.
+ensureColumn('assets', 'shot_key', 'TEXT');
 
 // House style: plain hyphens. Tidies AI-written text saved before that rule;
 // a no-op once clean. char(8212) is an em dash, char(8211) an en dash.

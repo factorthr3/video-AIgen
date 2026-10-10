@@ -11,7 +11,7 @@ import { musicTrack } from '../pipeline/music.js';
 import { writeCopy, SCENES_FOR } from './brief.js';
 import { renderVideoAd, renderStaticAd, buildAdAudio, loadLogo, END_CARD } from './render.js';
 import { soundtrack, musicBrief } from './soundtrack.js';
-import { motionEnabled, motionCandidates, motionAspects, animatePhotos, clipSeconds } from './motion.js';
+import { motionEnabled, motionCandidates, motionAspects, animatePhotos, clipSeconds, filmScenes, sceneKey } from './motion.js';
 
 export const ADSETS_DIR = path.join(DATA_DIR, 'adsets');
 export const adsetDir = (id) => path.join(ADSETS_DIR, id);
@@ -100,8 +100,8 @@ async function runAdSet(id) {
   const brief = parseJson(adset.brief, {});
   const options = parseJson(adset.options, {});
   const chosen = options.assetIds?.length
-    ? db.all(`SELECT * FROM assets WHERE brand_id = ? AND status = 'ready' AND kind != 'logo' AND id IN (${options.assetIds.map(() => '?').join(',')})`, brand.id, ...options.assetIds)
-    : db.all("SELECT * FROM assets WHERE brand_id = ? AND status = 'ready' AND kind != 'logo' ORDER BY created_at", brand.id);
+    ? db.all(`SELECT * FROM assets WHERE brand_id = ? AND status = 'ready' AND kind != 'logo' AND shot_key IS NULL AND id IN (${options.assetIds.map(() => '?').join(',')})`, brand.id, ...options.assetIds)
+    : db.all("SELECT * FROM assets WHERE brand_id = ? AND status = 'ready' AND kind != 'logo' AND shot_key IS NULL ORDER BY created_at", brand.id);
   if (!chosen.length) throw new Error('Add at least one photo or video to this brand, then try again.');
   // Keep the order the client picked them in (the storyboard leans on it without Claude).
   if (options.assetIds?.length) chosen.sort((x, y) => options.assetIds.indexOf(x.id) - options.assetIds.indexOf(y.id));
@@ -132,8 +132,11 @@ async function runAdSet(id) {
   }
   // An AI clip exists in up to two orientations; storyboards use one and each format gets the best fit.
   const twins = new Map(); // photo id -> { '9:16': clip, '16:9': clip }
-  for (const a of assets.values()) if (a.parent_id) twins.set(a.parent_id, { ...twins.get(a.parent_id), [a.motion_aspect]: a });
-  const forFormat = (scenes, format) => scenes.map((sc) => {
+  for (const a of assets.values()) if (a.parent_id && !a.shot_key) twins.set(a.parent_id, { ...twins.get(a.parent_id), [a.motion_aspect]: a });
+  let sceneClips = new Map(); // filmed AI-directed scenes: shot key -> clip
+  const forFormat = (scenes, format, length) => scenes.map((sc) => {
+    const filmed = sc.shot && sceneClips.get(sceneKey(sc, format, length, options));
+    if (filmed) return { ...sc, assetId: filmed.id };
     const a = assets.get(sc.assetId);
     const twin = a?.parent_id && twins.get(a.parent_id)?.[format === '16:9' ? '16:9' : '9:16'];
     return twin && twin.id !== a.id ? { ...sc, assetId: twin.id } : sc;
@@ -141,11 +144,19 @@ async function runAdSet(id) {
 
   // 2. Copy and storyboard (kept across re-renders until "new copy").
   if (!copy) {
-    setStage(id, 'Writing the copy', 0.08);
     const storyboardAssets = chosen.filter((a) => !a.parent_id || (twins.get(a.parent_id)['9:16'] || a) === a);
-    copy = await writeCopy({ brand, brief, assets: storyboardAssets, lengths: options.lengths, statics: options.statics, voiceover: options.voiceover, language: options.language });
+    setStage(id, options.aiScenes ? 'Writing the storyboard' : 'Writing the copy', 0.08);
+    copy = await writeCopy({ brand, brief, assets: storyboardAssets, lengths: options.lengths, statics: options.statics, voiceover: options.voiceover, language: options.language, directed: Boolean(options.aiScenes) });
     if (motionNote) copy.motionNote = motionNote;
     update('adsets', id, { copy: JSON.stringify(copy) });
+    // AI-directed: stop at the storyboard, so the client reviews and edits every scene before anything is filmed.
+    if (options.aiScenes) {
+      if (!db.get('SELECT 1 FROM ads WHERE adset_id = ? LIMIT 1', id)) {
+        for (const p of plannedAds(options)) insert('ads', { id: newId('ad'), adset_id: id, ...p, status: 'pending', created_at: now() });
+      }
+      update('adsets', id, { status: 'draft', stage: null, progress: 0, error: null, updated_at: now() });
+      return;
+    }
   }
 
   // 3. The ads to make.
@@ -160,7 +171,24 @@ async function runAdSet(id) {
   let musicNote = null;
 
   let done = total - todo.length;
-  const progress = (extra = 0) => 0.1 + 0.9 * ((done + extra) / total);
+  let base = 0.1; // progress before rendering starts
+  const progress = (extra = 0) => base + (1 - base) * ((done + extra) / total);
+
+  // 4. AI-directed: film the scenes (only new or edited ones), then render with them.
+  if (options.aiScenes && todo.some((ad) => ad.kind === 'video')) {
+    setStage(id, 'Filming your scenes', 0.05);
+    const filmed = await filmScenes({
+      brand, copy, options, assets,
+      onProgress: (n, t) => setStage(id, `Filming your scenes (${n} of ${t} shots)`, 0.05 + 0.55 * (n / t)),
+    });
+    sceneClips = filmed.clips;
+    for (const clip of sceneClips.values()) assets.set(clip.id, clip);
+    const latest = parseJson(db.get('SELECT copy FROM adsets WHERE id = ?', id).copy, {});
+    const note = filmed.failed ? `${filmed.failed} of ${filmed.total} scenes couldn't be filmed, so they show your photo instead. Generate again to retry them.` : null;
+    copy = { ...latest, motionNote: note };
+    update('adsets', id, { copy: JSON.stringify(copy) });
+    base = 0.6;
+  }
   for (const ad of todo) {
     setStage(id, ad.kind === 'video' ? `Rendering the ${ad.length}s ${ad.format} video` : `Designing the ${ad.format} image ad`, progress());
     update('ads', ad.id, { status: 'processing', error: null, updated_at: now() });
@@ -176,7 +204,7 @@ async function runAdSet(id) {
         }
         const { scenes, audio, endCard } = audioFor.get(ad.length);
         await withRender(() => renderVideoAd({
-          brand, logo, assets, scenes: forFormat(scenes, ad.format), endCard, copy, format: ad.format, style: options.style, url: brief.url,
+          brand, logo, assets, scenes: forFormat(scenes, ad.format, ad.length), endCard, copy, format: ad.format, style: options.style, url: brief.url,
           audioFile: audio, out: adFile(ad), thumbOut: adThumb(ad),
           onProgress: (p) => setStage(id, `Rendering the ${ad.length}s ${ad.format} video`, progress(p)),
         }));

@@ -6,12 +6,13 @@
 // ad sets reuse them instead of making new ones.
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
 import { config } from '../config.js';
 import { db, newId, parseJson } from '../db.js';
-import { ASSETS_INCOMING, assetFile, cropFor, addGeneratedClip, imageForClaude } from './assets.js';
+import { ASSETS_INCOMING, assetFile, assetThumb, cropFor, addGeneratedClip, imageForClaude } from './assets.js';
 import { claude, modelParams, SCENES_FOR } from './brief.js';
 import { END_CARD } from './render.js';
 
@@ -210,7 +211,7 @@ async function makeClip(shot) {
 }
 
 // ---------- making clips ----------
-const clipOf = (photoId, aspect) => db.get("SELECT * FROM assets WHERE parent_id = ? AND motion_aspect = ? AND status != 'failed' ORDER BY created_at DESC LIMIT 1", photoId, aspect);
+const clipOf = (photoId, aspect) => db.get("SELECT * FROM assets WHERE parent_id = ? AND motion_aspect = ? AND shot_key IS NULL AND status != 'failed' ORDER BY created_at DESC LIMIT 1", photoId, aspect);
 
 async function inPool(items, size, fn) {
   const queue = [...items];
@@ -235,7 +236,7 @@ export async function animatePhotos({ brand, brief, photos, aspects, seconds = 4
       const video = await makeClip({ image: await startFrame(j.photo, j.aspect), aspect: j.aspect, prompt: prompts[j.photo.id] || templatePrompt(j.photo), seconds });
       const file = path.join(ASSETS_INCOMING, `${newId('veo')}.mp4`);
       fs.writeFileSync(file, video);
-      addGeneratedClip({ photo: j.photo, file, aspect: j.aspect });
+      addGeneratedClip({ brand, photo: j.photo, file, aspect: j.aspect });
     } catch (err) {
       console.error(`[motion] clip from ${j.photo.id} (${j.aspect}) failed:`, err.message);
     }
@@ -253,4 +254,140 @@ export async function animatePhotos({ brand, brief, photos, aspects, seconds = 4
     if (clip?.status === 'ready') clips.push(clip);
   }
   return { clips, failed: jobs.length - clips.length, total: jobs.length };
+}
+
+// ---------- AI-directed scenes ----------
+// Each storyboard scene is filmed as one shot: an opening frame built around the
+// brand's product photo (an image model), then animated with the scene's action
+// (Seedance, or Veo as the backup). Filmed shots are keyed by their text,
+// reference and shape, so editing one scene only re-films that scene.
+
+const shapeFor = (format) => (format === '16:9' ? '16:9' : '9:16');
+/** Clip length for a scene in a video of this length (a second longer with a voiceover, which can stretch scenes). */
+const sceneSeconds = (length, options) => clipSeconds([length]) + (options.voiceover ? 1 : 0);
+
+export function shotKey(scene, aspect, seconds) {
+  const parts = [scene.shot?.frame, scene.shot?.action, scene.assetId, aspect, seconds, config.gemini.key ? config.gemini.frameModel : 'photo', config.fal.key ? config.fal.motionModel : 'veo'];
+  return crypto.createHash('sha1').update(JSON.stringify(parts)).digest('hex').slice(0, 20);
+}
+/** The shot key a scene of a `length`-second video uses in a format. */
+export const sceneKey = (scene, format, length, options) => shotKey(scene, shapeFor(format), sceneSeconds(length, options));
+const filmedShot = (brandId, key) => db.get("SELECT * FROM assets WHERE brand_id = ? AND shot_key = ? AND status != 'failed' ORDER BY created_at DESC LIMIT 1", brandId, key);
+
+/** An image cover-cropped to the clip's exact frame, as JPEG. */
+async function fitFrame(buffer, aspect) {
+  const [w, h] = FRAME[aspect];
+  const img = await loadImage(buffer);
+  const scale = Math.max(w / img.width, h / img.height);
+  const sw = w / scale;
+  const sh = h / scale;
+  const canvas = createCanvas(w, h);
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, 0, 0, w, h);
+  return canvas.encode('jpeg', 92);
+}
+
+/** The reference photo as JPEG (a video's thumbnail stands in for the video). */
+async function referenceImage(asset) {
+  const file = asset.kind === 'video' ? assetThumb(asset) : assetFile(asset);
+  const img = await loadImage(fs.readFileSync(file));
+  const scale = Math.min(1, 1536 / Math.max(img.width, img.height));
+  const canvas = createCanvas(Math.round(img.width * scale), Math.round(img.height * scale));
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff'; // flatten cut-outs
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas.encode('jpeg', 90);
+}
+
+/** The opening frame of a shot: a new photo built around the product, or the reference photo itself without an image model. */
+async function sceneFrame({ shot, reference, aspect }) {
+  if (!config.gemini.key) {
+    if (!reference || reference.kind !== 'image') throw new Error('No image model and no photo for this scene.');
+    return startFrame(reference, aspect);
+  }
+  const parts = [];
+  if (reference) parts.push({ inlineData: { mimeType: 'image/jpeg', data: (await referenceImage(reference)).toString('base64') } });
+  parts.push({
+    text: `${reference ? 'Use the product from the reference photo exactly as it is: the same shape, colours, materials, label, logo and details. ' : ''}New photo: ${shot.frame} `
+      + `Photorealistic commercial photography with natural light and real shadows, sharp focus on the subject, ${aspect === '9:16' ? 'vertical 9:16' : 'horizontal 16:9'} composition with the subject in the centre. `
+      + 'No added text, captions, watermarks or extra logos.',
+  });
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(`${config.gemini.baseUrl}/models/${config.gemini.frameModel}:generateContent`, {
+      method: 'POST',
+      headers: { 'x-goog-api-key': config.gemini.key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: aspect } } }),
+      signal: AbortSignal.timeout(120_000),
+    });
+    const data = await res.json().catch(() => ({}));
+    if ((res.status === 429 || res.status >= 500) && attempt < 3) {
+      await sleep(10_000 * (attempt + 1));
+      continue;
+    }
+    const image = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
+    if (!res.ok || !image) throw new Error(`Frame: ${res.status} ${data.error?.message || data.candidates?.[0]?.finishReason || data.promptFeedback?.blockReason || 'no image'}`.slice(0, 200));
+    return fitFrame(Buffer.from(image.inlineData.data, 'base64'), aspect);
+  }
+}
+
+const actionPrompt = (shot) => `${shot.action} Photorealistic, smooth and natural motion that starts straight away; the product keeps its exact shape, colours, label and logo throughout. No text appears.`;
+
+/**
+ * Film every AI-directed scene of the ad set's videos in the shapes its formats
+ * need (reusing shots filmed before). Returns shot key -> clip, and how many
+ * couldn't be filmed (those scenes fall back to their reference photo).
+ */
+export async function filmScenes({ brand, copy, options, assets, onProgress }) {
+  const jobs = new Map();
+  for (const video of copy.videos || []) {
+    if (!options.lengths.includes(video.length)) continue;
+    const seconds = sceneSeconds(video.length, options);
+    for (const scene of video.scenes) {
+      if (!scene.shot) continue;
+      for (const aspect of motionAspects(options.formats)) {
+        const key = shotKey(scene, aspect, seconds);
+        if (!jobs.has(key)) jobs.set(key, { key, scene, aspect, seconds });
+      }
+    }
+  }
+  const all = [...jobs.values()];
+  const todo = all.filter((j) => !filmedShot(brand.id, j.key));
+  let done = all.length - todo.length;
+  onProgress?.(done, all.length);
+  await inPool(todo, 3, async (j) => {
+    try {
+      const reference = assets.get(j.scene.assetId) || db.get("SELECT * FROM assets WHERE id = ? AND brand_id = ? AND status = 'ready'", j.scene.assetId, brand.id) || null;
+      const image = await sceneFrame({ shot: j.scene.shot, reference, aspect: j.aspect });
+      const video = await makeClip({ image, aspect: j.aspect, prompt: actionPrompt(j.scene.shot), seconds: j.seconds });
+      const file = path.join(ASSETS_INCOMING, `${newId('shot')}.mp4`);
+      fs.writeFileSync(file, video);
+      addGeneratedClip({ brand, photo: reference, file, aspect: j.aspect, shotKey: j.key });
+    } catch (err) {
+      console.error(`[scenes] shot ${j.key} (${j.aspect}) failed:`, err.message);
+    }
+    onProgress?.(++done, all.length);
+  });
+  const deadline = Date.now() + 8 * 60_000;
+  const clips = new Map();
+  for (const j of all) {
+    let clip = filmedShot(brand.id, j.key);
+    while (clip?.status === 'processing' && Date.now() < deadline) {
+      await sleep(1500);
+      clip = db.get('SELECT * FROM assets WHERE id = ?', clip.id);
+    }
+    if (clip?.status === 'ready') clips.set(j.key, clip);
+  }
+  return { clips, failed: all.length - clips.size, total: all.length };
+}
+
+/** For the storyboard: the filmed clip of each scene (vertical when there is one), by video length. */
+export function filmedScenes(adset) {
+  const copy = parseJson(adset.copy, null);
+  const options = parseJson(adset.options, {});
+  if (!options.aiScenes || !copy?.videos) return null;
+  const format = options.formats?.find((f) => f !== '16:9') || '16:9';
+  const ready = (clip) => (clip?.status === 'ready' ? clip.id : null);
+  return Object.fromEntries(copy.videos.map((v) => [v.length, v.scenes.map((sc) => (sc.shot ? ready(filmedShot(adset.brand_id, sceneKey(sc, format, v.length, options))) : null))]));
 }

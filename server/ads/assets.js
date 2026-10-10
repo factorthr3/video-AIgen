@@ -47,7 +47,8 @@ export function publicAsset(a) {
   };
 }
 
-export const brandAssets = (brandId) => db.all("SELECT * FROM assets WHERE brand_id = ? AND kind != 'logo' ORDER BY created_at DESC", brandId);
+// The brand's library: uploads and AI motion clips (filmed storyboard scenes stay with their ad sets).
+export const brandAssets = (brandId) => db.all("SELECT * FROM assets WHERE brand_id = ? AND kind != 'logo' AND shot_key IS NULL ORDER BY created_at DESC", brandId);
 
 // ---------- uploads ----------
 export function addAsset(user, brand, file, { logo = false } = {}) {
@@ -70,18 +71,22 @@ export function addAsset(user, brand, file, { logo = false } = {}) {
   return asset;
 }
 
-/** Save an AI motion clip (a video file already on disk) made from `photo`, and process it like an upload. */
-export function addGeneratedClip({ photo, file, aspect }) {
+/**
+ * Save an AI clip (a video file already on disk) and process it like an upload:
+ * an AI motion clip made from `photo`, or a filmed storyboard scene (`shotKey`).
+ */
+export function addGeneratedClip({ brand, photo, file, aspect, shotKey = null }) {
   const asset = insert('assets', {
     id: newId('as'),
-    user_id: photo.user_id,
-    brand_id: photo.brand_id,
+    user_id: brand.user_id,
+    brand_id: brand.id,
     kind: 'video',
-    original_name: `AI motion - ${photo.original_name || 'photo'}`.slice(0, 120),
+    original_name: (shotKey ? 'AI scene' : `AI motion - ${photo?.original_name || 'photo'}`).slice(0, 120),
     source: file,
     status: 'processing',
-    parent_id: photo.id,
+    parent_id: photo?.id || null,
     motion_aspect: aspect,
+    shot_key: shotKey,
     created_at: now(),
   });
   enqueue(asset.id);

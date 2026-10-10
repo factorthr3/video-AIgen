@@ -78,6 +78,8 @@ export const config = {
     videoModel: env.GOOGLE_VIDEO_MODEL || 'veo-3.1-lite-generate-preview',
     // 720p allows 4/6/8-second clips; 1080p and 4k require 8 seconds.
     resolution: env.GOOGLE_VIDEO_RESOLUTION || '720p',
+    // Opening frames for AI-directed scenes, built around the brand's product photo (about $0.03 each).
+    frameModel: env.SCENE_FRAME_MODEL || 'gemini-nano-banana-2.1',
   },
   imageProvider: env.IMAGE_PROVIDER || 'auto', // auto | openai | pollinations | procedural
   ttsProvider: env.TTS_PROVIDER || 'auto', // auto | elevenlabs | openai | system | silent
