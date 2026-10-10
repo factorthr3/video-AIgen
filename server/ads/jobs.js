@@ -28,6 +28,7 @@ export function adSignature(copy, options, ad) {
     parts.video = copy.videos?.find((v) => v.length === ad.length) || null;
     parts.voice = options.voiceover ? options.voice : null;
     parts.music = options.music;
+    if (options.endCard) parts.endCard = options.endCard;
     if (options.music === 'ai') parts.soundtrack = musicBrief({ mood: options.musicMood, copyBrief: copy.music, style: options.style });
   }
   return crypto.createHash('sha1').update(JSON.stringify(parts)).digest('hex').slice(0, 16);
@@ -204,7 +205,7 @@ async function runAdSet(id) {
         }
         const { scenes, audio, endCard } = audioFor.get(ad.length);
         await withRender(() => renderVideoAd({
-          brand, logo, assets, scenes: forFormat(scenes, ad.format, ad.length), endCard, copy, format: ad.format, style: options.style, url: brief.url,
+          brand, logo, assets, scenes: forFormat(scenes, ad.format, ad.length), endCard, closing: options.endCard, copy, format: ad.format, style: options.style, url: brief.url,
           audioFile: audio, out: adFile(ad), thumbOut: adThumb(ad),
           onProgress: (p) => setStage(id, `Rendering the ${ad.length}s ${ad.format} video`, progress(p)),
         }));

@@ -41,6 +41,7 @@ export function publicAsset(a) {
     description: analysis?.description || null,
     category: analysis?.category || null,
     quality: analysis?.quality || null,
+    background: a.kind === 'logo' ? a.bg_color || null : undefined, // a logo's solid background colour
     ai: Boolean(a.parent_id), // an AI motion clip made from one of the brand's photos
     madeFrom: a.parent_id || null,
     createdAt: a.created_at,
@@ -219,7 +220,10 @@ async function processAsset(id) {
     fs.writeFileSync(assetThumb(done), alpha ? await thumb.encode('png') : await thumb.encode('jpeg', 82));
     fs.rmSync(asset.source, { force: true });
     update('assets', id, { status: 'ready', source: null, width: w, height: h, has_alpha: alpha ? 1 : 0 });
-    if (asset.kind === 'logo') setBrandColorsFromLogo(asset.brand_id, ctx, w, h);
+    if (asset.kind === 'logo') {
+      setBrandColorsFromLogo(asset.brand_id, ctx, w, h);
+      update('assets', id, { bg_color: alpha ? '' : logoLook(ctx, w, h).background || '' });
+    }
   }
   // Claude's read of the asset is a bonus: ads still work without it.
   await analyzeAsset(id).catch((err) => console.error(`[assets] analysis of ${id} failed:`, err.message));
@@ -240,6 +244,64 @@ export function resumeAssetProcessing() {
 
 // ---------- brand colours from the logo ----------
 // Quantise opaque, saturated pixels and keep the most common distinct colours.
+/**
+ * How a logo image is laid out: the solid colour behind it (when its edges are
+ * one opaque colour) and the box its visible mark fills, so closing cards can
+ * bleed the colour full screen and size the mark itself, not its padding.
+ */
+export function logoLook(ctx, w, h) {
+  const data = ctx.getImageData(0, 0, w, h).data;
+  const at = (x, y) => (y * w + x) * 4;
+  const edge = [];
+  for (let x = 0; x < w; x++) for (const y of [0, 1, h - 2, h - 1]) if (y >= 0 && y < h) edge.push(at(x, y));
+  for (let y = 2; y < h - 2; y++) for (const x of [0, 1, w - 2, w - 1]) if (x >= 0 && x < w) edge.push(at(x, y));
+  const opaque = edge.filter((i) => data[i + 3] > 200);
+  let background = null;
+  if (opaque.length > edge.length * 0.9) {
+    const med = [0, 1, 2].map((c) => opaque.map((i) => data[i + c]).sort((a, b) => a - b)[opaque.length >> 1]);
+    const near = opaque.filter((i) => Math.max(...[0, 1, 2].map((c) => Math.abs(data[i + c] - med[c]))) <= 28).length;
+    if (near > edge.length * 0.85) background = rgbToHex(med);
+  }
+  // The visible mark: pixels that differ from the background (or aren't transparent).
+  const bg = background ? background.match(/\w\w/g).map((x) => parseInt(x, 16)) : null;
+  let x0 = w; let y0 = h; let x1 = -1; let y1 = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = at(x, y);
+      const ink = bg ? data[i + 3] > 128 && Math.max(Math.abs(data[i] - bg[0]), Math.abs(data[i + 1] - bg[1]), Math.abs(data[i + 2] - bg[2])) > 40 : data[i + 3] > 40;
+      if (!ink) continue;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+  }
+  if (x1 < 0) return { background, bounds: null };
+  const m = Math.round(Math.max(x1 - x0, y1 - y0) * 0.04);
+  x0 = Math.max(0, x0 - m); y0 = Math.max(0, y0 - m); x1 = Math.min(w - 1, x1 + m); y1 = Math.min(h - 1, y1 + m);
+  return { background, bounds: { x: x0 / w, y: y0 / h, w: (x1 - x0 + 1) / w, h: (y1 - y0 + 1) / h } };
+}
+
+/** Logos uploaded before closing cards knew their background colour. */
+export async function backfillLogoBackgrounds() {
+  for (const a of db.all("SELECT * FROM assets WHERE kind = 'logo' AND status = 'ready' AND bg_color IS NULL")) {
+    try {
+      let bg = '';
+      if (!a.has_alpha) {
+        const img = await loadImage(fs.readFileSync(assetFile(a)));
+        const w = Math.min(400, img.width);
+        const h = Math.max(1, Math.round((w * img.height) / img.width));
+        const c = createCanvas(w, h);
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        bg = logoLook(c.getContext('2d'), w, h).background || '';
+      }
+      update('assets', a.id, { bg_color: bg });
+    } catch (err) {
+      console.error(`[assets] logo background for ${a.id}:`, err.message);
+    }
+  }
+}
+
 export function extractColors(ctx, w, h, max = 3) {
   const data = ctx.getImageData(0, 0, w, h).data;
   const buckets = new Map();

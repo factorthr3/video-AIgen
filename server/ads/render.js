@@ -8,7 +8,7 @@ import { createCanvas, loadImage, ImageData } from '@napi-rs/canvas';
 import { config } from '../config.js';
 import { ffmpeg } from '../pipeline/ffmpeg.js';
 import { FORMATS, STYLE, BRAND_FONT, palette, textOn, luminance, rgbToHex } from './design.js';
-import { assetFile, cropFor, extractColors } from './assets.js';
+import { assetFile, cropFor, extractColors, logoLook } from './assets.js';
 
 const FPS = 30;
 const TRANSITION = 0.35;
@@ -297,27 +297,34 @@ function drawText(ctx, d, lay, p, ctaReserve = 0) {
   ctx.restore();
 }
 
+// The logo's visible mark (its padding cropped away), in image pixels.
+const markOf = (logo) => {
+  const b = logo.bounds || { x: 0, y: 0, w: 1, h: 1 };
+  return { sx: b.x * logo.img.width, sy: b.y * logo.img.height, sw: b.w * logo.img.width, sh: b.h * logo.img.height };
+};
+
 function drawLogo(ctx, d, logo, alpha = 1) {
   if (!logo) return;
+  const m = markOf(logo);
   const h = d.U * 0.065;
-  const w = Math.min((logo.img.width / logo.img.height) * h, d.U * 0.34);
-  const hh = (logo.img.height / logo.img.width) * w;
+  const w = Math.min((m.sw / m.sh) * h, d.U * 0.34);
+  const hh = (m.sh / m.sw) * w;
   const x = d.box.x0;
   const y = d.box.y0 - (d.fmt.id === '9:16' ? d.H * 0.02 : 0);
   ctx.save();
   ctx.globalAlpha *= alpha;
   if (!logo.transparent || !logo.mono) {
-    // Logos with a solid background, or in several colours, sit on a white tile.
-    const pad = h * 0.18;
-    ctx.fillStyle = '#ffffff';
+    // Logos with a solid background sit on a tile of that colour; multi-colour cut-outs on white.
+    const pad = h * 0.22;
+    ctx.fillStyle = logo.background || '#ffffff';
     roundRect(ctx, x - pad, y - pad, w + pad * 2, hh + pad * 2, pad);
     ctx.fill();
-    ctx.drawImage(logo.img, x, y, w, hh);
+    ctx.drawImage(logo.img, m.sx, m.sy, m.sw, m.sh, x, y, w, hh);
   } else {
     // Single-colour logos turn white over imagery (as brands do).
     ctx.shadowColor = 'rgba(0,0,0,0.35)';
     ctx.shadowBlur = h * 0.3;
-    ctx.drawImage(logo.white, x, y, w, hh);
+    ctx.drawImage(logo.white, m.sx, m.sy, m.sw, m.sh, x, y, w, hh);
   }
   ctx.restore();
 }
@@ -372,48 +379,91 @@ function drawButton(ctx, d, label, cx, cy, alpha = 1, scale = 1) {
   return h;
 }
 
-// The closing card: logo, call to action and link on a clean background.
-function drawEndCard(ctx, d, { logo, brandName, cta, url }, local) {
+/** The closing card's look for an ad set: logo size (1 small, 2 standard, 3 edge to edge) and background. */
+export function closingCard(settings, logo, d) {
+  const size = Math.max(0.5, Math.min(3, Number(settings?.logoSize) || 2));
+  const choice = String(settings?.background || 'auto');
+  // 'auto': the logo's own background colour bleeds full screen (it blends in); without one, a dark or light stage.
+  const flat = /^#[0-9a-f]{6}$/i.test(choice) ? choice : choice === 'brand' ? d.pal.primary : logo?.background || null;
+  return { size, flat };
+}
+
+// The closing card: the logo landing on a full-bleed background, then the call to action and link.
+function drawEndCard(ctx, d, { logo, brandName, cta, url, settings, dur = 2.4 }, local) {
   const { W, H, U } = d;
-  // Pick a background the logo reads on (logos are often in the brand colour).
-  const bg = logo?.dark ? '#f6f5f2' : '#0d0d12';
+  const { size, flat } = closingCard(settings, logo, d);
+  const bg = flat || (logo?.dark ? '#f6f5f2' : '#0d0d12');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
-  const glow = ctx.createRadialGradient(W / 2, H * 0.42, 0, W / 2, H * 0.42, Math.max(W, H) * 0.6);
-  glow.addColorStop(0, `${d.pal.primary}33`);
-  glow.addColorStop(1, `${d.pal.primary}00`);
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, W, H);
+  if (!flat) {
+    // A slow breathing glow in the brand colour behind the logo.
+    const r = Math.max(W, H) * (0.55 + 0.08 * easeInOut(clamp01(local / dur)));
+    const glow = ctx.createRadialGradient(W / 2, H * 0.44, 0, W / 2, H * 0.44, r);
+    glow.addColorStop(0, `${d.pal.primary}40`);
+    glow.addColorStop(1, `${d.pal.primary}00`);
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
+  }
   const fg = textOn(bg);
-  const p = easeOut(local / 0.6);
-  const midY = d.box.y0 + (d.box.y1 - d.box.y0) * 0.42;
-  ctx.save();
-  ctx.globalAlpha *= p;
+  // The logo lands (scale and fade), then keeps drifting forward a touch.
+  const land = easeOutBack(clamp01(local / 0.7));
+  const drift = 1 + 0.05 * easeInOut(clamp01((local - 0.6) / Math.max(0.5, dur - 0.6)));
+  const appear = easeOut(local / 0.45);
+  let lw = 0;
+  let lh = U * 0.12;
+  let m = null;
   if (logo) {
-    const maxW = Math.min(W * 0.55, U * 0.6);
-    const maxH = U * 0.24;
-    const s = Math.min(maxW / logo.img.width, maxH / logo.img.height) * (0.94 + 0.06 * p);
-    const lw = logo.img.width * s;
-    const lh = logo.img.height * s;
-    if (!logo.transparent) {
-      const pad = U * 0.03;
+    m = markOf(logo);
+    // 1 = small, 2 = standard, 3 = three times the small size (up to edge to edge).
+    const s = Math.min(Math.min(W * 0.9, W * 0.32 * size) / m.sw, Math.min(H * 0.42, U * 0.14 * size) / m.sh);
+    lw = m.sw * s;
+    lh = m.sh * s;
+  }
+  // Centre the logo, button and link as one block.
+  const btnGap = U * 0.1;
+  const blockH = lh + btnGap + U * 0.1 + (url ? U * 0.07 : 0);
+  const midY = Math.max(d.box.y0 + lh / 2, H / 2 - blockH / 2 + lh / 2);
+  ctx.save();
+  ctx.globalAlpha *= appear;
+  ctx.translate(W / 2, midY);
+  ctx.scale((0.82 + 0.18 * land) * drift, (0.82 + 0.18 * land) * drift);
+  if (logo) {
+    if (!logo.transparent && logo.background && logo.background.toLowerCase() !== bg.toLowerCase()) {
+      // Shown on a different colour, the logo keeps a tile of its own background.
+      const pad = U * 0.035;
+      ctx.fillStyle = logo.background;
+      roundRect(ctx, -lw / 2 - pad, -lh / 2 - pad, lw + pad * 2, lh + pad * 2, pad);
+      ctx.fill();
+    } else if (!logo.transparent && !logo.background) {
+      const pad = U * 0.035;
       ctx.fillStyle = '#ffffff';
-      roundRect(ctx, W / 2 - lw / 2 - pad, midY - lh / 2 - pad, lw + pad * 2, lh + pad * 2, pad);
+      roundRect(ctx, -lw / 2 - pad, -lh / 2 - pad, lw + pad * 2, lh + pad * 2, pad);
       ctx.fill();
     }
-    ctx.drawImage(logo.img, W / 2 - lw / 2, midY - lh / 2, lw, lh);
+    ctx.drawImage(logo.img, m.sx, m.sy, m.sw, m.sh, -lw / 2, -lh / 2, lw, lh);
   } else {
     ctx.fillStyle = fg;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const { lines, size } = fit(ctx, brandName, d.fonts.heading, Math.round(U * 0.11), W * 0.8, 2);
-    ctx.font = `${size}px "${d.fonts.heading}"`;
-    lines.forEach((l, i) => ctx.fillText(l, W / 2, midY + (i - (lines.length - 1) / 2) * size * 1.1));
+    const { lines, size: ts } = fit(ctx, brandName, d.fonts.heading, Math.round(U * 0.11 * Math.min(2, size)), W * 0.86, 2);
+    ctx.font = `${ts}px "${d.fonts.heading}"`;
+    lines.forEach((l, i) => ctx.fillText(l, 0, (i - (lines.length - 1) / 2) * ts * 1.1));
   }
   ctx.restore();
-  const bp = easeOutBack(clamp01((local - 0.3) / 0.5));
-  const btnY = midY + U * 0.22;
-  const bh = drawButton(ctx, d, cta, W / 2, btnY, clamp01((local - 0.25) / 0.3), 0.85 + 0.15 * bp);
+  // A soft band of light sweeps across once the logo has landed.
+  const sweep = clamp01((local - 0.55) / 0.9);
+  if (sweep > 0 && sweep < 1) {
+    const x = -W * 0.4 + sweep * W * 1.8;
+    const band = ctx.createLinearGradient(x - W * 0.25, 0, x + W * 0.25, H * 0.35);
+    band.addColorStop(0, 'rgba(255,255,255,0)');
+    band.addColorStop(0.5, `rgba(255,255,255,${luminance(bg) > 0.6 ? 0.18 : 0.1})`);
+    band.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = band;
+    ctx.fillRect(0, 0, W, H);
+  }
+  const bp = easeOutBack(clamp01((local - 0.45) / 0.5));
+  const btnY = midY + lh / 2 + btnGap;
+  const bh = drawButton(ctx, d, cta, W / 2, btnY, clamp01((local - 0.4) / 0.3), 0.85 + 0.15 * bp);
   if (url) {
     ctx.save();
     ctx.globalAlpha *= clamp01((local - 0.45) / 0.4);
@@ -454,7 +504,10 @@ export async function loadLogo(asset) {
   const sctx = sample.getContext('2d');
   sctx.drawImage(img, 0, 0, sample.width, sample.height);
   const mono = extractColors(sctx, sample.width, sample.height, 2).length < 2;
-  return { img, white, mono, transparent: Boolean(asset.has_alpha), dark: n ? sum / n < 0.5 : false };
+  // Its solid background colour (if any) and the box its visible mark fills.
+  const look = logoLook(sctx, sample.width, sample.height);
+  const background = asset.has_alpha ? null : asset.bg_color || look.background;
+  return { img, white, mono, transparent: Boolean(asset.has_alpha), dark: n ? sum / n < 0.5 : false, background, bounds: look.bounds };
 }
 
 const domain = (url) => (url ? String(url).trim() : '');
@@ -464,7 +517,7 @@ const domain = (url) => (url ? String(url).trim() : '');
  * scenes: [{ headline, subline, assetId }], each with `duration` (seconds);
  * the end card follows. assets: Map of id -> asset row.
  */
-export async function renderVideoAd({ brand, logo, assets, scenes, endCard, copy, format, style, url, audioFile, out, thumbOut, onProgress }) {
+export async function renderVideoAd({ brand, logo, assets, scenes, endCard, closing, copy, format, style, url, audioFile, out, thumbOut, onProgress }) {
   const d = designFor({ brand, style, format });
   const { W, H } = d;
   let t = 0;
@@ -550,7 +603,7 @@ export async function renderVideoAd({ brand, logo, assets, scenes, endCard, copy
   });
   proc.stdin.on('error', () => {});
 
-  const endInfo = { logo, brandName: brand.name, cta: copy.cta, url: domain(url) };
+  const endInfo = { logo, brandName: brand.name, cta: copy.cta, url: domain(url), settings: closing, dur: endCard };
   const thumbFrame = Math.min(totalFrames - 1, Math.round(FPS * Math.min(1.2, timeline[0]?.duration * 0.6 || 1)));
   let idx = 0;
   try {
@@ -645,6 +698,16 @@ export async function buildAdAudio({ duration, music, voices = [], fade = 1.2, o
 }
 
 // ---------- static image ads ----------
+/** A still of the finished closing scene (for the storyboard preview), as PNG at a third of full size. */
+export async function renderClosingPreview({ brand, logo, cta, url, settings, style, format = '9:16' }) {
+  const d = designFor({ brand, style, format });
+  const canvas = createCanvas(d.W, d.H);
+  drawEndCard(canvas.getContext('2d'), d, { logo, brandName: brand.name, cta, url: domain(url), settings, dur: 2.4 }, 2.4);
+  const small = createCanvas(Math.round(d.W / 3), Math.round(d.H / 3));
+  small.getContext('2d').drawImage(canvas, 0, 0, small.width, small.height);
+  return small.encode('png');
+}
+
 export async function renderStaticAd({ brand, logo, asset, headline, subline, copy, format, style, out, thumbOut }) {
   const d = designFor({ brand, style, format });
   const { W, H } = d;

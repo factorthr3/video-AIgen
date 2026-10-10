@@ -11,7 +11,7 @@ import { HttpError, usage } from './services.js';
 import { musicTrack, MUSIC_IDS } from './pipeline/music.js';
 import { voicePreview } from './pipeline/tts.js';
 import { resumeAdSets, adsetDir } from './ads/jobs.js';
-import { resumeAssetProcessing, removeBrandAssetFiles } from './ads/assets.js';
+import { resumeAssetProcessing, removeBrandAssetFiles, backfillLogoBackgrounds } from './ads/assets.js';
 import {
   provider as billingProvider, testMode, isAdmin, billingInfo, displayPlans, choosePlan, portalUrl, cancelPlan, cancelSubscriptionNow,
   handleStripeWebhook, handlePaystackWebhook, confirmPaystackReturn, paystackEnabled, warmUp as warmUpBilling,
@@ -179,6 +179,7 @@ app.listen(config.port, () => {
   console.log(`  payments: ${billingProvider() ? `${billingProvider()}${testMode() ? ' (test mode)' : ''}` : 'off'}`);
   warmUpBilling();
   resumeAssetProcessing();
+  backfillLogoBackgrounds().catch(() => {});
   resumeAdSets();
   // Warm the synthesised music beds in the background.
   (async () => {

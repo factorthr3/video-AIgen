@@ -96,3 +96,13 @@ export function palette(colors = []) {
   const accent = valid[1] || primary;
   return { primary, accent, dark: '#0b0b10', light: '#ffffff' };
 }
+
+/** Closing card settings: logo size 0.5 to 3 (2 = standard), background 'auto', 'brand' or a hex colour. */
+export function cleanEndCard(e) {
+  if (!e || typeof e !== 'object') return null;
+  const background = String(e.background || 'auto').toLowerCase();
+  return {
+    logoSize: Math.round(Math.max(0.5, Math.min(3, Number(e.logoSize) || 2)) * 100) / 100,
+    background: background === 'brand' || /^#[0-9a-f]{6}$/.test(background) ? background : 'auto',
+  };
+}

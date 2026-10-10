@@ -120,20 +120,64 @@ function SceneCard({ scene, index, seconds, clipId, photos, voice, disabled, onC
   );
 }
 
+/** The closing scene's look: logo size and background, with a rough preview. */
+function ClosingScene({ adsetId, value, onChange, brand, disabled }) {
+  const logo = brand?.logo;
+  const custom = /^#/.test(value.background);
+  const bg = custom ? value.background : value.background === 'brand' ? brand?.colors?.[0] || '#0d0d12' : logo?.background || '#0d0d12';
+  const pick = (background) => onChange({ ...value, background });
+  const chip = (on) => `chip transition ${on ? 'border-white bg-white text-ink-950' : 'hover:border-white/30 hover:text-white'}`;
+  // Drawn by the video renderer itself, so it matches the finished ad.
+  const preview = `/api/adsets/${adsetId}/closing.png?logoSize=${value.logoSize}&background=${encodeURIComponent(value.background)}&v=${logo?.id || ''}`;
+  return (
+    <div className="mt-6 grid gap-5 rounded-xl border border-white/10 bg-ink-850 p-4 sm:grid-cols-[170px_1fr]">
+      <img src={preview} alt="Closing scene preview" className="mx-auto aspect-[9/16] w-[150px] rounded-lg border border-white/10 object-cover" style={{ background: bg }} />
+      <div className="space-y-4">
+        <div>
+          <p className="font-semibold">Closing scene</p>
+          <p className="text-xs text-ink-400">Your logo lands, a light sweeps across it, then the button and link appear. A logo uploaded on a coloured background fills the whole screen with that colour.</p>
+        </div>
+        <div>
+          <label className="label" htmlFor="logo-size">Logo size <span className="normal-case text-ink-300">{value.logoSize}×</span></label>
+          <input id="logo-size" type="range" min={0.5} max={3} step={0.25} value={value.logoSize} onChange={(e) => onChange({ ...value, logoSize: Number(e.target.value) })} disabled={disabled} className="w-full accent-brand-500" />
+          <div className="flex justify-between text-[11px] text-ink-400"><span>Small</span><span>Standard</span><span>Edge to edge</span></div>
+        </div>
+        <div>
+          <p className="label">Background</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className={chip(value.background === 'auto')} onClick={() => pick('auto')} disabled={disabled}>
+              <span className="size-3 rounded-full border border-white/30" style={{ background: logo?.background || '#0d0d12' }} /> {logo?.background ? "Logo's colour" : 'Dark'}
+            </button>
+            <button type="button" className={chip(value.background === 'brand')} onClick={() => pick('brand')} disabled={disabled}>
+              <span className="size-3 rounded-full border border-white/30" style={{ background: brand?.colors?.[0] || '#7c3aed' }} /> Brand colour
+            </button>
+            <label className={`${chip(custom)} cursor-pointer`}>
+              <input type="color" className="size-4 cursor-pointer rounded border-0 bg-transparent p-0" value={custom ? value.background : bg} onChange={(e) => pick(e.target.value)} disabled={disabled} /> Any colour
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Every scene of every video, to read, edit, animate with AI and (re)film with Generate. */
 function Storyboard({ adset, onSaved }) {
   const [videos, setVideos] = useState(() => structuredClone(adset.copy.videos));
+  const savedClosing = adset.options.endCard || { logoSize: 2, background: 'auto' };
+  const [closing, setClosing] = useState(savedClosing);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const { data: brandData } = useApi(adset.brand ? `/brands/${adset.brand.id}` : null);
-  const original = JSON.stringify(adset.copy.videos);
+  const original = JSON.stringify([adset.copy.videos, savedClosing]);
   // Pick up edits made elsewhere (Ask for changes, Edit copy) when there are none here.
   const [base, setBase] = useState(original);
   if (base !== original) {
     setBase(original);
     setVideos(structuredClone(adset.copy.videos));
+    setClosing(savedClosing);
   }
-  const dirty = JSON.stringify(videos) !== original;
+  const dirty = JSON.stringify([videos, closing]) !== original;
   const photos = (brandData?.assets || []).filter((a) => a.status === 'ready' && !a.ai);
   const rendering = busy(adset);
   const setScene = (vi, si, scene) => setVideos((v) => {
@@ -145,7 +189,7 @@ function Storyboard({ adset, onSaved }) {
     setSaving(true);
     setError(null);
     try {
-      onSaved((await api(`/adsets/${adset.id}/copy`, { method: 'PATCH', body: { copy: { videos } } })).adset);
+      onSaved((await api(`/adsets/${adset.id}/copy`, { method: 'PATCH', body: { copy: { videos }, endCard: closing } })).adset);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -165,7 +209,7 @@ function Storyboard({ adset, onSaved }) {
         </div>
         {dirty && (
           <div className="flex gap-2">
-            <button type="button" className="btn-ghost" onClick={() => setVideos(structuredClone(adset.copy.videos))} disabled={saving}>Discard</button>
+            <button type="button" className="btn-ghost" onClick={() => { setVideos(structuredClone(adset.copy.videos)); setClosing(savedClosing); }} disabled={saving}>Discard</button>
             <button type="button" className="btn-primary" onClick={save} disabled={saving || rendering}>{saving ? 'Saving…' : 'Save storyboard'}</button>
           </div>
         )}
@@ -185,7 +229,13 @@ function Storyboard({ adset, onSaved }) {
           </div>
         );
       })}
-      {dirty && <p className="mt-4 text-xs text-amber-200">You have unsaved changes to the storyboard.</p>}
+      <ClosingScene adsetId={adset.id} value={closing} onChange={setClosing} brand={brandData?.brand} disabled={rendering || saving} />
+      {dirty && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-amber-200">You have unsaved changes to the storyboard.</p>
+          <button type="button" className="btn-primary" onClick={save} disabled={saving || rendering}>{saving ? 'Saving…' : 'Save storyboard'}</button>
+        </div>
+      )}
     </section>
   );
 }

@@ -11,7 +11,7 @@ import { db, insert, update, newId, now, parseJson } from '../db.js';
 import { VOICES, VOICE, MUSIC, MUSIC_TRACK, LANGUAGE } from '../catalog.js';
 import { HttpError } from '../services.js';
 import { plainDashes } from '../text.js';
-import { STYLES, STYLE, FORMAT_IDS, LENGTHS } from './design.js';
+import { STYLES, STYLE, FORMAT_IDS, LENGTHS, cleanEndCard } from './design.js';
 import { MUSIC_MOODS, MUSIC_MOOD, soundtrackEnabled } from './soundtrack.js';
 import { copySchema, COPY_RULES, DIRECTING_RULES, SCENES_FOR, assetLine, claude, modelParams, tidy } from './brief.js';
 import { plannedAds, enqueueAdSet, adFile, adThumb, adSignature } from './jobs.js';
@@ -30,11 +30,12 @@ What you can change:
 - Movement, in any scene: every video scene can be filmed with AI from its photo. Give the scene a shot (frame: the opening image built around that photo's product; action: what happens) and it is filmed when the client presses Generate. So when the client asks for something to move, open, pour, be used, or for "animation", "motion" or "real footage", write shots for those scenes. Never ask them to upload video. A scene with an empty shot (frame and action both "") shows its photo or clip as it is; only add or change shots where the client asks for movement, or where they already exist.
 - Image ads: their headline, subline and photo, and how many there are (0 to 3).
 - Look: the style.
+- The closing card (the last screen, with the logo, button and link): the logo size (1 = small, 2 = standard, 3 = as big as fits, edge to edge; "3x bigger" from the standard means 3) and its background ("auto" = the logo's own background colour, bled full screen, or a dark stage when the logo has none; "brand" = the brand colour; or any hex colour). The logo image itself is set on the brand's page.
 - Sound: the soundtrack (composed to fit, a stock track or none), its mood, the soundtrack brief in the copy, voiceover on or off, and the voice.
 - Sizes: which formats and video lengths the set includes.
 
 What you can't change here. Say so kindly, leave it as it is and point to the fix:
-- The logo, brand colours and font: these are set on the brand's page.
+- The logo image itself, the brand colours and the font: these are set on the brand's page (the closing card's logo size and background can be changed here).
 
 How to answer:
 - Return the complete settings and copy. Copy every field you are not changing exactly as it is now, word for word.
@@ -65,6 +66,10 @@ function revisionSchema(directed) {
       voice: z.enum(VOICES.map((v) => v.id)),
       music: z.enum(musicChoices()).describe('"composed" = an original track composed for each video, "none", a stock track ID, or "current" to keep the client\'s own uploaded track'),
       musicMood: z.enum(MUSIC_MOODS.map((m) => m.id)).describe('Mood of the composed soundtrack; "auto" follows the soundtrack brief in the copy'),
+      endCard: z.object({
+        logoSize: z.number().describe('Closing card logo size: 1 = small, 2 = standard, 3 = as big as fits (edge to edge)'),
+        background: z.string().describe('Closing card background: "auto" (the logo\'s own background colour, full screen), "brand", or a hex colour like #0b1f3a'),
+      }),
     }),
     copy: copySchema(directed),
   });
@@ -77,6 +82,7 @@ function buildPrompt({ brand, brief, options, copy, assets, history, request }) 
   const settings = {
     style: options.style, formats: options.formats, lengths: options.lengths, statics: options.statics,
     voiceover: options.voiceover, voice: options.voice, music: musicChoice(options.music), musicMood: options.musicMood || 'auto',
+    endCard: options.endCard || { logoSize: 2, background: 'auto' },
   };
   return `Brand: ${brand.name}${brand.website ? ` (${brand.website})` : ''}
 ${brand.about ? `About the brand: ${brand.about}\n` : ''}${brand.tone ? `Brand voice: ${brand.tone}\n` : ''}
@@ -139,6 +145,8 @@ async function askClaude({ adset, brand, request }) {
         : MUSIC_TRACK[s.music] ? s.music : options.music,
   };
   if (!next.lengths.length && !next.statics) Object.assign(next, { lengths: options.lengths, statics: options.statics });
+  const closing = cleanEndCard(s.endCard);
+  if (closing && JSON.stringify(closing) !== JSON.stringify(options.endCard || { logoSize: 2, background: 'auto' })) next.endCard = closing;
   // The music only changes when the client asks for it.
   if (!out.soundtrackChanged) Object.assign(next, { music: options.music, musicMood: options.musicMood });
 

@@ -5,10 +5,11 @@ import { Router } from 'express';
 import { db, insert, update, newId, now, parseJson } from '../db.js';
 import { requireAuth } from '../auth.js';
 import { PLAN, VOICE, LANGUAGE, MUSIC_TRACK } from '../catalog.js';
-import { STYLE, FORMATS, FORMAT_IDS, LENGTHS } from '../ads/design.js';
+import { STYLE, FORMATS, FORMAT_IDS, LENGTHS, cleanEndCard } from '../ads/design.js';
 import { HttpError, usage, NEEDS_PLAN_MESSAGE } from '../services.js';
 import { shotOf } from '../ads/brief.js';
 import { enqueueAdSet, adsetDir, adFile, adThumb } from '../ads/jobs.js';
+import { renderClosingPreview, loadLogo } from '../ads/render.js';
 import { soundtrackEnabled, MUSIC_MOOD } from '../ads/soundtrack.js';
 import { motionEnabled, filmedScenes } from '../ads/motion.js';
 import { assetFile } from '../ads/assets.js';
@@ -222,10 +223,13 @@ router.patch('/:id/copy', (req, res) => {
     }
   }
   copy.edited = true;
+  // The closing card's logo size and background (kept with the ad set's settings).
+  const closing = cleanEndCard(req.body?.endCard);
   // Ad sets made from picked assets render only those, so add newly picked ones.
   const options = parseJson(a.options, {});
   if (newAssets.size && options.assetIds?.length) options.assetIds = [...new Set([...options.assetIds, ...newAssets])];
   options.aiScenes = motionEnabled() && copy.videos.some((v) => v.scenes.some((sc) => sc.shot)); // scenes with a shot are filmed on Generate
+  if (closing) options.endCard = closing;
   update('adsets', a.id, { copy: JSON.stringify(copy), options: JSON.stringify(options), updated_at: now() });
   res.json({ adset: publicAdSet(db.get('SELECT * FROM adsets WHERE id = ?', a.id)) });
 });
@@ -264,6 +268,20 @@ router.post('/:id/revisions/:revisionId/undo', (req, res) => {
   if (['queued', 'processing'].includes(a.status)) throw new HttpError(409, 'Wait for these ads to finish, then undo.');
   undoRevision(a, req.params.revisionId);
   res.json({ adset: publicAdSet(db.get('SELECT * FROM adsets WHERE id = ?', a.id)) });
+});
+
+// The closing scene with given settings, for the storyboard's live preview.
+router.get('/:id/closing.png', async (req, res) => {
+  const a = owned(req);
+  const brand = db.get('SELECT * FROM brands WHERE id = ?', a.brand_id);
+  const options = parseJson(a.options, {});
+  const logoAsset = brand?.logo_asset_id ? db.get('SELECT * FROM assets WHERE id = ?', brand.logo_asset_id) : null;
+  const png = await renderClosingPreview({
+    brand, logo: await loadLogo(logoAsset), cta: parseJson(a.copy, {})?.cta || 'Learn more', url: parseJson(a.brief, {}).url,
+    settings: cleanEndCard({ logoSize: req.query.logoSize, background: req.query.background }), style: options.style,
+    format: options.formats?.includes('9:16') ? '9:16' : options.formats?.[0] || '9:16',
+  });
+  res.type('png').set('Cache-Control', 'private, max-age=300').send(png);
 });
 
 router.post('/:id/share', (req, res) => {
