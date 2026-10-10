@@ -172,7 +172,7 @@ async function askClaude({ adset, brand, request }) {
   // The music only changes when the client asks for it.
   if (!out.soundtrackChanged) Object.assign(next, { music: options.music, musicMood: options.musicMood });
 
-  const revised = tidy(out.copy, { assets, lengths: next.lengths, voiceover: next.voiceover });
+  const revised = tidy(out.copy, { assets, lengths: next.lengths, voiceover: next.voiceover, language: next.language || 'en' });
   // Scenes with a shot are filmed with AI on Generate.
   next.aiScenes = motionEnabled() && revised.videos.some((v) => v.scenes.some((sc) => sc.shot));
   if (!out.soundtrackChanged) revised.music = copy.music;

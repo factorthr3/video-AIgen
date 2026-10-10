@@ -77,6 +77,7 @@ export const COPY_RULES = `Copy rules:
 - Only claim what the brief supports. Never invent statistics, reviews, awards, prices, discounts or guarantees. Use the offer exactly as the client wrote it.
 - On-screen text is read in a second: headlines of 2 to 6 words, sublines optional. No emojis, no hashtags and no exclamation marks on screen.
 - Never use em dashes or en dashes; use commas, full stops or plain hyphens.
+- Write every word in the requested language only.
 
 Storyboard rules:
 - The first scene is the hook: the strongest visual (prefer video footage when there is good footage) with a line that stops the scroll.
@@ -149,7 +150,7 @@ ${DIRECTING_RULES}` : SYSTEM,
   if (response.stop_reason === 'refusal') throw Object.assign(new Error("The copywriter couldn't write ads for this brief. Try rewording the description."), { refusal: true });
   const copy = response.parsed_output;
   if (!copy) throw new Error('The copywriter returned nothing. Please try again.');
-  return tidy(copy, { assets, lengths, voiceover });
+  return tidy(copy, { assets, lengths, voiceover, language });
 }
 
 /** A scene's shot to film, or null when it's empty (the scene shows its photo or clip as it is). */
@@ -160,11 +161,21 @@ export function shotOf(shot, clean = (s) => String(s || '').trim()) {
   return { frame: frame || 'The product exactly as in the reference photo, in the same setting.', action: action || 'The camera slowly pushes in as the light shifts.' };
 }
 
-// Make the copy safe to render: valid asset IDs, the requested lengths, plain dashes.
-export function tidy(copy, { assets, lengths, voiceover }) {
+// Languages written in the Latin alphabet: a stray word in another script is a model slip
+// (and the ad fonts have no glyphs for it), so it's dropped.
+const LATIN_LANGUAGES = new Set(['en', 'es', 'fr', 'de', 'pt', 'it', 'nl', 'id']);
+const FOREIGN_SCRIPT = /\S*[\u0370-\u03ff\u0400-\u052f\u0590-\u06ff\u0900-\u0dff\u0e00-\u0e7f\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]\S*/g;
+
+// Make the copy safe to render: valid asset IDs, the requested lengths, plain dashes, one script.
+export function tidy(copy, { assets, lengths, voiceover, language = 'en' }) {
   const ids = new Set(assets.map((a) => a.id));
   const fallbackAsset = (i) => assets[i % assets.length]?.id;
-  const clean = (s) => plainDashes(String(s || '')).trim();
+  const latin = LATIN_LANGUAGES.has(language);
+  const clean = (s) => {
+    let out = plainDashes(String(s || ''));
+    if (latin) out = out.replace(FOREIGN_SCRIPT, '').replace(/\s+([,.;:!?])/g, '$1').replace(/\s{2,}/g, ' ');
+    return out.trim();
+  };
   const scene = (sc, i) => ({
     role: sc.role,
     headline: clean(sc.headline),
