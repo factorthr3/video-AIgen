@@ -10,6 +10,7 @@ import { speak } from '../pipeline/tts.js';
 import { musicTrack } from '../pipeline/music.js';
 import { writeCopy, SCENES_FOR } from './brief.js';
 import { renderVideoAd, renderStaticAd, buildAdAudio, loadLogo, END_CARD } from './render.js';
+import { cleanElements, DEFAULT_ELEMENTS, INTRO_CARD } from './design.js';
 import { soundtrack, musicBrief } from './soundtrack.js';
 import { motionEnabled, motionCandidates, motionAspects, animatePhotos, clipSeconds, filmScenes, sceneKey } from './motion.js';
 
@@ -23,8 +24,12 @@ const JOBS = Number(process.env.JOB_CONCURRENCY || 2);
 /** A fingerprint of everything an ad is rendered from; it changes exactly when the ad would look or sound different. */
 export function adSignature(copy, options, ad) {
   const parts = { style: options.style, cta: copy.cta, badge: copy.badge };
-  if (ad.kind === 'image') parts.image = copy.statics?.[ad.variant] || copy.statics?.[0] || null;
-  else {
+  const elements = cleanElements(options.elements);
+  if (ad.kind === 'image') {
+    parts.image = copy.statics?.[ad.variant] || copy.statics?.[0] || null;
+    if (JSON.stringify(elements) !== JSON.stringify(DEFAULT_ELEMENTS)) parts.elements = elements;
+  } else {
+    parts.elements = elements; // opening and closing screens, text, colours, motion
     parts.video = copy.videos?.find((v) => v.length === ad.length) || null;
     parts.voice = options.voiceover ? options.voice : null;
     parts.music = options.music;
@@ -203,18 +208,18 @@ async function runAdSet(id) {
           if (prepared.musicNote) musicNote = prepared.musicNote;
           audioFor.set(ad.length, prepared);
         }
-        const { scenes, audio, endCard } = audioFor.get(ad.length);
+        const { scenes, audio, endCard, intro } = audioFor.get(ad.length);
         await withRender(() => renderVideoAd({
-          brand, logo, assets, scenes: forFormat(scenes, ad.format, ad.length), endCard, closing: options.endCard, copy, format: ad.format, style: options.style, url: brief.url,
+          brand, logo, assets, scenes: forFormat(scenes, ad.format, ad.length), endCard, intro, closing: options.endCard, elements: options.elements, copy, format: ad.format, style: options.style, url: brief.url,
           audioFile: audio, out: adFile(ad), thumbOut: adThumb(ad),
           onProgress: (p) => setStage(id, `Rendering the ${ad.length}s ${ad.format} video`, progress(p)),
         }));
-        update('ads', ad.id, { status: 'ready', duration: scenes.reduce((s, x) => s + x.duration, 0) + endCard, rendered_sig: adSignature(copy, options, ad), updated_at: now() });
+        update('ads', ad.id, { status: 'ready', duration: intro + scenes.reduce((s, x) => s + x.duration, 0) + endCard, rendered_sig: adSignature(copy, options, ad), updated_at: now() });
       } else {
         const variant = copy.statics[ad.variant] || copy.statics[0];
         await withRender(() => renderStaticAd({
           brand, logo, asset: assets.get(variant?.assetId) || chosen[0], headline: variant?.headline || brief.product, subline: variant?.subline || '',
-          copy, format: ad.format, style: options.style, out: adFile(ad), thumbOut: adThumb(ad),
+          copy, format: ad.format, style: options.style, elements: options.elements, out: adFile(ad), thumbOut: adThumb(ad),
         }));
         update('ads', ad.id, { status: 'ready', rendered_sig: adSignature(copy, options, ad), updated_at: now() });
       }
@@ -240,14 +245,18 @@ async function runAdSet(id) {
 // Scene timings for one video length (from the voiceover when there is one) and its audio.
 async function prepareTimeline({ id, copy, video, options, bed }) {
   const dir = adsetDir(id);
-  const endCard = END_CARD[video.length] || 2.4;
+  // The opening and closing logo screens (each can be turned off) take their time from the scenes.
+  const elements = cleanElements(options.elements);
+  const endCard = elements.outro ? END_CARD[video.length] || 2.4 : 0;
+  const intro = elements.intro ? INTRO_CARD[video.length] || 1.2 : 0;
+  const sceneTime = video.length - endCard - intro;
   let scenes;
   const voices = [];
   if (options.voiceover) {
-    let t = 0;
+    let t = intro;
     scenes = [];
     for (const sc of video.scenes) {
-      let duration = Math.max(1.6, (video.length - endCard) / video.scenes.length);
+      let duration = Math.max(1.6, sceneTime / video.scenes.length);
       if (sc.voiceover) {
         const key = crypto.createHash('sha1').update(JSON.stringify([options.voice, options.language, sc.voiceover])).digest('hex').slice(0, 14);
         const base = path.join(dir, `voice-${key}`);
@@ -262,10 +271,10 @@ async function prepareTimeline({ id, copy, video, options, bed }) {
       t += duration;
     }
   } else {
-    const each = Math.max(1.2, (video.length - endCard) / video.scenes.length);
+    const each = Math.max(1.2, sceneTime / video.scenes.length);
     scenes = video.scenes.map((sc) => ({ ...sc, duration: each }));
   }
-  const total = scenes.reduce((s, x) => s + x.duration, 0) + endCard;
+  const total = intro + scenes.reduce((s, x) => s + x.duration, 0) + endCard;
   // A soundtrack composed to this exact length, or the chosen music bed.
   let music = bed;
   let musicNote = null;
@@ -299,7 +308,7 @@ async function prepareTimeline({ id, copy, video, options, bed }) {
   }
   const audio = path.join(dir, `audio-${video.length}-${crypto.randomBytes(3).toString('hex')}.m4a`);
   await buildAdAudio({ duration: total, music, voices, fade, out: audio });
-  return { scenes, audio, endCard, musicNote };
+  return { scenes, audio, endCard, intro, musicNote };
 }
 
 export { SCENES_FOR };

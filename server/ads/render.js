@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process';
 import { createCanvas, loadImage, ImageData } from '@napi-rs/canvas';
 import { config } from '../config.js';
 import { ffmpeg } from '../pipeline/ffmpeg.js';
-import { FORMATS, STYLE, BRAND_FONT, palette, textOn, luminance, rgbToHex } from './design.js';
+import { FORMATS, STYLE, BRAND_FONT, palette, textOn, luminance, rgbToHex, cleanElements } from './design.js';
 import { assetFile, cropFor, extractColors, logoLook } from './assets.js';
 
 const FPS = 30;
@@ -129,7 +129,7 @@ function cutoutBox(d, lay, reserve = 0) {
   if (d.fmt.id === '16:9' && d.style.align === 'left') {
     return { cx: box.x0 + (box.x1 - box.x0) * 0.74, w: (box.x1 - box.x0) * 0.42, h: (box.y1 - box.y0) * 0.92, cy: (box.y0 + box.y1) / 2 };
   }
-  const top = box.y0 + U * 0.08;
+  const top = d.style.anchor === 'top' ? lay.top + lay.blockH + U * 0.04 : box.y0 + U * 0.08;
   const bottom = (d.style.anchor === 'bottom' ? lay.top - reserve : box.y1) - U * 0.04;
   return { cx: d.W / 2, w: (box.x1 - box.x0) * 0.8, h: Math.max(U * 0.3, bottom - top), cy: (top + bottom) / 2 };
 }
@@ -206,16 +206,35 @@ function fit(ctx, text, family, size, maxWidth, maxLines) {
 }
 
 // ---------- the ad's look ----------
-function designFor({ brand, style: styleId, format }) {
+function designFor({ brand, style: styleId, format, elements }) {
   const fmt = FORMATS[format];
-  const style = STYLE[styleId] || STYLE.clean;
+  const base = STYLE[styleId] || STYLE.clean;
+  // The ad set's own choices for each element override the style's ('auto' keeps the style's).
+  const e = cleanElements(elements);
+  const pick = (v, fallback) => (v === 'auto' ? fallback : v);
+  const style = {
+    ...base,
+    font: pick(e.font, base.font),
+    uppercase: e.uppercase === 'auto' ? base.uppercase : e.uppercase === 'on',
+    align: { auto: base.align, left: 'left', centre: 'center' }[e.textAlign],
+    anchor: { auto: base.anchor, top: 'top', middle: 'center', bottom: 'bottom' }[e.textPosition],
+    textBox: e.textBlock === 'auto' ? base.textBox : e.textBlock === 'on',
+    headlineScale: base.headlineScale * e.textSize,
+    transition: pick(e.transition, base.transition),
+    push: e.cameraMove ? base.push : 0,
+    scrim: pick(e.shading, base.scrim),
+    logo: e.cornerLogo ? 'corner' : 'none',
+    badge: e.badge === 'auto' ? Boolean(base.badge) : e.badge === 'on',
+  };
   const fonts = BRAND_FONT[style.font || brand.font] || BRAND_FONT.montserrat;
-  const pal = palette(JSON.parse(brand.colors || '[]'));
+  const pal = { ...palette(JSON.parse(brand.colors || '[]')) };
+  if (e.buttonColor !== 'auto') pal.accent = e.buttonColor;
+  if (e.highlightColor !== 'auto') pal.primary = e.highlightColor;
   const { w: W, h: H, safe } = fmt;
   // Type reads smaller in tall frames, so vertical formats get a boost.
   const U = Math.min(W, H) * ({ '9:16': 1.14, '4:5': 1.05 }[format] || 1);
   const box = { x0: W * safe.left, x1: W * (1 - safe.right), y0: H * safe.top, y1: H * (1 - safe.bottom) };
-  return { fmt, style, fonts, pal, W, H, U, box };
+  return { fmt, style, fonts, pal, W, H, U, box, elements: e };
 }
 
 /** Lay out a scene's headline and subline for the style (sizes and positions). */
@@ -232,6 +251,7 @@ function layoutText(ctx, d, headline, subline) {
   const blockH = h.lines.length * lineH + gap + (sub ? sub.lines.length * subLineH : 0);
   let top;
   if (style.anchor === 'bottom') top = box.y1 - blockH;
+  else if (style.anchor === 'top') top = box.y0 + U * (style.logo === 'corner' ? 0.1 : 0.02);
   else top = box.y0 + (box.y1 - box.y0 - blockH) / 2;
   return { head: h, sub, lineH, subLineH, gap, top, blockH };
 }
@@ -389,7 +409,7 @@ export function closingCard(settings, logo, d) {
 }
 
 // The closing card: the logo landing on a full-bleed background, then the call to action and link.
-function drawEndCard(ctx, d, { logo, brandName, cta, url, settings, dur = 2.4 }, local) {
+function drawEndCard(ctx, d, { logo, brandName, cta, url, settings, dur = 2.4, button = true, link = true }, local) {
   const { W, H, U } = d;
   const { size, flat } = closingCard(settings, logo, d);
   const bg = flat || (logo?.dark ? '#f6f5f2' : '#0d0d12');
@@ -421,7 +441,9 @@ function drawEndCard(ctx, d, { logo, brandName, cta, url, settings, dur = 2.4 },
   }
   // Centre the logo, button and link as one block.
   const btnGap = U * 0.1;
-  const blockH = lh + btnGap + U * 0.1 + (url ? U * 0.07 : 0);
+  if (!button) cta = '';
+  if (!link) url = '';
+  const blockH = lh + (cta ? btnGap + U * 0.1 : 0) + (url ? U * 0.07 : 0);
   const midY = Math.max(d.box.y0 + lh / 2, H / 2 - blockH / 2 + lh / 2);
   ctx.save();
   ctx.globalAlpha *= appear;
@@ -463,7 +485,7 @@ function drawEndCard(ctx, d, { logo, brandName, cta, url, settings, dur = 2.4 },
   }
   const bp = easeOutBack(clamp01((local - 0.45) / 0.5));
   const btnY = midY + lh / 2 + btnGap;
-  const bh = drawButton(ctx, d, cta, W / 2, btnY, clamp01((local - 0.4) / 0.3), 0.85 + 0.15 * bp);
+  const bh = cta ? drawButton(ctx, d, cta, W / 2, btnY, clamp01((local - 0.4) / 0.3), 0.85 + 0.15 * bp) : -U * 0.06;
   if (url) {
     ctx.save();
     ctx.globalAlpha *= clamp01((local - 0.45) / 0.4);
@@ -517,10 +539,10 @@ const domain = (url) => (url ? String(url).trim() : '');
  * scenes: [{ headline, subline, assetId }], each with `duration` (seconds);
  * the end card follows. assets: Map of id -> asset row.
  */
-export async function renderVideoAd({ brand, logo, assets, scenes, endCard, closing, copy, format, style, url, audioFile, out, thumbOut, onProgress }) {
-  const d = designFor({ brand, style, format });
+export async function renderVideoAd({ brand, logo, assets, scenes, endCard, intro = 0, closing, elements, copy, format, style, url, audioFile, out, thumbOut, onProgress }) {
+  const d = designFor({ brand, style, format, elements });
   const { W, H } = d;
-  let t = 0;
+  let t = intro; // the opening logo screen comes first
   const timeline = scenes.map((s) => {
     const entry = { ...s, start: t };
     t += s.duration;
@@ -566,7 +588,7 @@ export async function renderVideoAd({ brand, logo, assets, scenes, endCard, clos
     const s = timeline[i];
     const a = assets.get(s.assetId);
     const p = clamp01(local / s.duration);
-    const zoom = 1 + d.style.push * easeInOut(p) + (d.style.transition === 'punch' ? 0.06 * (1 - easeOut(local / 0.35)) : 0);
+    const zoom = 1 + d.style.push * easeInOut(p) + (d.style.transition === 'punch' && d.style.push ? 0.06 * (1 - easeOut(local / 0.35)) : 0);
     c2.fillStyle = '#000';
     c2.fillRect(0, 0, W, H);
     if (a?.kind === 'video') {
@@ -603,14 +625,29 @@ export async function renderVideoAd({ brand, logo, assets, scenes, endCard, clos
   });
   proc.stdin.on('error', () => {});
 
-  const endInfo = { logo, brandName: brand.name, cta: copy.cta, url: domain(url), settings: closing, dur: endCard };
-  const thumbFrame = Math.min(totalFrames - 1, Math.round(FPS * Math.min(1.2, timeline[0]?.duration * 0.6 || 1)));
+  const endInfo = { logo, brandName: brand.name, cta: copy.cta, url: domain(url), settings: closing, dur: endCard, button: d.elements.button, link: d.elements.link };
+  const introInfo = { ...endInfo, dur: intro, button: false, link: false };
+  const cut = d.style.transition === 'cut';
+  // The thumbnail shows the first scene, not the logo screen.
+  const thumbFrame = Math.min(totalFrames - 1, Math.round(FPS * (intro + Math.min(1.2, timeline[0]?.duration * 0.6 || 1))));
   let idx = 0;
   try {
     for (let f = 0; f < totalFrames; f++) {
       const time = f / FPS;
       ctx.globalAlpha = 1;
-      if (time >= endStart) {
+      if (time < intro) {
+        // The opening logo screen, then into the first scene.
+        drawEndCard(ctx, d, introInfo, time);
+        const into = intro - time;
+        if (!cut && into < TRANSITION && timeline.length) {
+          layerCtx.globalAlpha = 1;
+          await paintScene(layerCtx, 0, 0);
+          ctx.save();
+          ctx.globalAlpha = easeInOut(1 - into / TRANSITION);
+          ctx.drawImage(layer, 0, 0);
+          ctx.restore();
+        }
+      } else if (time >= endStart && endCard > 0) {
         drawEndCard(ctx, d, endInfo, time - endStart);
       } else {
         while (idx < timeline.length - 1 && time >= timeline[idx + 1].start) idx++;
@@ -625,7 +662,8 @@ export async function renderVideoAd({ brand, logo, assets, scenes, endCard, clos
         if (d.style.badge) drawBadge(ctx, d, copy.badge, time);
         // Transition into the next scene (or the end card) over its last moments.
         const into = s.duration - local;
-        if (into < TRANSITION) {
+        const last = idx === timeline.length - 1;
+        if (into < TRANSITION && !cut && !(last && endCard <= 0)) {
           const q = easeInOut(1 - into / TRANSITION);
           layerCtx.globalAlpha = 1;
           if (idx < timeline.length - 1) {
@@ -699,17 +737,17 @@ export async function buildAdAudio({ duration, music, voices = [], fade = 1.2, o
 
 // ---------- static image ads ----------
 /** A still of the finished closing scene (for the storyboard preview), as PNG at a third of full size. */
-export async function renderClosingPreview({ brand, logo, cta, url, settings, style, format = '9:16' }) {
-  const d = designFor({ brand, style, format });
+export async function renderClosingPreview({ brand, logo, cta, url, settings, style, elements, format = '9:16' }) {
+  const d = designFor({ brand, style, format, elements });
   const canvas = createCanvas(d.W, d.H);
-  drawEndCard(canvas.getContext('2d'), d, { logo, brandName: brand.name, cta, url: domain(url), settings, dur: 2.4 }, 2.4);
+  drawEndCard(canvas.getContext('2d'), d, { logo, brandName: brand.name, cta, url: domain(url), settings, dur: 2.4, button: d.elements.button, link: d.elements.link }, 2.4);
   const small = createCanvas(Math.round(d.W / 3), Math.round(d.H / 3));
   small.getContext('2d').drawImage(canvas, 0, 0, small.width, small.height);
   return small.encode('png');
 }
 
-export async function renderStaticAd({ brand, logo, asset, headline, subline, copy, format, style, out, thumbOut }) {
-  const d = designFor({ brand, style, format });
+export async function renderStaticAd({ brand, logo, asset, headline, subline, copy, format, style, elements, out, thumbOut }) {
+  const d = designFor({ brand, style, format, elements });
   const { W, H } = d;
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext('2d');

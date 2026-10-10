@@ -120,22 +120,90 @@ function SceneCard({ scene, index, seconds, clipId, photos, voice, disabled, onC
   );
 }
 
-/** The closing scene's look: logo size and background, with a rough preview. */
-function ClosingScene({ adsetId, value, onChange, brand, disabled }) {
+/** A row of choices, one picked. */
+function Choice({ value, options, onChange, disabled }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map(([v, label]) => (
+        <button key={v} type="button" disabled={disabled} onClick={() => onChange(v)}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition ${value === v ? 'bg-white text-ink-950' : 'bg-white/5 text-ink-300 hover:bg-white/10'}`}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
+function Toggle({ label, checked, onChange, disabled }) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2 text-sm">
+      <input type="checkbox" className="size-4 accent-brand-500" checked={checked} onChange={(e) => onChange(e.target.checked)} disabled={disabled} /> {label}
+    </label>
+  );
+}
+
+function ColourChoice({ value, onChange, disabled }) {
+  const custom = value !== 'auto';
+  return (
+    <div className="flex items-center gap-1.5">
+      <Choice value={custom ? 'custom' : 'auto'} options={[['auto', 'From the style'], ['custom', 'Custom']]} onChange={(v) => onChange(v === 'auto' ? 'auto' : custom ? value : '#7c3aed')} disabled={disabled} />
+      {custom && <input type="color" className="size-7 cursor-pointer rounded border-0 bg-transparent p-0" value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} />}
+    </div>
+  );
+}
+
+/** Every element of the videos, each one editable ('auto' follows the style). */
+function VideoSettings({ value, onChange, disabled }) {
+  const set = (k) => (v) => onChange({ ...value, [k]: v });
+  const row = (label, control) => (
+    <div className="grid gap-1.5 sm:grid-cols-[150px_1fr] sm:items-center">
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink-400">{label}</p>
+      {control}
+    </div>
+  );
+  return (
+    <div className="mt-6 space-y-5 rounded-xl border border-white/10 bg-ink-850 p-4">
+      <div>
+        <p className="font-semibold">Video settings</p>
+        <p className="text-xs text-ink-400">Every part of the videos. "Style" keeps what the chosen style does.</p>
+      </div>
+      <div className="grid gap-x-6 gap-y-2.5 sm:grid-cols-2">
+        <Toggle label="Open on the logo screen" checked={value.intro} onChange={set('intro')} disabled={disabled} />
+        <Toggle label="Close on the logo screen" checked={value.outro} onChange={set('outro')} disabled={disabled} />
+        <Toggle label="Button on the closing screen" checked={value.button} onChange={set('button')} disabled={disabled || !value.outro} />
+        <Toggle label="Website on the closing screen" checked={value.link} onChange={set('link')} disabled={disabled || !value.outro} />
+        <Toggle label="Logo in the corner while playing" checked={value.cornerLogo} onChange={set('cornerLogo')} disabled={disabled} />
+        <Toggle label="Slow camera push on photos" checked={value.cameraMove} onChange={set('cameraMove')} disabled={disabled} />
+      </div>
+      {row('Offer badge', <Choice value={value.badge} options={[['auto', 'Style'], ['on', 'Show'], ['off', 'Hide']]} onChange={set('badge')} disabled={disabled} />)}
+      {row('Text position', <Choice value={value.textPosition} options={[['auto', 'Style'], ['top', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']]} onChange={set('textPosition')} disabled={disabled} />)}
+      {row('Text alignment', <Choice value={value.textAlign} options={[['auto', 'Style'], ['left', 'Left'], ['centre', 'Centre']]} onChange={set('textAlign')} disabled={disabled} />)}
+      {row(`Text size ${value.textSize}×`, <input type="range" min={0.6} max={1.6} step={0.1} value={value.textSize} onChange={(e) => set('textSize')(Number(e.target.value))} disabled={disabled} className="w-full accent-brand-500" />)}
+      {row('Capitals', <Choice value={value.uppercase} options={[['auto', 'Style'], ['on', 'ALL CAPS'], ['off', 'Normal']]} onChange={set('uppercase')} disabled={disabled} />)}
+      {row('Text on a block', <Choice value={value.textBlock} options={[['auto', 'Style'], ['on', 'On'], ['off', 'Off']]} onChange={set('textBlock')} disabled={disabled} />)}
+      {row('Font', <Choice value={value.font} options={[['auto', 'Style'], ['montserrat', 'Montserrat'], ['inter', 'Inter'], ['playfair', 'Playfair'], ['bebas', 'Bebas']]} onChange={set('font')} disabled={disabled} />)}
+      {row('Button colour', <ColourChoice value={value.buttonColor} onChange={set('buttonColor')} disabled={disabled} />)}
+      {row('Highlight colour', <ColourChoice value={value.highlightColor} onChange={set('highlightColor')} disabled={disabled} />)}
+      {row('Transitions', <Choice value={value.transition} options={[['auto', 'Style'], ['dissolve', 'Dissolve'], ['fade', 'Fade'], ['slide', 'Slide'], ['punch', 'Punch'], ['cut', 'Cut']]} onChange={set('transition')} disabled={disabled} />)}
+      {row('Shading', <Choice value={value.shading} options={[['auto', 'Style'], ['none', 'None'], ['bottom', 'Bottom fade'], ['full', 'Even'], ['vignette', 'Vignette']]} onChange={set('shading')} disabled={disabled} />)}
+    </div>
+  );
+}
+
+/** The logo screens' look (opening and closing): logo size and background, with a preview. */
+function ClosingScene({ adsetId, value, onChange, brand, elements, disabled }) {
   const logo = brand?.logo;
   const custom = /^#/.test(value.background);
   const bg = custom ? value.background : value.background === 'brand' ? brand?.colors?.[0] || '#0d0d12' : logo?.background || '#0d0d12';
   const pick = (background) => onChange({ ...value, background });
   const chip = (on) => `chip transition ${on ? 'border-white bg-white text-ink-950' : 'hover:border-white/30 hover:text-white'}`;
   // Drawn by the video renderer itself, so it matches the finished ad.
-  const preview = `/api/adsets/${adsetId}/closing.png?logoSize=${value.logoSize}&background=${encodeURIComponent(value.background)}&v=${logo?.id || ''}`;
+  const preview = `/api/adsets/${adsetId}/closing.png?logoSize=${value.logoSize}&background=${encodeURIComponent(value.background)}&button=${elements.button ? 1 : 0}&link=${elements.link ? 1 : 0}&v=${logo?.id || ''}${elements.buttonColor}`;
   return (
     <div className="mt-6 grid gap-5 rounded-xl border border-white/10 bg-ink-850 p-4 sm:grid-cols-[170px_1fr]">
       <img src={preview} alt="Closing scene preview" className="mx-auto aspect-[9/16] w-[150px] rounded-lg border border-white/10 object-cover" style={{ background: bg }} />
       <div className="space-y-4">
         <div>
-          <p className="font-semibold">Closing scene</p>
-          <p className="text-xs text-ink-400">Your logo lands, a light sweeps across it, then the button and link appear. A logo uploaded on a coloured background fills the whole screen with that colour.</p>
+          <p className="font-semibold">Logo screens</p>
+          <p className="text-xs text-ink-400">The opening and closing screens: your logo lands and a light sweeps across it (the closing one adds the button and link). A logo uploaded on a coloured background fills the whole screen with that colour.</p>
         </div>
         <div>
           <label className="label" htmlFor="logo-size">Logo size <span className="normal-case text-ink-300">{value.logoSize}×</span></label>
@@ -166,18 +234,20 @@ function Storyboard({ adset, onSaved }) {
   const [videos, setVideos] = useState(() => structuredClone(adset.copy.videos));
   const savedClosing = adset.options.endCard || { logoSize: 2, background: 'auto' };
   const [closing, setClosing] = useState(savedClosing);
+  const [elements, setElements] = useState(adset.elements);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const { data: brandData } = useApi(adset.brand ? `/brands/${adset.brand.id}` : null);
-  const original = JSON.stringify([adset.copy.videos, savedClosing]);
+  const original = JSON.stringify([adset.copy.videos, savedClosing, adset.elements]);
   // Pick up edits made elsewhere (Ask for changes, Edit copy) when there are none here.
   const [base, setBase] = useState(original);
   if (base !== original) {
     setBase(original);
     setVideos(structuredClone(adset.copy.videos));
     setClosing(savedClosing);
+    setElements(adset.elements);
   }
-  const dirty = JSON.stringify([videos, closing]) !== original;
+  const dirty = JSON.stringify([videos, closing, elements]) !== original;
   const photos = (brandData?.assets || []).filter((a) => a.status === 'ready' && !a.ai);
   const rendering = busy(adset);
   const setScene = (vi, si, scene) => setVideos((v) => {
@@ -189,7 +259,7 @@ function Storyboard({ adset, onSaved }) {
     setSaving(true);
     setError(null);
     try {
-      onSaved((await api(`/adsets/${adset.id}/copy`, { method: 'PATCH', body: { copy: { videos }, endCard: closing } })).adset);
+      onSaved((await api(`/adsets/${adset.id}/copy`, { method: 'PATCH', body: { copy: { videos }, endCard: closing, elements } })).adset);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -209,7 +279,7 @@ function Storyboard({ adset, onSaved }) {
         </div>
         {dirty && (
           <div className="flex gap-2">
-            <button type="button" className="btn-ghost" onClick={() => { setVideos(structuredClone(adset.copy.videos)); setClosing(savedClosing); }} disabled={saving}>Discard</button>
+            <button type="button" className="btn-ghost" onClick={() => { setVideos(structuredClone(adset.copy.videos)); setClosing(savedClosing); setElements(adset.elements); }} disabled={saving}>Discard</button>
             <button type="button" className="btn-primary" onClick={save} disabled={saving || rendering}>{saving ? 'Saving…' : 'Save storyboard'}</button>
           </div>
         )}
@@ -229,7 +299,8 @@ function Storyboard({ adset, onSaved }) {
           </div>
         );
       })}
-      <ClosingScene adsetId={adset.id} value={closing} onChange={setClosing} brand={brandData?.brand} disabled={rendering || saving} />
+      <ClosingScene adsetId={adset.id} value={closing} onChange={setClosing} brand={brandData?.brand} elements={elements} disabled={rendering || saving} />
+      <VideoSettings value={elements} onChange={setElements} disabled={rendering || saving} />
       {dirty && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-amber-200">You have unsaved changes to the storyboard.</p>

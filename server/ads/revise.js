@@ -11,7 +11,7 @@ import { db, insert, update, newId, now, parseJson } from '../db.js';
 import { VOICES, VOICE, MUSIC, MUSIC_TRACK, LANGUAGE } from '../catalog.js';
 import { HttpError } from '../services.js';
 import { plainDashes } from '../text.js';
-import { STYLES, STYLE, FORMAT_IDS, LENGTHS, cleanEndCard } from './design.js';
+import { STYLES, STYLE, FORMAT_IDS, LENGTHS, cleanEndCard, cleanElements } from './design.js';
 import { MUSIC_MOODS, MUSIC_MOOD, soundtrackEnabled } from './soundtrack.js';
 import { copySchema, COPY_RULES, DIRECTING_RULES, SCENES_FOR, assetLine, claude, modelParams, tidy } from './brief.js';
 import { plannedAds, enqueueAdSet, adFile, adThumb, adSignature } from './jobs.js';
@@ -29,18 +29,22 @@ What you can change:
 - Storyboard: which photo or clip each video scene shows, and the order of scenes. Each video keeps its number of scenes (${Object.entries(SCENES_FOR).map(([l, n]) => `${n} for ${l}s`).join(', ')}).
 - Movement, in any scene: every video scene can be filmed with AI from its photo. Give the scene a shot (frame: the opening image built around that photo's product; action: what happens) and it is filmed when the client presses Generate. So when the client asks for something to move, open, pour, be used, or for "animation", "motion" or "real footage", write shots for those scenes. Never ask them to upload video. A scene with an empty shot (frame and action both "") shows its photo or clip as it is; only add or change shots where the client asks for movement, or where they already exist.
 - Image ads: their headline, subline and photo, and how many there are (0 to 3).
-- Look: the style.
-- The closing card (the last screen, with the logo, button and link): the logo size (1 = small, 2 = standard, 3 = as big as fits, edge to edge; "3x bigger" from the standard means 3) and its background ("auto" = the logo's own background colour, bled full screen, or a dark stage when the logo has none; "brand" = the brand colour; or any hex colour). The logo image itself is set on the brand's page.
+- Look: the style, plus every element in settings.elements, which overrides the style ("auto" keeps the style's choice):
+  - intro: open on the logo screen (on by default); outro: close on the logo screen; button and link: the call to action and website on the closing screen.
+  - cornerLogo: the logo in the corner while the video plays (off by default); badge: the offer badge (auto, on, off).
+  - textPosition (auto, top, middle, bottom), textAlign (auto, left, centre), textSize (0.6 to 1.6, 1 = normal), uppercase (auto, on, off), textBlock: headlines on a coloured block (auto, on, off), font (auto, montserrat, inter, playfair, bebas).
+  - buttonColor (buttons and badges) and highlightColor (text blocks and glows): "auto" or a hex colour.
+  - transition between scenes (auto, dissolve, fade, slide, punch, cut), cameraMove: slow push-in on photos (true or false), shading: darkening behind text (auto, none, bottom, full, vignette).
+- The logo screens (opening and closing): the logo size (1 = small, 2 = standard, 3 = as big as fits, edge to edge; "3x bigger" from the standard means 3) and their background ("auto" = the logo's own background colour, bled full screen, or a dark stage when the logo has none; "brand" = the brand colour; or any hex colour).
 - Sound: the soundtrack (composed to fit, a stock track or none), its mood, the soundtrack brief in the copy, voiceover on or off, and the voice.
 - Sizes: which formats and video lengths the set includes.
 
-What you can't change here. Say so kindly, leave it as it is and point to the fix:
-- The logo image itself, the brand colours and the font: these are set on the brand's page (the closing card's logo size and background can be changed here).
+Everything in these ads can be changed. Never reply that something can't be done, isn't possible, isn't supported or is a fixed feature: find the closest way to do it with the copy and settings above, and do it. The only things you can't make are files the client supplies themselves (a new logo image, new product photos); for those, do everything else they asked and say in one short sentence where to add the file (the brand's page).
 
 How to answer:
 - Return the complete settings and copy. Copy every field you are not changing exactly as it is now, word for word.
 - When the request is broad ("make it better", "more exciting"), make a clear improvement in that direction instead of asking questions.
-- When only part of a request is possible, do that part and say what you couldn't do.
+- If a request is unclear, make your best reasonable interpretation and say what you did.
 - Leave the soundtrack (music setting, mood and the soundtrack brief in the copy) exactly as it is unless the client asks to change the music.
 - Use an offer, price or claim only when the client states it, in the brief or in their request.
 - When voiceover is on, every scene needs a line of about 2.5 words per second of the scene.
@@ -54,8 +58,8 @@ const musicChoices = () => ['current', 'none', ...MUSIC.filter((m) => m.id !== '
 
 function revisionSchema(directed) {
   return z.object({
-    reply: z.string().describe("Your reply to the client: one or two short sentences saying what you changed, or why you couldn't and what they can do instead"),
-    changed: z.boolean().describe('True if you changed anything; false if the request was unclear, not possible here, or asked for no changes'),
+    reply: z.string().describe('Your reply to the client: one or two short sentences saying what you changed'),
+    changed: z.boolean().describe('True if you changed anything; false only if the client asked for no changes'),
     soundtrackChanged: z.boolean().describe('True only if the client asked to change the music or soundtrack'),
     settings: z.object({
       style: z.enum(STYLES.map((s) => s.id)),
@@ -67,8 +71,23 @@ function revisionSchema(directed) {
       music: z.enum(musicChoices()).describe('"composed" = an original track composed for each video, "none", a stock track ID, or "current" to keep the client\'s own uploaded track'),
       musicMood: z.enum(MUSIC_MOODS.map((m) => m.id)).describe('Mood of the composed soundtrack; "auto" follows the soundtrack brief in the copy'),
       endCard: z.object({
-        logoSize: z.number().describe('Closing card logo size: 1 = small, 2 = standard, 3 = as big as fits (edge to edge)'),
-        background: z.string().describe('Closing card background: "auto" (the logo\'s own background colour, full screen), "brand", or a hex colour like #0b1f3a'),
+        logoSize: z.number().describe('Logo screens: logo size, 1 = small, 2 = standard, 3 = as big as fits (edge to edge)'),
+        background: z.string().describe('Logo screens: background, "auto" (the logo\'s own background colour, full screen), "brand", or a hex colour like #0b1f3a'),
+      }),
+      elements: z.object({
+        intro: z.boolean(), outro: z.boolean(), button: z.boolean(), link: z.boolean(), cornerLogo: z.boolean(),
+        badge: z.enum(['auto', 'on', 'off']),
+        textPosition: z.enum(['auto', 'top', 'middle', 'bottom']),
+        textAlign: z.enum(['auto', 'left', 'centre']),
+        textSize: z.number().describe('0.6 to 1.6; 1 = normal'),
+        uppercase: z.enum(['auto', 'on', 'off']),
+        textBlock: z.enum(['auto', 'on', 'off']),
+        font: z.enum(['auto', 'montserrat', 'inter', 'playfair', 'bebas']),
+        buttonColor: z.string().describe('"auto" or a hex colour'),
+        highlightColor: z.string().describe('"auto" or a hex colour'),
+        transition: z.enum(['auto', 'dissolve', 'fade', 'slide', 'punch', 'cut']),
+        cameraMove: z.boolean(),
+        shading: z.enum(['auto', 'none', 'bottom', 'full', 'vignette']),
       }),
     }),
     copy: copySchema(directed),
@@ -83,6 +102,7 @@ function buildPrompt({ brand, brief, options, copy, assets, history, request }) 
     style: options.style, formats: options.formats, lengths: options.lengths, statics: options.statics,
     voiceover: options.voiceover, voice: options.voice, music: musicChoice(options.music), musicMood: options.musicMood || 'auto',
     endCard: options.endCard || { logoSize: 2, background: 'auto' },
+    elements: cleanElements(options.elements),
   };
   return `Brand: ${brand.name}${brand.website ? ` (${brand.website})` : ''}
 ${brand.about ? `About the brand: ${brand.about}\n` : ''}${brand.tone ? `Brand voice: ${brand.tone}\n` : ''}
@@ -122,7 +142,7 @@ async function askClaude({ adset, brand, request }) {
     messages: [{ role: 'user', content: buildPrompt({ brand, brief, options, copy, assets, history, request }) }],
     output_config: { format: betaZodOutputFormat(revisionSchema(true)) },
   }));
-  if (response.stop_reason === 'refusal') return { reply: "Sorry, I can't make that change to these ads.", changed: false };
+  if (response.stop_reason === 'refusal') return { reply: "I wasn't able to apply that one as written. Could you describe the change another way?", changed: false };
   const out = response.parsed_output;
   if (!out) throw new Error('The editor returned nothing.');
   const reply = plainDashes(out.reply).trim().slice(0, 600) || 'Done.';
@@ -147,6 +167,8 @@ async function askClaude({ adset, brand, request }) {
   if (!next.lengths.length && !next.statics) Object.assign(next, { lengths: options.lengths, statics: options.statics });
   const closing = cleanEndCard(s.endCard);
   if (closing && JSON.stringify(closing) !== JSON.stringify(options.endCard || { logoSize: 2, background: 'auto' })) next.endCard = closing;
+  const elements = cleanElements(s.elements, cleanElements(options.elements));
+  if (JSON.stringify(elements) !== JSON.stringify(cleanElements(options.elements))) next.elements = elements;
   // The music only changes when the client asks for it.
   if (!out.soundtrackChanged) Object.assign(next, { music: options.music, musicMood: options.musicMood });
 

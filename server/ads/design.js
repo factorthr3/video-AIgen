@@ -106,3 +106,51 @@ export function cleanEndCard(e) {
     background: background === 'brand' || /^#[0-9a-f]{6}$/.test(background) ? background : 'auto',
   };
 }
+
+/** The opening logo screen's length for each video length (seconds). */
+export const INTRO_CARD = { 6: 1, 15: 1.2, 30: 1.5 };
+
+// Every element of a video, per ad set. 'auto' follows the chosen style.
+export const DEFAULT_ELEMENTS = {
+  intro: true, // open on the logo screen
+  outro: true, // close on the logo screen with the button and link
+  button: true, // the call-to-action button on the closing screen
+  link: true, // the website on the closing screen
+  cornerLogo: false, // the logo in the corner while the video plays
+  badge: 'auto', // the offer badge: auto | on | off
+  textPosition: 'auto', // auto | top | middle | bottom
+  textAlign: 'auto', // auto | left | centre
+  textSize: 1, // 0.6 to 1.6
+  uppercase: 'auto', // auto | on | off
+  textBlock: 'auto', // headlines on a coloured block: auto | on | off
+  font: 'auto', // auto (style or brand font) | montserrat | inter | playfair | bebas
+  buttonColor: 'auto', // auto | #hex (buttons and badges)
+  highlightColor: 'auto', // auto | #hex (text blocks and glows)
+  transition: 'auto', // auto | dissolve | fade | slide | punch | cut
+  cameraMove: true, // slow push-in on photos
+  shading: 'auto', // darkening behind text: auto | none | bottom | full | vignette
+};
+const ELEMENT_CHOICES = {
+  badge: ['auto', 'on', 'off'],
+  textPosition: ['auto', 'top', 'middle', 'bottom'],
+  textAlign: ['auto', 'left', 'centre'],
+  uppercase: ['auto', 'on', 'off'],
+  textBlock: ['auto', 'on', 'off'],
+  font: ['auto', 'montserrat', 'inter', 'playfair', 'bebas'],
+  transition: ['auto', 'dissolve', 'fade', 'slide', 'punch', 'cut'],
+  shading: ['auto', 'none', 'bottom', 'full', 'vignette'],
+};
+
+/** A full, valid set of video elements from (partial) input; unknown values keep their default. */
+export function cleanElements(e, base = DEFAULT_ELEMENTS) {
+  const out = { ...DEFAULT_ELEMENTS, ...base };
+  if (!e || typeof e !== 'object') return out;
+  for (const k of ['intro', 'outro', 'button', 'link', 'cornerLogo', 'cameraMove']) if (typeof e[k] === 'boolean') out[k] = e[k];
+  for (const [k, choices] of Object.entries(ELEMENT_CHOICES)) if (choices.includes(String(e[k]).toLowerCase())) out[k] = String(e[k]).toLowerCase();
+  if (Number.isFinite(Number(e.textSize)) && e.textSize !== null && e.textSize !== '') out.textSize = Math.round(Math.max(0.6, Math.min(1.6, Number(e.textSize))) * 100) / 100;
+  for (const k of ['buttonColor', 'highlightColor']) {
+    const v = String(e[k] ?? '').toLowerCase();
+    if (v === 'auto' || /^#[0-9a-f]{6}$/.test(v)) out[k] = v;
+  }
+  return out;
+}

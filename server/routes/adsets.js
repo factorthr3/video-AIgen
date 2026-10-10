@@ -5,7 +5,7 @@ import { Router } from 'express';
 import { db, insert, update, newId, now, parseJson } from '../db.js';
 import { requireAuth } from '../auth.js';
 import { PLAN, VOICE, LANGUAGE, MUSIC_TRACK } from '../catalog.js';
-import { STYLE, FORMATS, FORMAT_IDS, LENGTHS, cleanEndCard } from '../ads/design.js';
+import { STYLE, FORMATS, FORMAT_IDS, LENGTHS, cleanEndCard, cleanElements } from '../ads/design.js';
 import { HttpError, usage, NEEDS_PLAN_MESSAGE } from '../services.js';
 import { shotOf } from '../ads/brief.js';
 import { enqueueAdSet, adsetDir, adFile, adThumb } from '../ads/jobs.js';
@@ -78,6 +78,7 @@ function publicAdSet(a) {
     share: a.share_token ? { token: a.share_token, path: `/share/${a.share_token}` } : null,
     revisions: revisionList(a),
     filmed: filmedScenes(a), // AI-directed: each scene's filmed clip (asset id), by video length
+    elements: cleanElements(parseJson(a.options, {}).elements), // every video element, defaults filled in
   };
 }
 
@@ -230,6 +231,8 @@ router.patch('/:id/copy', (req, res) => {
   if (newAssets.size && options.assetIds?.length) options.assetIds = [...new Set([...options.assetIds, ...newAssets])];
   options.aiScenes = motionEnabled() && copy.videos.some((v) => v.scenes.some((sc) => sc.shot)); // scenes with a shot are filmed on Generate
   if (closing) options.endCard = closing;
+  // Every other video element (logo screens, text, colours, motion).
+  if (req.body?.elements && typeof req.body.elements === 'object') options.elements = cleanElements(req.body.elements, cleanElements(options.elements));
   update('adsets', a.id, { copy: JSON.stringify(copy), options: JSON.stringify(options), updated_at: now() });
   res.json({ adset: publicAdSet(db.get('SELECT * FROM adsets WHERE id = ?', a.id)) });
 });
@@ -279,6 +282,7 @@ router.get('/:id/closing.png', async (req, res) => {
   const png = await renderClosingPreview({
     brand, logo: await loadLogo(logoAsset), cta: parseJson(a.copy, {})?.cta || 'Learn more', url: parseJson(a.brief, {}).url,
     settings: cleanEndCard({ logoSize: req.query.logoSize, background: req.query.background }), style: options.style,
+    elements: { ...cleanElements(options.elements), button: req.query.button !== '0', link: req.query.link !== '0' },
     format: options.formats?.includes('9:16') ? '9:16' : options.formats?.[0] || '9:16',
   });
   res.type('png').set('Cache-Control', 'private, max-age=300').send(png);
