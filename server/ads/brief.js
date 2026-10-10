@@ -62,10 +62,12 @@ export const copySchema = (directed) => (directed
 
 // How to direct AI-filmed scenes (used by the copywriter and the change-request editor).
 export const DIRECTING_RULES = `AI-directed scenes: every video scene is filmed by AI as one short shot (about 4 seconds), so direct each one:
-- frame: the opening image (subject, setting, composition, lighting). It is built from the brand photo given as the scene's assetId, so the product looks exactly like that photo; put it in a new setting, angle or situation.
-- action: one clear, visual thing that happens in about 4 seconds, plus the camera move. Show the product being used, a reveal, a transformation or a satisfying moment, e.g. for a padlock: hands turn the lock, the shackle springs open and glowing code streams out; for a drink: it pours into a glass over ice and splashes.
-- Be creative and cinematic, like a top agency's commercial, but physically believable and photorealistic. Vary the shots (a detail close-up, hands or a person using it, a wider scene, a hero shot) and end on a clean hero shot of the product.
-- Nothing readable in the shot apart from the product's own label or logo: no captions, signs or screens with text. The headline is laid on top, so keep the subject central with calm space above and below.
+- Name the subject by what its reference photo actually shows (from the asset list), e.g. "the dark blue circuit-pattern padlock" or "the kraft-label cold brew bottle", never just "the product" or the brand name: the image and video models only know what you describe.
+- frame: the opening image (subject, setting, composition, lighting). It is built from the brand photo given as the scene's assetId, so the subject looks exactly like that photo; put it in a new setting, angle or situation.
+- action: one clear, physical thing that visibly happens to or with the subject in about 4 seconds, plus the camera move: hands turning, opening, pouring, unboxing or using it; something revealed, assembled, transformed or set in motion. A light sweep, a glow or a camera move on its own is not an action.
+- When the brand sells software or a service, its photo is a visual metaphor: make the metaphor act (the padlock is turned until it clicks open and glowing code streams out; the vault door swings shut on the servers).
+- Be bold and cinematic, like a top agency's commercial, but physically believable and photorealistic. The first scene must grab attention within a second. Vary the shots (a detail close-up, hands or a person using it, a wider scene, a hero shot) and end on a clean hero shot of the subject.
+- Nothing readable in the shot apart from the subject's own label or logo: no captions, signs or screens with text. The headline is laid on top, so keep the subject central with calm space above and below.
 - People are described generically ("a woman in her thirties"), never a real or famous person.`;
 
 // Shared with the change-request editor (revise.js), so revisions follow the same rules.
