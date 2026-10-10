@@ -22,8 +22,8 @@ const Scene = z.object({
 
 // AI-directed scenes: each video scene is filmed by AI as one short shot.
 const Shot = z.object({
-  frame: z.string().describe("The shot's opening image, set up like a photographer would: subject, setting, composition and lighting. The product appears exactly as in its reference photo."),
-  action: z.string().describe('What happens during the shot (about 4 seconds): one clear movement or event, and the camera move.'),
+  frame: z.string().describe("The shot's opening image, set up like a photographer would: subject, setting, composition and lighting. The product appears exactly as in its reference photo. Empty only for a scene that shows its photo or clip as it is."),
+  action: z.string().describe('What happens during the shot (about 4 seconds): one clear movement or event, and the camera move. Empty only for a scene that shows its photo or clip as it is.'),
 });
 const DirectedScene = Scene.extend({
   assetId: z.string().describe('ID of the brand photo the product in this shot must match (its reference), from the asset list'),
@@ -150,6 +150,14 @@ ${DIRECTING_RULES}` : SYSTEM,
   return tidy(copy, { assets, lengths, voiceover });
 }
 
+/** A scene's shot to film, or null when it's empty (the scene shows its photo or clip as it is). */
+export function shotOf(shot, clean = (s) => String(s || '').trim()) {
+  const frame = clean(shot?.frame).slice(0, 600);
+  const action = clean(shot?.action).slice(0, 400);
+  if (!frame && !action) return null;
+  return { frame: frame || 'The product exactly as in the reference photo, in the same setting.', action: action || 'The camera slowly pushes in as the light shifts.' };
+}
+
 // Make the copy safe to render: valid asset IDs, the requested lengths, plain dashes.
 export function tidy(copy, { assets, lengths, voiceover }) {
   const ids = new Set(assets.map((a) => a.id));
@@ -161,7 +169,7 @@ export function tidy(copy, { assets, lengths, voiceover }) {
     subline: clean(sc.subline),
     assetId: ids.has(sc.assetId) ? sc.assetId : fallbackAsset(i),
     voiceover: voiceover ? clean(sc.voiceover) : '',
-    ...(sc.shot ? { shot: { frame: clean(sc.shot.frame).slice(0, 600), action: clean(sc.shot.action).slice(0, 400) } } : {}),
+    ...(shotOf(sc.shot, clean) ? { shot: shotOf(sc.shot, clean) } : {}),
   });
   const videos = lengths.map((length) => {
     const found = copy.videos.find((v) => Number(v.length) === length) || copy.videos[0];

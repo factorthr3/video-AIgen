@@ -15,6 +15,7 @@ import { STYLES, STYLE, FORMAT_IDS, LENGTHS } from './design.js';
 import { MUSIC_MOODS, MUSIC_MOOD, soundtrackEnabled } from './soundtrack.js';
 import { copySchema, COPY_RULES, DIRECTING_RULES, SCENES_FOR, assetLine, claude, modelParams, tidy } from './brief.js';
 import { plannedAds, enqueueAdSet, adFile, adThumb, adSignature } from './jobs.js';
+import { motionEnabled } from './motion.js';
 
 export const REVISIONS_PER_SET = 30;
 export const reviseEnabled = () => config.anthropic.enabled;
@@ -26,14 +27,13 @@ Your changes are saved as a draft. The client presses Generate when they're read
 What you can change:
 - Words: on-screen headlines and sublines, the button text (cta), the offer badge, voiceover lines and the post captions.
 - Storyboard: which photo or clip each video scene shows, and the order of scenes. Each video keeps its number of scenes (${Object.entries(SCENES_FOR).map(([l, n]) => `${n} for ${l}s`).join(', ')}).
-- AI-directed scenes (when scenes have a shot): what each shot shows (frame) and what happens in it (action). An edited scene is filmed again when the client presses Generate.
+- Movement, in any scene: every video scene can be filmed with AI from its photo. Give the scene a shot (frame: the opening image built around that photo's product; action: what happens) and it is filmed when the client presses Generate. So when the client asks for something to move, open, pour, be used, or for "animation", "motion" or "real footage", write shots for those scenes. Never ask them to upload video. A scene with an empty shot (frame and action both "") shows its photo or clip as it is; only add or change shots where the client asks for movement, or where they already exist.
 - Image ads: their headline, subline and photo, and how many there are (0 to 3).
 - Look: the style.
 - Sound: the soundtrack (composed to fit, a stock track or none), its mood, the soundtrack brief in the copy, voiceover on or off, and the voice.
 - Sizes: which formats and video lengths the set includes.
 
 What you can't change here. Say so kindly, leave it as it is and point to the fix:
-- What's inside an uploaded photo or clip (recolouring, removing things): they can upload new photos or clips to the brand library, then ask for them to be used. (AI-directed scenes are different: rewrite the scene's shot.)
 - The logo, brand colours and font: these are set on the brand's page.
 
 How to answer:
@@ -112,9 +112,9 @@ async function askClaude({ adset, brand, request }) {
   const history = db.all('SELECT request, reply, undone FROM adset_revisions WHERE adset_id = ? ORDER BY created_at DESC LIMIT 6', adset.id).reverse();
   const response = await claude().beta.messages.parse(modelParams({
     max_tokens: 12000,
-    system: options.aiScenes ? `${SYSTEM}\n\n${DIRECTING_RULES}` : SYSTEM,
+    system: `${SYSTEM}\n\n${DIRECTING_RULES}`,
     messages: [{ role: 'user', content: buildPrompt({ brand, brief, options, copy, assets, history, request }) }],
-    output_config: { format: betaZodOutputFormat(revisionSchema(Boolean(options.aiScenes))) },
+    output_config: { format: betaZodOutputFormat(revisionSchema(true)) },
   }));
   if (response.stop_reason === 'refusal') return { reply: "Sorry, I can't make that change to these ads.", changed: false };
   const out = response.parsed_output;
@@ -143,6 +143,8 @@ async function askClaude({ adset, brand, request }) {
   if (!out.soundtrackChanged) Object.assign(next, { music: options.music, musicMood: options.musicMood });
 
   const revised = tidy(out.copy, { assets, lengths: next.lengths, voiceover: next.voiceover });
+  // Scenes with a shot are filmed with AI on Generate.
+  next.aiScenes = motionEnabled() && revised.videos.some((v) => v.scenes.some((sc) => sc.shot));
   if (!out.soundtrackChanged) revised.music = copy.music;
   revised.statics = revised.statics.slice(0, next.statics);
   if (copy.musicNote) revised.musicNote = copy.musicNote;

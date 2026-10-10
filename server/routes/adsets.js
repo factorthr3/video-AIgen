@@ -7,6 +7,7 @@ import { requireAuth } from '../auth.js';
 import { PLAN, VOICE, LANGUAGE, MUSIC_TRACK } from '../catalog.js';
 import { STYLE, FORMATS, FORMAT_IDS, LENGTHS } from '../ads/design.js';
 import { HttpError, usage, NEEDS_PLAN_MESSAGE } from '../services.js';
+import { shotOf } from '../ads/brief.js';
 import { enqueueAdSet, adsetDir, adFile, adThumb } from '../ads/jobs.js';
 import { soundtrackEnabled, MUSIC_MOOD } from '../ads/soundtrack.js';
 import { motionEnabled, filmedScenes } from '../ads/motion.js';
@@ -195,8 +196,13 @@ router.patch('/:id/copy', (req, res) => {
           subline: t(e.subline, sc.subline, 120),
           voiceover: t(e.voiceover, sc.voiceover, 300),
         };
-        // AI-directed scenes: the shot to film and the photo the product must match.
-        if (sc.shot && e.shot) next.shot = { frame: t(e.shot.frame, sc.shot.frame, 600) || sc.shot.frame, action: t(e.shot.action, sc.shot.action, 400) || sc.shot.action };
+        // The shot to film with AI (any scene can have one; null shows its photo or clip as it is).
+        if (e.shot === null) delete next.shot;
+        else if (e.shot && typeof e.shot === 'object') {
+          const shot = shotOf({ frame: t(e.shot.frame, '', 600), action: t(e.shot.action, '', 400) });
+          if (shot) next.shot = shot;
+          else delete next.shot;
+        }
         if (e.assetId && e.assetId !== sc.assetId && db.get("SELECT 1 FROM assets WHERE id = ? AND brand_id = ? AND kind != 'logo' AND status = 'ready' AND shot_key IS NULL", e.assetId, a.brand_id)) {
           next.assetId = e.assetId;
           newAssets.add(e.assetId);
@@ -219,6 +225,7 @@ router.patch('/:id/copy', (req, res) => {
   // Ad sets made from picked assets render only those, so add newly picked ones.
   const options = parseJson(a.options, {});
   if (newAssets.size && options.assetIds?.length) options.assetIds = [...new Set([...options.assetIds, ...newAssets])];
+  options.aiScenes = motionEnabled() && copy.videos.some((v) => v.scenes.some((sc) => sc.shot)); // scenes with a shot are filmed on Generate
   update('adsets', a.id, { copy: JSON.stringify(copy), options: JSON.stringify(options), updated_at: now() });
   res.json({ adset: publicAdSet(db.get('SELECT * FROM adsets WHERE id = ?', a.id)) });
 });

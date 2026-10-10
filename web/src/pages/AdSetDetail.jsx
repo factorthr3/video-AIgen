@@ -37,7 +37,7 @@ function SharePanel({ adset, onChange }) {
   );
 }
 
-const SUGGESTIONS = ['Make the headlines punchier', 'Open with the video clip', 'Use a more upbeat soundtrack', 'Add a square version'];
+const SUGGESTIONS = ['Animate the product: show it being used', 'Make the headlines punchier', 'Use a more upbeat soundtrack', 'Add a square version'];
 const DIRECTED_SUGGESTIONS = ['Make the opening scene more dramatic', 'Show the product being used', 'End on a close-up of the product', 'Make the headlines punchier'];
 const END_CARD = { 6: 1.6, 15: 2.4, 30: 3 };
 
@@ -60,26 +60,44 @@ function SceneCard({ scene, index, seconds, clipId, photos, voice, disabled, onC
   const [playing, setPlaying] = useState(false);
   const set = (k, v) => onChange({ ...scene, [k]: v });
   const setShot = (k, v) => onChange({ ...scene, shot: { ...scene.shot, [k]: v } });
+  const photo = photos.find((p) => p.id === scene.assetId);
+  // Any scene can be filmed with AI from its photo: start from what the photo shows.
+  const animate = () => onChange({ ...scene, shot: { frame: photo?.description ? `${photo.description} Exactly as in the photo.` : 'The product exactly as in the photo.', action: '' } });
+  const filmed = scene.shot && clipId;
   return (
     <li className="overflow-hidden rounded-xl border border-white/10 bg-ink-850">
       <div className="relative aspect-[4/5] bg-black">
-        {clipId && playing
+        {filmed && playing
           ? <video src={`/api/assets/${clipId}/file`} autoPlay muted loop playsInline className="size-full object-cover" />
-          : <button type="button" className="size-full" onClick={() => clipId && setPlaying(true)} title={clipId ? 'Play this scene' : undefined}>
-              <img src={`/api/assets/${clipId || scene.assetId}/thumb`} alt="" className="size-full object-cover" />
+          : <button type="button" className="size-full" onClick={() => filmed && setPlaying(true)} title={filmed ? 'Play this scene' : undefined}>
+              <img src={`/api/assets/${(filmed && clipId) || scene.assetId}/thumb`} alt="" className="size-full object-cover" />
             </button>}
         <span className="absolute left-2 top-2 rounded-md bg-black/70 px-2 py-0.5 text-xs font-bold">Scene {index + 1} · {seconds}s</span>
-        <span className={`absolute right-2 top-2 rounded-md px-2 py-0.5 text-[11px] font-semibold ${clipId ? 'bg-emerald-500/90 text-black' : 'bg-black/70 text-ink-300'}`}>{clipId ? 'Filmed' : 'Not filmed yet'}</span>
+        <span className={`absolute right-2 top-2 rounded-md px-2 py-0.5 text-[11px] font-semibold ${filmed ? 'bg-emerald-500/90 text-black' : 'bg-black/70 text-ink-300'}`}>
+          {filmed ? 'Filmed' : scene.shot ? 'Not filmed yet' : 'As uploaded'}
+        </span>
       </div>
       <div className="space-y-2.5 p-3">
-        <div>
-          <label className="label">Opening shot</label>
-          <textarea className="input min-h-28 py-2 text-sm" maxLength={600} value={scene.shot.frame} onChange={(e) => setShot('frame', e.target.value)} disabled={disabled} />
-        </div>
-        <div>
-          <label className="label">What happens</label>
-          <textarea className="input min-h-28 py-2 text-sm" maxLength={400} value={scene.shot.action} onChange={(e) => setShot('action', e.target.value)} disabled={disabled} />
-        </div>
+        {scene.shot ? (
+          <>
+            <div>
+              <label className="label">Opening shot</label>
+              <textarea className="input min-h-28 py-2 text-sm" maxLength={600} value={scene.shot.frame} onChange={(e) => setShot('frame', e.target.value)} disabled={disabled} />
+            </div>
+            <div>
+              <label className="label">What happens</label>
+              <textarea className="input min-h-28 py-2 text-sm" maxLength={400} value={scene.shot.action} onChange={(e) => setShot('action', e.target.value)} disabled={disabled}
+                placeholder="e.g. Hands pick it up and turn it, it opens to reveal what's inside, the camera sweeps round it" />
+            </div>
+            <button type="button" className="text-xs text-ink-400 underline-offset-2 hover:text-white hover:underline" onClick={() => onChange({ ...scene, shot: null })} disabled={disabled}>
+              Use the photo as it is instead
+            </button>
+          </>
+        ) : (
+          <button type="button" className="btn-secondary w-full justify-center" onClick={animate} disabled={disabled}>
+            <Clapperboard className="size-4" /> Animate with AI
+          </button>
+        )}
         <div>
           <label className="label">On screen</label>
           <input className="input mb-1.5 py-2 text-sm font-semibold" maxLength={80} value={scene.headline} onChange={(e) => set('headline', e.target.value)} placeholder="Headline" disabled={disabled} />
@@ -102,7 +120,7 @@ function SceneCard({ scene, index, seconds, clipId, photos, voice, disabled, onC
   );
 }
 
-/** AI-directed ad sets: every scene of every video, to read, edit and (re)film with Generate. */
+/** Every scene of every video, to read, edit, animate with AI and (re)film with Generate. */
 function Storyboard({ adset, onSaved }) {
   const [videos, setVideos] = useState(() => structuredClone(adset.copy.videos));
   const [saving, setSaving] = useState(false);
@@ -142,7 +160,7 @@ function Storyboard({ adset, onSaved }) {
           <p className="mt-0.5 max-w-2xl text-sm text-ink-400">
             {adset.status === 'draft'
               ? 'Your storyboard is ready. Each scene is filmed by AI with your product as the star. Change what happens, the words on screen or the photo it matches, then press Generate. Nothing is filmed until then.'
-              : 'Edit any scene and press Generate: only the scenes you change are filmed again.'}
+              : 'Turn any photo into moving footage with Animate with AI, or edit what happens in a scene, then press Generate. Only the scenes you change are filmed again.'}
           </p>
         </div>
         {dirty && (
@@ -159,7 +177,7 @@ function Storyboard({ adset, onSaved }) {
           <div key={v.length} className="mb-6 last:mb-0">
             {videos.length > 1 && <p className="mb-3 text-sm font-semibold">{v.length}-second video</p>}
             <ol className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {v.scenes.map((sc, si) => sc.shot && (
+              {v.scenes.map((sc, si) => (
                 <SceneCard key={si} scene={sc} index={si} seconds={seconds} clipId={adset.filmed?.[v.length]?.[si]} photos={photos}
                   voice={adset.options.voiceover} disabled={rendering || saving} onChange={(next) => setScene(vi, si, next)} />
               ))}
@@ -428,7 +446,7 @@ export default function AdSetDetail() {
     if (busy(a)) reload(); // keeps polling while the ads re-render
   };
   const draft = adset.status === 'draft';
-  const directed = Boolean(adset.options.aiScenes && adset.copy?.videos?.some((v) => v.scenes.some((sc) => sc.shot)));
+  const hasVideos = Boolean(adset.copy?.videos?.length);
 
   const newCopy = async () => {
     if (!window.confirm('Write brand-new copy and re-make every ad? Your edits will be replaced.')) return;
@@ -469,7 +487,7 @@ export default function AdSetDetail() {
       {adset.copy && adset.items.length > 0 && <ChangeRequests adset={adset} onChange={update} />}
       {!draft && adset.items.length > 0 && <SharePanel adset={adset} onChange={update} />}
       {!draft && <AdGroups items={adset.items} />}
-      {!draft && directed && <Storyboard adset={adset} onSaved={update} />}
+      {!draft && hasVideos && <Storyboard adset={adset} onSaved={update} />}
       {adset.copy?.captions && (
         <section className="mb-10">
           <h2 className="mb-1 font-display text-lg font-bold">Post copy</h2>

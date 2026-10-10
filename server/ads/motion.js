@@ -358,7 +358,9 @@ export async function filmScenes({ brand, copy, options, assets, onProgress }) {
   onProgress?.(done, all.length);
   await inPool(todo, 3, async (j) => {
     try {
-      const reference = assets.get(j.scene.assetId) || db.get("SELECT * FROM assets WHERE id = ? AND brand_id = ? AND status = 'ready'", j.scene.assetId, brand.id) || null;
+      let reference = assets.get(j.scene.assetId) || db.get("SELECT * FROM assets WHERE id = ? AND brand_id = ? AND status = 'ready'", j.scene.assetId, brand.id) || null;
+      // An older AI motion clip stands in for its photo: film from the photo itself.
+      if (reference?.parent_id && !reference.shot_key) reference = db.get("SELECT * FROM assets WHERE id = ? AND status = 'ready'", reference.parent_id) || reference;
       const image = await sceneFrame({ shot: j.scene.shot, reference, aspect: j.aspect });
       const video = await makeClip({ image, aspect: j.aspect, prompt: actionPrompt(j.scene.shot), seconds: j.seconds });
       const file = path.join(ASSETS_INCOMING, `${newId('shot')}.mp4`);
